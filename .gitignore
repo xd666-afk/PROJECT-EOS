@@ -1,0 +1,16 @@
+__pycache__/
+.pytest_cache/
+*.pyc
+.venv/
+.idea/
+Thumbs.db
+.env
+*.tmp
+output_regenerated/
+runs/
+output/*
+!output/world_2000BCE.json
+!output/world_summary.json
+!output/first_year_weather.json
+!output/sha256_manifest.json
+!output/viewer.html

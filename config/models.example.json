@@ -1,0 +1,25 @@
+{
+  "countries": {
+    "ELAR": {
+      "mode": "mock"
+    },
+    "MARIS": {
+      "mode": "openai_compatible",
+      "provider": "replace-with-your-provider",
+      "model": "replace-with-a-low-cost-model",
+      "base_url": "https://provider.example.com/v1",
+      "api_key_env": "EOS_AGENT_MARIS_API_KEY",
+      "timeout_seconds": 20,
+      "retries": 1,
+      "max_output_tokens": 700,
+      "input_price_per_million_usd": null,
+      "output_price_per_million_usd": null
+    },
+    "VAYR": {
+      "mode": "mock"
+    },
+    "SAHAR": {
+      "mode": "mock"
+    }
+  }
+}

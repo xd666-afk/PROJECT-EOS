@@ -1,0 +1,82 @@
+{
+  "project": "Project Eos Map Generation Handoff v0.1",
+  "seed": 2000,
+  "files": {
+    ".gitignore": {
+      "size_bytes": 42,
+      "sha256": "24a53899a89824a0da50c6a6ea41ce1bdb331b12c31f0244c8d3894a872c4e1a"
+    },
+    "AGENT_MAP_HANDOFF.md": {
+      "size_bytes": 61936,
+      "sha256": "2f6df115012ec5131bf43acb895a7cb56bd73486cb72bb8a4d8ae86ebde0d3aa"
+    },
+    "README.md": {
+      "size_bytes": 7395,
+      "sha256": "3dcad270483468baa00674dd1e4647b32f226e00e89cdcaf9a79c6e451e11e9e"
+    },
+    "START_HERE.md": {
+      "size_bytes": 591,
+      "sha256": "d9d2c7b4d5aaa245938e6555ecd46c0db798544f5b0a6253c9fb4b02cf3fe8d2"
+    },
+    "build_viewer.py": {
+      "size_bytes": 12250,
+      "sha256": "137c24d4a9e6c43572e8ab28a99def4958ce57287d27e5d46003c2b426a75009"
+    },
+    "output/elevation_map.png": {
+      "size_bytes": 607499,
+      "sha256": "3d6d253be791d9c89fdefee71e6ff9a6f39df66ddcbfa6b984be0d97801b9198"
+    },
+    "output/first_year_weather.json": {
+      "size_bytes": 16585,
+      "sha256": "21b0432487a59dd52ac0678dadc8697425493df59b631c70d6aaa9c8be336490"
+    },
+    "output/hazard_map.png": {
+      "size_bytes": 823171,
+      "sha256": "e6b265c122521842255a6d125b103c74d96e1145fa3913b76f290782595a7193"
+    },
+    "output/rainfall_map.png": {
+      "size_bytes": 810842,
+      "sha256": "ec1204ebbec1f21ad150360a59bb78cffa3664033521e3f6bc7c4b8c81240894"
+    },
+    "output/sha256_manifest.json": {
+      "size_bytes": 633,
+      "sha256": "dbb878cb2e50dab157c8e81d1bea9bcc5b8f8ae9ecfbd9c0fe99bec39213d7ab"
+    },
+    "output/viewer.html": {
+      "size_bytes": 1142427,
+      "sha256": "8337f3fead1a741c9e8b56eb55f306661830cd8997208feaad439bee46b75974"
+    },
+    "output/world_2000BCE.json": {
+      "size_bytes": 3066522,
+      "sha256": "f6eeff14047a90454259823aed5c3f62ece143756f107802cc5e6e4004a29c85"
+    },
+    "output/world_map.png": {
+      "size_bytes": 793605,
+      "sha256": "9b840f5eab6fd913df95b8dff9bd2f20181b9678ee8562ee30c735742643d5ee"
+    },
+    "output/world_summary.json": {
+      "size_bytes": 10512,
+      "sha256": "d928ec41a20d4feb368b4fe8d7c129cf0a7e1d24439f8aeb25ed5d675c766f2f"
+    },
+    "plot_elevation.py": {
+      "size_bytes": 2061,
+      "sha256": "0aab87e019d8ea7094e543449f463189d353ae2c74a6992e690e900a497248e3"
+    },
+    "requirements.txt": {
+      "size_bytes": 40,
+      "sha256": "48061e7fa7686b876b0221aaf663c6576c4aacc7227c1bb192d6250c5d037494"
+    },
+    "simulate_climate.py": {
+      "size_bytes": 5400,
+      "sha256": "60d035c8162855faf1ccb001d655465459b5e52a395d07d239c3f0b3b5a71d33"
+    },
+    "tests/test_generated_world.py": {
+      "size_bytes": 2022,
+      "sha256": "6b16402b227e45d57e4c035a26fbd04b791288815dc183b01604afc9acc44f76"
+    },
+    "worldgen.py": {
+      "size_bytes": 25459,
+      "sha256": "7c3c7206648d14113c4e0a329fd9a692c88a7befc9dafb65fd9a3cee02d18820"
+    }
+  }
+}

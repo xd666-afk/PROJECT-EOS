@@ -1,0 +1,25 @@
+{
+  "countries": {
+    "ELAR": {
+      "mode": "openai_compatible",
+      "provider": "deepseek",
+      "model": "deepseek-flash",
+      "base_url": "https://api.deepseek.com",
+      "api_key_env": "EOS_AGENT_ELAR_API_KEY",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000,
+      "input_price_per_million_usd": null,
+      "output_price_per_million_usd": null
+    },
+    "MARIS": {
+      "mode": "mock"
+    },
+    "VAYR": {
+      "mode": "mock"
+    },
+    "SAHAR": {
+      "mode": "mock"
+    }
+  }
+}

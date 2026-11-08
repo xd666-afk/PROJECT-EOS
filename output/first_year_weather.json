@@ -1,0 +1,772 @@
+{
+  "model": "EOS stochastic weather + hazard exposure sampler v0.1",
+  "seed": 2000,
+  "days": 365,
+  "starts_at": "公元前2000年1月1日（虚构统一历）",
+  "notes": [
+    "365-day calendar (non-leap baseline)",
+    "synthetic weather, not reconstructed ancient weather",
+    "event rates are illustrative, not historical return periods",
+    "temperature and rain are climate-conditioned stochastic processes"
+  ],
+  "monthly": [
+    {
+      "sim_day": 31,
+      "month": 1,
+      "average_land_temp_c": 3.2,
+      "average_land_rain_mm": 45.0,
+      "polities": {
+        "ELAR": {
+          "temp_c": -2.0,
+          "rain_mm": 123.4,
+          "expected_rain_mm": 95.3,
+          "rain_anomaly_ratio": 1.29
+        },
+        "MARIS": {
+          "temp_c": 3.1,
+          "rain_mm": 104.6,
+          "expected_rain_mm": 101.7,
+          "rain_anomaly_ratio": 1.03
+        },
+        "VAYR": {
+          "temp_c": 0.4,
+          "rain_mm": 48.6,
+          "expected_rain_mm": 48.3,
+          "rain_anomaly_ratio": 1.01
+        },
+        "SAHAR": {
+          "temp_c": 15.9,
+          "rain_mm": 25.6,
+          "expected_rain_mm": 26.4,
+          "rain_anomaly_ratio": 0.97
+        }
+      }
+    },
+    {
+      "sim_day": 59,
+      "month": 2,
+      "average_land_temp_c": 4.3,
+      "average_land_rain_mm": 40.9,
+      "polities": {
+        "ELAR": {
+          "temp_c": -0.2,
+          "rain_mm": 116.0,
+          "expected_rain_mm": 92.1,
+          "rain_anomaly_ratio": 1.26
+        },
+        "MARIS": {
+          "temp_c": 3.6,
+          "rain_mm": 109.4,
+          "expected_rain_mm": 98.2,
+          "rain_anomaly_ratio": 1.11
+        },
+        "VAYR": {
+          "temp_c": 1.3,
+          "rain_mm": 37.7,
+          "expected_rain_mm": 46.7,
+          "rain_anomaly_ratio": 0.81
+        },
+        "SAHAR": {
+          "temp_c": 17.1,
+          "rain_mm": 32.1,
+          "expected_rain_mm": 29.1,
+          "rain_anomaly_ratio": 1.1
+        }
+      }
+    },
+    {
+      "sim_day": 90,
+      "month": 3,
+      "average_land_temp_c": 6.9,
+      "average_land_rain_mm": 44.6,
+      "polities": {
+        "ELAR": {
+          "temp_c": 2.6,
+          "rain_mm": 79.3,
+          "expected_rain_mm": 83.2,
+          "rain_anomaly_ratio": 0.95
+        },
+        "MARIS": {
+          "temp_c": 6.1,
+          "rain_mm": 73.7,
+          "expected_rain_mm": 88.8,
+          "rain_anomaly_ratio": 0.83
+        },
+        "VAYR": {
+          "temp_c": 5.0,
+          "rain_mm": 55.2,
+          "expected_rain_mm": 42.2,
+          "rain_anomaly_ratio": 1.31
+        },
+        "SAHAR": {
+          "temp_c": 17.7,
+          "rain_mm": 42.0,
+          "expected_rain_mm": 36.6,
+          "rain_anomaly_ratio": 1.15
+        }
+      }
+    },
+    {
+      "sim_day": 120,
+      "month": 4,
+      "average_land_temp_c": 10.5,
+      "average_land_rain_mm": 43.6,
+      "polities": {
+        "ELAR": {
+          "temp_c": 7.3,
+          "rain_mm": 85.5,
+          "expected_rain_mm": 71.1,
+          "rain_anomaly_ratio": 1.2
+        },
+        "MARIS": {
+          "temp_c": 9.6,
+          "rain_mm": 62.2,
+          "expected_rain_mm": 75.9,
+          "rain_anomaly_ratio": 0.82
+        },
+        "VAYR": {
+          "temp_c": 8.5,
+          "rain_mm": 31.0,
+          "expected_rain_mm": 36.1,
+          "rain_anomaly_ratio": 0.86
+        },
+        "SAHAR": {
+          "temp_c": 20.4,
+          "rain_mm": 59.0,
+          "expected_rain_mm": 46.8,
+          "rain_anomaly_ratio": 1.26
+        }
+      }
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "average_land_temp_c": 14.1,
+      "average_land_rain_mm": 44.6,
+      "polities": {
+        "ELAR": {
+          "temp_c": 11.4,
+          "rain_mm": 67.4,
+          "expected_rain_mm": 59.1,
+          "rain_anomaly_ratio": 1.14
+        },
+        "MARIS": {
+          "temp_c": 13.1,
+          "rain_mm": 46.4,
+          "expected_rain_mm": 63.0,
+          "rain_anomaly_ratio": 0.74
+        },
+        "VAYR": {
+          "temp_c": 12.3,
+          "rain_mm": 29.5,
+          "expected_rain_mm": 29.9,
+          "rain_anomaly_ratio": 0.99
+        },
+        "SAHAR": {
+          "temp_c": 23.0,
+          "rain_mm": 60.0,
+          "expected_rain_mm": 57.0,
+          "rain_anomaly_ratio": 1.05
+        }
+      }
+    },
+    {
+      "sim_day": 181,
+      "month": 6,
+      "average_land_temp_c": 16.8,
+      "average_land_rain_mm": 42.6,
+      "polities": {
+        "ELAR": {
+          "temp_c": 14.7,
+          "rain_mm": 40.9,
+          "expected_rain_mm": 50.2,
+          "rain_anomaly_ratio": 0.81
+        },
+        "MARIS": {
+          "temp_c": 15.2,
+          "rain_mm": 48.4,
+          "expected_rain_mm": 53.6,
+          "rain_anomaly_ratio": 0.9
+        },
+        "VAYR": {
+          "temp_c": 15.1,
+          "rain_mm": 25.2,
+          "expected_rain_mm": 25.4,
+          "rain_anomaly_ratio": 0.99
+        },
+        "SAHAR": {
+          "temp_c": 24.4,
+          "rain_mm": 50.7,
+          "expected_rain_mm": 64.5,
+          "rain_anomaly_ratio": 0.79
+        }
+      }
+    },
+    {
+      "sim_day": 212,
+      "month": 7,
+      "average_land_temp_c": 17.8,
+      "average_land_rain_mm": 44.4,
+      "polities": {
+        "ELAR": {
+          "temp_c": 15.8,
+          "rain_mm": 52.5,
+          "expected_rain_mm": 47.0,
+          "rain_anomaly_ratio": 1.12
+        },
+        "MARIS": {
+          "temp_c": 16.0,
+          "rain_mm": 58.4,
+          "expected_rain_mm": 50.1,
+          "rain_anomaly_ratio": 1.16
+        },
+        "VAYR": {
+          "temp_c": 16.0,
+          "rain_mm": 19.6,
+          "expected_rain_mm": 23.8,
+          "rain_anomaly_ratio": 0.82
+        },
+        "SAHAR": {
+          "temp_c": 25.4,
+          "rain_mm": 58.0,
+          "expected_rain_mm": 67.3,
+          "rain_anomaly_ratio": 0.86
+        }
+      }
+    },
+    {
+      "sim_day": 243,
+      "month": 8,
+      "average_land_temp_c": 16.8,
+      "average_land_rain_mm": 44.7,
+      "polities": {
+        "ELAR": {
+          "temp_c": 15.0,
+          "rain_mm": 41.2,
+          "expected_rain_mm": 50.2,
+          "rain_anomaly_ratio": 0.82
+        },
+        "MARIS": {
+          "temp_c": 15.5,
+          "rain_mm": 63.8,
+          "expected_rain_mm": 53.6,
+          "rain_anomaly_ratio": 1.19
+        },
+        "VAYR": {
+          "temp_c": 14.6,
+          "rain_mm": 12.1,
+          "expected_rain_mm": 25.4,
+          "rain_anomaly_ratio": 0.48
+        },
+        "SAHAR": {
+          "temp_c": 25.2,
+          "rain_mm": 62.2,
+          "expected_rain_mm": 64.5,
+          "rain_anomaly_ratio": 0.96
+        }
+      }
+    },
+    {
+      "sim_day": 273,
+      "month": 9,
+      "average_land_temp_c": 14.1,
+      "average_land_rain_mm": 43.2,
+      "polities": {
+        "ELAR": {
+          "temp_c": 11.7,
+          "rain_mm": 57.7,
+          "expected_rain_mm": 59.1,
+          "rain_anomaly_ratio": 0.98
+        },
+        "MARIS": {
+          "temp_c": 12.7,
+          "rain_mm": 67.5,
+          "expected_rain_mm": 63.0,
+          "rain_anomaly_ratio": 1.07
+        },
+        "VAYR": {
+          "temp_c": 11.9,
+          "rain_mm": 33.7,
+          "expected_rain_mm": 29.9,
+          "rain_anomaly_ratio": 1.13
+        },
+        "SAHAR": {
+          "temp_c": 23.0,
+          "rain_mm": 87.9,
+          "expected_rain_mm": 57.0,
+          "rain_anomaly_ratio": 1.54
+        }
+      }
+    },
+    {
+      "sim_day": 304,
+      "month": 10,
+      "average_land_temp_c": 10.5,
+      "average_land_rain_mm": 45.2,
+      "polities": {
+        "ELAR": {
+          "temp_c": 6.9,
+          "rain_mm": 68.5,
+          "expected_rain_mm": 71.1,
+          "rain_anomaly_ratio": 0.96
+        },
+        "MARIS": {
+          "temp_c": 9.4,
+          "rain_mm": 75.9,
+          "expected_rain_mm": 75.9,
+          "rain_anomaly_ratio": 1.0
+        },
+        "VAYR": {
+          "temp_c": 7.9,
+          "rain_mm": 35.8,
+          "expected_rain_mm": 36.1,
+          "rain_anomaly_ratio": 0.99
+        },
+        "SAHAR": {
+          "temp_c": 20.5,
+          "rain_mm": 23.9,
+          "expected_rain_mm": 46.8,
+          "rain_anomaly_ratio": 0.51
+        }
+      }
+    },
+    {
+      "sim_day": 334,
+      "month": 11,
+      "average_land_temp_c": 6.9,
+      "average_land_rain_mm": 44.0,
+      "polities": {
+        "ELAR": {
+          "temp_c": 2.6,
+          "rain_mm": 78.5,
+          "expected_rain_mm": 83.2,
+          "rain_anomaly_ratio": 0.94
+        },
+        "MARIS": {
+          "temp_c": 6.2,
+          "rain_mm": 113.6,
+          "expected_rain_mm": 88.8,
+          "rain_anomaly_ratio": 1.28
+        },
+        "VAYR": {
+          "temp_c": 4.8,
+          "rain_mm": 45.7,
+          "expected_rain_mm": 42.2,
+          "rain_anomaly_ratio": 1.08
+        },
+        "SAHAR": {
+          "temp_c": 18.3,
+          "rain_mm": 36.5,
+          "expected_rain_mm": 36.6,
+          "rain_anomaly_ratio": 1.0
+        }
+      }
+    },
+    {
+      "sim_day": 365,
+      "month": 12,
+      "average_land_temp_c": 4.2,
+      "average_land_rain_mm": 44.5,
+      "polities": {
+        "ELAR": {
+          "temp_c": -0.8,
+          "rain_mm": 98.4,
+          "expected_rain_mm": 92.1,
+          "rain_anomaly_ratio": 1.07
+        },
+        "MARIS": {
+          "temp_c": 4.2,
+          "rain_mm": 98.8,
+          "expected_rain_mm": 98.2,
+          "rain_anomaly_ratio": 1.01
+        },
+        "VAYR": {
+          "temp_c": 1.4,
+          "rain_mm": 51.2,
+          "expected_rain_mm": 46.7,
+          "rain_anomaly_ratio": 1.1
+        },
+        "SAHAR": {
+          "temp_c": 16.5,
+          "rain_mm": 37.6,
+          "expected_rain_mm": 29.1,
+          "rain_anomaly_ratio": 1.29
+        }
+      }
+    }
+  ],
+  "events": [
+    {
+      "sim_day": 31,
+      "month": 1,
+      "type": "洪水",
+      "hex": {
+        "col": 45,
+        "row": 5
+      },
+      "risk_index": 0.24,
+      "severity": 0.65,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 31,
+      "month": 1,
+      "type": "野火",
+      "hex": {
+        "col": 63,
+        "row": 35
+      },
+      "risk_index": 0.502,
+      "severity": 0.26,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 59,
+      "month": 2,
+      "type": "洪水",
+      "hex": {
+        "col": 56,
+        "row": 40
+      },
+      "risk_index": 0.429,
+      "severity": 0.3,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 59,
+      "month": 2,
+      "type": "洪水",
+      "hex": {
+        "col": 45,
+        "row": 41
+      },
+      "risk_index": 0.305,
+      "severity": 0.84,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 59,
+      "month": 2,
+      "type": "地震",
+      "hex": {
+        "col": 20,
+        "row": 21
+      },
+      "risk_index": 0.554,
+      "severity": 0.68,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 90,
+      "month": 3,
+      "type": "洪水",
+      "hex": {
+        "col": 33,
+        "row": 16
+      },
+      "risk_index": 0.205,
+      "severity": 0.41,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 90,
+      "month": 3,
+      "type": "洪水",
+      "hex": {
+        "col": 27,
+        "row": 48
+      },
+      "risk_index": 1.0,
+      "severity": 0.39,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 120,
+      "month": 4,
+      "type": "洪水",
+      "hex": {
+        "col": 51,
+        "row": 49
+      },
+      "risk_index": 0.521,
+      "severity": 0.68,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 120,
+      "month": 4,
+      "type": "野火",
+      "hex": {
+        "col": 40,
+        "row": 35
+      },
+      "risk_index": 0.626,
+      "severity": 0.87,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "洪水",
+      "hex": {
+        "col": 47,
+        "row": 40
+      },
+      "risk_index": 0.288,
+      "severity": 0.6,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "洪水",
+      "hex": {
+        "col": 42,
+        "row": 42
+      },
+      "risk_index": 0.356,
+      "severity": 0.87,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "洪水",
+      "hex": {
+        "col": 60,
+        "row": 15
+      },
+      "risk_index": 0.243,
+      "severity": 0.79,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "干旱",
+      "hex": {
+        "col": 36,
+        "row": 37
+      },
+      "risk_index": 0.201,
+      "severity": 0.26,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "干旱",
+      "hex": {
+        "col": 36,
+        "row": 48
+      },
+      "risk_index": 0.328,
+      "severity": 0.55,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 151,
+      "month": 5,
+      "type": "干旱",
+      "hex": {
+        "col": 49,
+        "row": 28
+      },
+      "risk_index": 0.468,
+      "severity": 0.25,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 181,
+      "month": 6,
+      "type": "洪水",
+      "hex": {
+        "col": 57,
+        "row": 31
+      },
+      "risk_index": 0.186,
+      "severity": 0.29,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 181,
+      "month": 6,
+      "type": "洪水",
+      "hex": {
+        "col": 13,
+        "row": 3
+      },
+      "risk_index": 0.68,
+      "severity": 0.73,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 181,
+      "month": 6,
+      "type": "野火",
+      "hex": {
+        "col": 50,
+        "row": 19
+      },
+      "risk_index": 0.412,
+      "severity": 0.57,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 212,
+      "month": 7,
+      "type": "洪水",
+      "hex": {
+        "col": 42,
+        "row": 49
+      },
+      "risk_index": 0.531,
+      "severity": 0.62,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 212,
+      "month": 7,
+      "type": "野火",
+      "hex": {
+        "col": 4,
+        "row": 31
+      },
+      "risk_index": 0.595,
+      "severity": 0.56,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 243,
+      "month": 8,
+      "type": "干旱",
+      "hex": {
+        "col": 46,
+        "row": 18
+      },
+      "risk_index": 0.278,
+      "severity": 0.69,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 273,
+      "month": 9,
+      "type": "洪水",
+      "hex": {
+        "col": 33,
+        "row": 15
+      },
+      "risk_index": 0.221,
+      "severity": 0.8,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 273,
+      "month": 9,
+      "type": "洪水",
+      "hex": {
+        "col": 40,
+        "row": 10
+      },
+      "risk_index": 0.213,
+      "severity": 0.17,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 304,
+      "month": 10,
+      "type": "野火",
+      "hex": {
+        "col": 48,
+        "row": 51
+      },
+      "risk_index": 0.211,
+      "severity": 0.75,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 334,
+      "month": 11,
+      "type": "洪水",
+      "hex": {
+        "col": 32,
+        "row": 4
+      },
+      "risk_index": 0.207,
+      "severity": 0.71,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 334,
+      "month": 11,
+      "type": "洪水",
+      "hex": {
+        "col": 46,
+        "row": 6
+      },
+      "risk_index": 0.224,
+      "severity": 0.55,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 334,
+      "month": 11,
+      "type": "洪水",
+      "hex": {
+        "col": 60,
+        "row": 37
+      },
+      "risk_index": 0.404,
+      "severity": 0.3,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 334,
+      "month": 11,
+      "type": "干旱",
+      "hex": {
+        "col": 46,
+        "row": 42
+      },
+      "risk_index": 0.278,
+      "severity": 0.58,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 365,
+      "month": 12,
+      "type": "洪水",
+      "hex": {
+        "col": 53,
+        "row": 49
+      },
+      "risk_index": 0.207,
+      "severity": 0.34,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 365,
+      "month": 12,
+      "type": "干旱",
+      "hex": {
+        "col": 48,
+        "row": 24
+      },
+      "risk_index": 0.424,
+      "severity": 0.51,
+      "affected_polity_id": null
+    },
+    {
+      "sim_day": 365,
+      "month": 12,
+      "type": "干旱",
+      "hex": {
+        "col": 3,
+        "row": 23
+      },
+      "risk_index": 0.322,
+      "severity": 0.78,
+      "affected_polity_id": null
+    }
+  ]
+}

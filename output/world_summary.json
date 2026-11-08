@@ -1,0 +1,567 @@
+{
+  "metadata": {
+    "project": "Project Eos",
+    "version": "0.1.0",
+    "world_name": "埃欧斯大陆 / Eos Continent",
+    "seed": 2000,
+    "world_year_bce": 2000,
+    "astronomical_year": -1999,
+    "start_month": 1,
+    "day_count": 0,
+    "grid_type": "odd-r pointy-top hex",
+    "grid_width": 72,
+    "grid_height": 54,
+    "hex_radius_km": 34.0,
+    "cell_area_km2": 3003.4,
+    "assumed_planet": "Earth-like, 24h day, 365-day year, Northern Hemisphere",
+    "latitude_range_deg": [
+      8,
+      51
+    ],
+    "model_limitations": [
+      "not a general circulation model or weather forecast",
+      "no physical plate dynamics / calibrated hazard return periods",
+      "synthetic tectonic belts and monthly precipitation with stochastic daily perturbations",
+      "sea level and orbital forcing fixed at initial epoch"
+    ]
+  },
+  "world_summary": {
+    "land_hexes": 2703,
+    "ocean_hexes": 1185,
+    "land_area_km2": 8118126,
+    "maximum_elevation_m": 3931,
+    "river_hexes": 289,
+    "unclaimed_land_hexes": 2634
+  },
+  "polities": [
+    {
+      "id": "ELAR",
+      "name": "埃兰河谷城邦联盟",
+      "type": "river_valley",
+      "government": "河谷城邦联盟",
+      "description": "依赖季节性河流泛滥与灌溉的粮食核心区；政治组织为若干城邦的盟约",
+      "population": 37000,
+      "capital": {
+        "col": 13,
+        "row": 10,
+        "q": 8,
+        "r": 10
+      },
+      "initial_tiles": [
+        [
+          12,
+          8
+        ],
+        [
+          13,
+          8
+        ],
+        [
+          14,
+          8
+        ],
+        [
+          11,
+          9
+        ],
+        [
+          12,
+          9
+        ],
+        [
+          13,
+          9
+        ],
+        [
+          14,
+          9
+        ],
+        [
+          11,
+          10
+        ],
+        [
+          12,
+          10
+        ],
+        [
+          13,
+          10
+        ],
+        [
+          14,
+          10
+        ],
+        [
+          15,
+          10
+        ],
+        [
+          11,
+          11
+        ],
+        [
+          12,
+          11
+        ],
+        [
+          13,
+          11
+        ],
+        [
+          14,
+          11
+        ],
+        [
+          12,
+          12
+        ],
+        [
+          13,
+          12
+        ],
+        [
+          14,
+          12
+        ]
+      ],
+      "territorial_area_km2": 57064,
+      "avg_annual_temp_c": 7.0,
+      "avg_annual_precip_mm": 854,
+      "elevation_m": 235,
+      "river_distance_tiles": 0.0,
+      "dominant_biome": "grassland",
+      "technology": {
+        "agriculture": 1,
+        "bronze_metallurgy": 1,
+        "writing": 1
+      },
+      "treasury_units": 100,
+      "food_storage_units": 160,
+      "diplomatic_status": "no_contact"
+    },
+    {
+      "id": "MARIS",
+      "name": "玛瑞斯海湾城邦",
+      "type": "maritime",
+      "government": "沿海港口城邦",
+      "description": "依靠海湾贸易、渔业与沿海耕地的商贸聚落",
+      "population": 21000,
+      "capital": {
+        "col": 56,
+        "row": 18,
+        "q": 47,
+        "r": 18
+      },
+      "initial_tiles": [
+        [
+          55,
+          16
+        ],
+        [
+          56,
+          16
+        ],
+        [
+          57,
+          16
+        ],
+        [
+          54,
+          17
+        ],
+        [
+          55,
+          17
+        ],
+        [
+          56,
+          17
+        ],
+        [
+          57,
+          17
+        ],
+        [
+          55,
+          18
+        ],
+        [
+          56,
+          18
+        ],
+        [
+          57,
+          18
+        ],
+        [
+          58,
+          18
+        ],
+        [
+          57,
+          19
+        ]
+      ],
+      "territorial_area_km2": 36041,
+      "avg_annual_temp_c": 9.6,
+      "avg_annual_precip_mm": 911,
+      "elevation_m": 326,
+      "river_distance_tiles": 4.0,
+      "dominant_biome": "grassland",
+      "technology": {
+        "agriculture": 1,
+        "bronze_metallurgy": 1,
+        "writing": 0
+      },
+      "treasury_units": 100,
+      "food_storage_units": 160,
+      "diplomatic_status": "no_contact"
+    },
+    {
+      "id": "VAYR",
+      "name": "维尔山麓诸侯",
+      "type": "highland",
+      "government": "山麓领主联盟",
+      "description": "控制山间谷地和浅层矿脉，冶金发展较快但农田有限",
+      "population": 15500,
+      "capital": {
+        "col": 17,
+        "row": 20,
+        "q": 7,
+        "r": 20
+      },
+      "initial_tiles": [
+        [
+          16,
+          18
+        ],
+        [
+          17,
+          18
+        ],
+        [
+          18,
+          18
+        ],
+        [
+          15,
+          19
+        ],
+        [
+          16,
+          19
+        ],
+        [
+          17,
+          19
+        ],
+        [
+          18,
+          19
+        ],
+        [
+          15,
+          20
+        ],
+        [
+          16,
+          20
+        ],
+        [
+          17,
+          20
+        ],
+        [
+          18,
+          20
+        ],
+        [
+          19,
+          20
+        ],
+        [
+          15,
+          21
+        ],
+        [
+          16,
+          21
+        ],
+        [
+          17,
+          21
+        ],
+        [
+          18,
+          21
+        ],
+        [
+          16,
+          22
+        ],
+        [
+          17,
+          22
+        ],
+        [
+          18,
+          22
+        ]
+      ],
+      "territorial_area_km2": 57064,
+      "avg_annual_temp_c": 8.4,
+      "avg_annual_precip_mm": 433,
+      "elevation_m": 715,
+      "river_distance_tiles": 0.0,
+      "dominant_biome": "grassland",
+      "technology": {
+        "agriculture": 1,
+        "bronze_metallurgy": 2,
+        "writing": 0
+      },
+      "treasury_units": 100,
+      "food_storage_units": 160,
+      "diplomatic_status": "no_contact"
+    },
+    {
+      "id": "SAHAR",
+      "name": "萨赫尔河岸王国",
+      "type": "semiarid",
+      "government": "河岸灌溉王权",
+      "description": "在干旱边缘沿常流河布置灌溉田与聚落，依赖水利管理",
+      "population": 28000,
+      "capital": {
+        "col": 25,
+        "row": 44,
+        "q": 3,
+        "r": 44
+      },
+      "initial_tiles": [
+        [
+          24,
+          42
+        ],
+        [
+          25,
+          42
+        ],
+        [
+          26,
+          42
+        ],
+        [
+          23,
+          43
+        ],
+        [
+          24,
+          43
+        ],
+        [
+          25,
+          43
+        ],
+        [
+          26,
+          43
+        ],
+        [
+          23,
+          44
+        ],
+        [
+          24,
+          44
+        ],
+        [
+          25,
+          44
+        ],
+        [
+          26,
+          44
+        ],
+        [
+          27,
+          44
+        ],
+        [
+          23,
+          45
+        ],
+        [
+          24,
+          45
+        ],
+        [
+          25,
+          45
+        ],
+        [
+          26,
+          45
+        ],
+        [
+          24,
+          46
+        ],
+        [
+          25,
+          46
+        ],
+        [
+          26,
+          46
+        ]
+      ],
+      "territorial_area_km2": 57064,
+      "avg_annual_temp_c": 20.7,
+      "avg_annual_precip_mm": 562,
+      "elevation_m": 381,
+      "river_distance_tiles": 0.0,
+      "dominant_biome": "grassland",
+      "technology": {
+        "agriculture": 1,
+        "bronze_metallurgy": 1,
+        "writing": 1
+      },
+      "treasury_units": 100,
+      "food_storage_units": 160,
+      "diplomatic_status": "no_contact"
+    }
+  ],
+  "weather_samples": [
+    {
+      "day": 1,
+      "month": 1,
+      "capital_weather": {
+        "ELAR": {
+          "temperature_c": -1.1,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "MARIS": {
+          "temperature_c": 4.3,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "VAYR": {
+          "temperature_c": 2.2,
+          "precipitation_mm": 3.6,
+          "snow": false
+        },
+        "SAHAR": {
+          "temperature_c": 17.1,
+          "precipitation_mm": 0.0,
+          "snow": false
+        }
+      }
+    },
+    {
+      "day": 91,
+      "month": 4,
+      "capital_weather": {
+        "ELAR": {
+          "temperature_c": 7.2,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "MARIS": {
+          "temperature_c": 10.5,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "VAYR": {
+          "temperature_c": 5.8,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "SAHAR": {
+          "temperature_c": 22.0,
+          "precipitation_mm": 3.7,
+          "snow": false
+        }
+      }
+    },
+    {
+      "day": 182,
+      "month": 7,
+      "capital_weather": {
+        "ELAR": {
+          "temperature_c": 15.0,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "MARIS": {
+          "temperature_c": 15.2,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "VAYR": {
+          "temperature_c": 15.8,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "SAHAR": {
+          "temperature_c": 23.8,
+          "precipitation_mm": 0.0,
+          "snow": false
+        }
+      }
+    },
+    {
+      "day": 274,
+      "month": 10,
+      "capital_weather": {
+        "ELAR": {
+          "temperature_c": 7.9,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "MARIS": {
+          "temperature_c": 9.5,
+          "precipitation_mm": 4.1,
+          "snow": false
+        },
+        "VAYR": {
+          "temperature_c": 9.5,
+          "precipitation_mm": 2.9,
+          "snow": false
+        },
+        "SAHAR": {
+          "temperature_c": 21.6,
+          "precipitation_mm": 0.0,
+          "snow": false
+        }
+      }
+    },
+    {
+      "day": 365,
+      "month": 12,
+      "capital_weather": {
+        "ELAR": {
+          "temperature_c": -0.6,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "MARIS": {
+          "temperature_c": 3.0,
+          "precipitation_mm": 0.0,
+          "snow": false
+        },
+        "VAYR": {
+          "temperature_c": 1.7,
+          "precipitation_mm": 3.7,
+          "snow": false
+        },
+        "SAHAR": {
+          "temperature_c": 17.3,
+          "precipitation_mm": 0.0,
+          "snow": false
+        }
+      }
+    }
+  ],
+  "illustrative_hazard_events": []
+}

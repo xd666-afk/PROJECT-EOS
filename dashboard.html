@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Eos · 文明指挥台</title>
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#071319; --shell:#0a1921; --panel:#0e222b; --panel-2:#132b35; --panel-3:#17333e;
+  --line:#29434d; --line-2:#3d5b66; --ink:#edf2ee; --muted:#91a8ae; --faint:#6f8990;
+  --accent:#d6aa5d; --good:#82bd91; --warn:#dda665; --bad:#db867c; --blue:#6bacc1;
+  --shadow:0 18px 52px #0008;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;overflow:hidden}
+body{background:radial-gradient(circle at 48% 24%,#163542,#071319 58%,#050f14);
+  color:var(--ink);font:13px/1.45 system-ui,"Microsoft YaHei",sans-serif}
+button,select{font:inherit;color:var(--ink);background:var(--panel-2);
+  border:1px solid var(--line-2);border-radius:7px;cursor:pointer;transition:.15s}
+button:hover,select:hover{background:var(--panel-3);border-color:#57747f}
+button:disabled{opacity:.38;cursor:not-allowed}
+button.primary{background:linear-gradient(180deg,#d7ab60,#b7863d);border-color:#efd295;
+  color:#22180a;font-weight:650}
+button.primary:hover{filter:brightness(1.08)}
+.app{height:100%;display:flex;flex-direction:column}
+.screen{height:100%;min-height:100%;display:flex;flex-direction:column}
+.screen[hidden],.app[hidden]{display:none}
+.menu{position:relative;overflow:hidden;background:
+  radial-gradient(circle at 72% 28%,#1d4b58 0,#0a1d26 42%,#050f14 72%),
+  linear-gradient(120deg,#051117,#0b222b)}
+.menu::before{content:"";position:absolute;inset:0;opacity:.14;pointer-events:none;
+  background-image:linear-gradient(30deg,transparent 49%,#9bc0bd 50%,transparent 51%),
+  linear-gradient(150deg,transparent 49%,#9bc0bd 50%,transparent 51%);
+  background-size:44px 76px;mask-image:linear-gradient(90deg,transparent,#000 65%)}
+.menu-inner{position:relative;z-index:2;margin:auto 7vw;width:min(760px,86vw);padding:35px 0}
+.menu-kicker{color:var(--accent);font-size:10px;letter-spacing:3px;text-transform:uppercase}
+.menu h1{font:500 clamp(36px,6vw,72px)/.95 Georgia,serif;letter-spacing:2px;margin:12px 0 4px}
+.menu h1 span{color:var(--accent);font-style:italic}
+.menu-lead{color:var(--muted);font-size:12px;max-width:530px;line-height:1.7;margin-bottom:24px}
+.menu-actions{display:flex;flex-direction:column;gap:7px;width:min(330px,100%)}
+.menu-actions button{min-height:46px;text-align:left;padding:0 15px;font-size:12px;
+  display:flex;justify-content:space-between;align-items:center;background:#0b2029dd}
+.menu-actions button.primary{color:#22180a}
+.menu-actions small{font-size:9px;opacity:.7;font-weight:400}
+.menu-foot{position:absolute;left:7vw;right:7vw;bottom:18px;display:flex;justify-content:space-between;
+  color:#68838b;font-size:9px;z-index:2}
+.load-screen{background:linear-gradient(145deg,#07171f,#0a202a);padding:24px 6vw;overflow:auto}
+.load-head{display:flex;justify-content:space-between;align-items:center;gap:12px;
+  border-bottom:1px solid var(--line);padding-bottom:14px}
+.load-head h1{font:500 28px Georgia,serif;margin:0}
+.save-list{display:grid;gap:8px;margin-top:16px}
+.save-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;
+  background:#0b2029;border:1px solid var(--line);border-radius:9px;padding:12px 14px}
+.save-card b{font-size:12px;display:block}.save-card small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
+.save-actions{display:flex;gap:5px}
+.modal-head h2{font-size:18px}.menu .sigil{width:44px;height:44px}
+.end-modal{position:fixed;inset:0;z-index:55;background:
+  radial-gradient(circle at 50% 30%,#193c45aa,transparent 55%),#030c11e8;
+  backdrop-filter:blur(9px);display:grid;place-items:center;padding:20px}
+.end-modal[hidden]{display:none}
+.end-card{width:min(760px,95vw);background:linear-gradient(160deg,#102832,#08171e);
+  border:1px solid #4e6b72;border-radius:14px;box-shadow:var(--shadow);padding:24px 26px}
+.end-kicker{color:var(--accent);font-size:9px;letter-spacing:2px}
+.end-card h2{font:500 32px/1.1 Georgia,serif;margin:8px 0 5px}
+.end-sub{color:var(--muted);font-size:11px;margin-bottom:16px}
+.rank-list{display:flex;flex-direction:column;gap:7px}
+.rank-row{display:grid;grid-template-columns:30px 1fr 1fr auto;gap:10px;align-items:center;
+  border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:#0b2029}
+.rank-row:first-child{border-color:var(--accent);background:#1d2b24}
+.rank-no{font:500 19px Georgia,serif;color:var(--faint);text-align:center}
+.rank-row:first-child .rank-no{color:var(--accent)}
+.rank-name b{display:block;font-size:12px}.rank-name small{color:var(--muted);font-size:9px}
+.rank-path{font-size:10px;color:var(--muted)}
+.rank-score{font-size:18px;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums}
+.end-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:18px}
+.tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:4px}
+.tech-branch{position:relative;border:1px solid var(--line);border-radius:9px;padding:11px 9px 12px;
+  background:linear-gradient(180deg,#0c232d,#081920)}
+.tech-branch h3{margin:0 0 3px;font-size:12px;font-weight:600;color:var(--tc)}
+.tech-branch .tech-progress{color:var(--muted);font-size:9px;margin-bottom:10px}
+.tech-progress .bar{margin-top:4px}
+.tech-node{position:relative;margin:0 0 8px 18px;padding:7px 8px;border:1px solid #28434e;
+  border-radius:7px;background:#0b1d25;opacity:.48}
+.tech-node::before{content:"";position:absolute;left:-19px;top:50%;width:12px;height:1px;background:#36545e}
+.tech-node::after{content:"";position:absolute;left:-23px;top:-9px;bottom:-9px;width:1px;background:#2e4a55}
+.tech-node:first-child::after{top:50%}
+.tech-node:last-child::after{bottom:50%}
+.tech-node.lit{opacity:1;border-color:color-mix(in srgb,var(--tc) 55%,var(--line));
+  background:color-mix(in srgb,var(--tc) 10%,#0b1d25)}
+.tech-node.available{opacity:1;border-color:var(--accent);cursor:pointer;
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 35%,transparent),0 0 16px #e7b45f16}
+.tech-node.available:hover{background:#26302a;transform:translateX(2px)}
+.tech-node.current{border-color:#7cb78b}
+.tech-node-head{display:flex;justify-content:space-between;gap:6px;align-items:baseline}
+.tech-node-head b{font-size:10.5px;font-weight:600}.tech-node-head span{color:var(--faint);font-size:8.5px}
+.tech-node small{display:block;color:var(--muted);font-size:8.5px;margin-top:2px}
+.tech-node .unlocks{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.tech-node .unlocks i{font-style:normal;color:var(--tc);font-size:8px;border:1px solid #36505a;border-radius:4px;padding:1px 4px}
+.tech-node .tech-state{position:absolute;right:7px;bottom:5px;color:var(--faint);font-size:8px}
+.tech-node.available .tech-state{color:var(--accent)}
+.tech-legend{display:flex;gap:12px;color:var(--muted);font-size:9px;margin-top:8px}
+.tech-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
+.diplo-list{display:flex;flex-direction:column;gap:7px}
+.diplo-row{display:grid;grid-template-columns:8px 1.1fr 1.7fr auto;gap:9px;align-items:center;
+  background:#0b2029;border:1px solid var(--line);border-radius:8px;padding:9px}
+.diplo-color{width:8px;height:34px;border-radius:5px;background:var(--dc)}
+.diplo-name b{display:block;font-size:11px}.diplo-name small{display:block;color:var(--muted);font-size:9px}
+.relation-track{height:7px;border-radius:6px;background:linear-gradient(90deg,#6d3131,#2d3f44 50%,#315b42);position:relative}
+.relation-marker{position:absolute;top:-2px;width:11px;height:11px;border-radius:50%;background:#e7d8b5;
+  border:2px solid #07171e;transform:translateX(-50%)}
+.relation-meta{display:flex;justify-content:space-between;color:var(--faint);font-size:8px;margin-top:3px}
+.diplo-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.diplo-actions button{min-height:27px;padding:2px 6px;font-size:9px}
+.pact-list{display:flex;flex-wrap:wrap;gap:5px;margin:5px 0}
+.pact-pill{font-size:9px;color:#9ed0aa;border:1px solid #436d52;border-radius:999px;padding:2px 7px;background:#13291d}
+.proposal-row{display:flex;justify-content:space-between;gap:8px;align-items:center;
+  border:1px solid var(--line);border-radius:7px;padding:7px;background:#0b2029;margin-top:5px;font-size:10px}
+.mil-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mil-card{border:1px solid var(--line);border-radius:8px;padding:10px;background:#0b2029}
+.mil-card h3{margin:0 0 6px;font-size:11px;font-weight:600;color:var(--muted)}
+.mil-stat{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);padding:3px 0;border-bottom:1px solid #1e3540}
+.mil-stat b{color:var(--ink);font-weight:500}
+.mil-buttons{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.mil-buttons button{font-size:9.5px;padding:3px 7px;min-height:30px}
+.war-row{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #5d3a38;
+  background:#241819;border-radius:6px;padding:6px 7px;margin-bottom:5px;font-size:10px}
+.city-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.city-card{border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b2029}
+.city-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.city-head b{font-size:12px}.city-head small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+.city-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:7px 0}
+.city-stat small{display:block;color:var(--faint);font-size:8px}.city-stat b{font-size:11px;font-weight:500}
+.city-buildings{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0}
+.city-buildings span{font-size:8px;border:1px solid var(--line);border-radius:4px;padding:1px 4px;color:var(--muted)}
+.city-focus{display:flex;gap:5px;align-items:center;margin-top:7px}
+.city-focus select{flex:1;min-height:30px;font-size:9px}
+.city-focus button{min-height:30px;font-size:9px}
+.city-detail{display:grid;grid-template-columns:minmax(280px,1.2fr) 260px;gap:10px;margin-top:4px}
+#cityCanvas{width:100%;height:380px;background:#091b23;border:1px solid var(--line);border-radius:8px;display:block;cursor:pointer}
+.city-side{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0b2029}
+.city-side h4{font-size:11px;margin:0 0 7px;font-weight:600}
+.zone-grid{display:flex;flex-direction:column;gap:4px}
+.zone-btn{display:flex;align-items:center;gap:7px;text-align:left;padding:5px 7px;font-size:9.5px;min-height:29px}
+.zone-btn i{width:10px;height:10px;border-radius:3px;background:var(--zc);flex:none}
+.zone-btn.on{border-color:var(--accent);background:#26302a}
+.city-coord{color:var(--muted);font-size:9px;margin-bottom:7px}
+@media(max-width:760px){.tech-grid{grid-template-columns:1fr}.modal-card{max-height:92vh}.diplo-row{grid-template-columns:6px 1fr}.diplo-row .relation-track,.diplo-actions{grid-column:1/-1}.mil-grid,.city-grid,.city-detail{grid-template-columns:1fr}#cityCanvas{height:300px}}
+.pause-menu{position:fixed;inset:0;z-index:40;background:
+  linear-gradient(90deg,#030c11f2 0,#06151de8 38%,#06151da8 62%,#06151d55),
+  radial-gradient(circle at 76% 40%,transparent,#02090d99);backdrop-filter:blur(7px);
+  display:flex;align-items:center;padding:7vw}
+.pause-menu[hidden]{display:none}
+.pause-card{width:min(380px,90vw)}
+.pause-card h2{font:500 38px/1 Georgia,serif;margin:8px 0 4px;letter-spacing:1px}
+.pause-card .pause-sub{color:var(--muted);font-size:10px;margin-bottom:22px}
+.pause-list{display:flex;flex-direction:column;gap:6px}
+.pause-list button{min-height:44px;text-align:left;padding:0 13px;font-size:12px;
+  background:#0b2029c7;border-color:#3a5661;display:flex;justify-content:space-between;align-items:center}
+.pause-list button:hover{border-color:var(--accent);padding-left:17px}
+.pause-list button small{color:var(--faint);font-size:9px}
+.pause-foot{display:flex;justify-content:space-between;color:#627f88;font-size:9px;margin-top:18px}
+.topbar{height:74px;min-height:74px;display:grid;grid-template-columns:230px minmax(260px,1fr) auto;
+  align-items:center;gap:16px;padding:8px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0c222d,#091a22);z-index:10}
+.brand{display:flex;gap:11px;align-items:center;min-width:0}
+.sigil{width:38px;height:38px;flex:none;border:1px solid var(--accent);border-radius:10px;
+  background:color-mix(in srgb,var(--accent) 13%,var(--panel));display:grid;place-items:center;
+  color:var(--accent);font:700 19px Georgia,serif;transform:rotate(45deg)}
+.sigil span{transform:rotate(-45deg)}
+.brand h1{font:600 15px/1.2 system-ui;margin:0;letter-spacing:.9px}
+.brand small{display:block;color:var(--muted);font-size:10px;letter-spacing:.5px;margin-top:2px}
+.power{display:flex;justify-content:center;gap:7px;min-width:0;flex-wrap:wrap}
+.res{min-width:78px;padding:4px 9px;border:1px solid var(--line);border-radius:7px;background:#0b2029}
+.res small{display:block;color:var(--muted);font-size:9px;white-space:nowrap}
+.res b{display:block;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.timebox{display:flex;align-items:center;gap:9px;justify-self:end}
+.date{text-align:right;min-width:148px}
+.date b{display:block;font-size:12px;font-weight:600;white-space:nowrap}
+.date small{display:block;color:var(--muted);font-size:10px;white-space:nowrap}
+.timebtns{display:flex;gap:3px}
+.timebtns button{min-width:32px;min-height:32px;padding:4px 7px;font-size:10px}
+.timebtns button.on{background:var(--accent);color:#241a0a;border-color:var(--accent);font-weight:700}
+.timebtns .pause{min-width:38px;font-size:12px}
+.modebar{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#091b23}
+.modebar button{min-height:29px;padding:3px 8px;border:0;background:transparent;color:var(--muted);font-size:10px}
+.modebar button.on{background:var(--accent);color:#241a0a;font-weight:650}
+.workspace{min-height:0;flex:1;display:grid;grid-template-columns:228px minmax(340px,1fr) 330px}
+.left,.right{min-height:0;background:var(--shell);display:flex;flex-direction:column}
+.left{border-right:1px solid var(--line)}
+.right{border-left:1px solid var(--line)}
+.scroll{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#35525d transparent}
+.left .scroll,.right .scroll{padding:9px 10px}
+.sect{display:flex;justify-content:space-between;align-items:center;color:var(--faint);
+  font-size:9px;text-transform:uppercase;letter-spacing:.9px;padding:4px 3px 5px}
+.sect span:last-child{text-transform:none;letter-spacing:0;color:var(--accent)}
+.country-list{display:flex;flex-direction:column;gap:4px}
+.country{width:100%;display:grid;grid-template-columns:4px 1fr auto;gap:7px;align-items:center;
+  background:transparent;border:1px solid transparent;border-radius:8px;padding:7px 8px;text-align:left}
+.country::before{content:"";width:4px;height:28px;border-radius:3px;background:var(--c)}
+.country.selected{background:var(--panel-2);border-color:var(--line-2)}
+.country b{display:block;font-size:11px;font-weight:600;line-height:1.25;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.country small{display:block;color:var(--muted);font-size:9.5px;white-space:nowrap}
+.tag{font-size:8px;border:1px solid var(--line);border-radius:4px;padding:1px 4px;color:var(--muted)}
+.tag.llm{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
+.tag.player{color:var(--good);border-color:#4c7256}
+.player-banner{margin:5px 2px 8px;padding:8px 9px;border:1px solid #4c7157;
+  border-radius:7px;background:#10281f;color:#cbe3cf;font-size:10px;line-height:1.5}
+.player-banner b{display:block;color:#9fd3ab;font-size:10.5px;margin-bottom:2px}
+.activity{display:flex;flex-direction:column;gap:6px}
+.job{border:1px solid var(--line);border-radius:7px;padding:6px 7px;background:#0b2029}
+.job-head{display:flex;justify-content:space-between;gap:7px;font-size:9.5px;color:var(--muted)}
+.job-head b{color:var(--ink);font-weight:600;font-size:10px;display:flex;gap:5px;align-items:center}
+.job-head img{width:18px;height:18px;object-fit:cover;border-radius:4px;flex:none}
+.job-bar{height:4px;border-radius:4px;background:#1b363f;margin-top:5px;overflow:hidden}
+.job-bar i{display:block;height:100%;border-radius:4px;background:var(--c);width:0;transition:width .45s linear}
+.job-sub{display:flex;justify-content:space-between;color:var(--faint);font-size:8.5px;margin-top:3px}
+.nojobs{padding:7px 3px;color:var(--faint);font-size:10px}
+.mapwrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:#0b2732}
+#map{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
+#map.drag{cursor:grabbing}
+.map-toolbar{position:absolute;left:12px;right:12px;top:11px;display:flex;justify-content:space-between;
+  gap:10px;pointer-events:none;z-index:2}
+.map-tools,.layer-note{pointer-events:auto;background:#0a202bd9;border:1px solid #385662;
+  border-radius:8px;backdrop-filter:blur(8px)}
+.map-tools{display:flex;flex-wrap:wrap;gap:3px;padding:3px;max-width:calc(100% - 150px)}
+.map-tools button{min-height:28px;border:0;background:transparent;color:var(--muted);font-size:10px;padding:3px 7px}
+.map-tools button.on{background:var(--panel-3);color:var(--accent)}
+.layer-note{padding:7px 9px;color:var(--muted);font-size:9.5px;line-height:1.45;max-width:210px}
+.layer-note b{color:var(--ink);font-weight:600}
+.map-legend{position:absolute;left:13px;bottom:10px;display:flex;flex-wrap:wrap;gap:8px;
+  padding:5px 8px;border-radius:6px;background:#0a202bcf;color:var(--muted);font-size:9px;
+  backdrop-filter:blur(6px);pointer-events:none}
+.map-legend i{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:3px}
+.ticker{position:absolute;right:13px;bottom:10px;max-width:56%;padding:6px 9px;border-radius:6px;
+  border-left:2px solid var(--accent);background:#0a202be8;color:var(--muted);font-size:9.5px;
+  backdrop-filter:blur(7px);pointer-events:none;line-height:1.45}
+.ticker b{color:var(--ink);font-weight:500}
+.hover-card{position:absolute;display:none;min-width:165px;padding:7px 9px;border:1px solid #4a6873;
+  border-radius:7px;background:#0a202bf2;color:var(--muted);font-size:9.5px;pointer-events:none;z-index:4;
+  box-shadow:var(--shadow)}
+.hover-card b{display:block;color:var(--ink);font-size:10.5px;margin-bottom:2px}
+.toast{position:absolute;left:50%;bottom:44px;transform:translateX(-50%) translateY(14px);
+  padding:8px 12px;border-radius:7px;background:#0e2a35;border:1px solid #4d6c77;color:var(--ink);
+  font-size:10.5px;opacity:0;pointer-events:none;transition:.2s;z-index:5;max-width:75%;text-align:center}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.bad{border-color:#8b5149;background:#301b1b}
+.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);flex:none}
+.tabs button{min-height:40px;border:0;border-radius:0;background:transparent;color:var(--muted);font-size:10.5px}
+.tabs button.on{color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
+.panel{display:none;flex-direction:column;gap:9px}
+.panel.on{display:flex}
+.heading{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.heading h2{font-size:15px;font-weight:600;margin:0}
+.heading small{display:block;color:var(--muted);font-size:9.5px;margin-top:2px}
+.pill{padding:2px 6px;border-radius:999px;border:1px solid var(--line);color:var(--accent);font-size:8.5px;white-space:nowrap}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.stat{border:1px solid var(--line);background:#0b2029;border-radius:6px;padding:5px 7px}
+.stat small{display:block;color:var(--muted);font-size:8.5px}
+.stat b{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums}
+.split{display:flex;justify-content:space-between;gap:8px;color:var(--muted);font-size:9.5px}
+.split b{color:var(--ink);font-weight:500}
+.bar{height:4px;border-radius:4px;background:#1a343e;overflow:hidden;margin-top:4px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:4px}
+.victory-row{margin:7px 0 9px}
+.victory-row .split b{color:var(--text)}
+.victory-row.done .split b{color:var(--good)}
+.victory-row .bar i{background:linear-gradient(90deg,var(--accent),#86c9a0)}
+.kv{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #1f3843;padding:5px 0;
+  color:var(--muted);font-size:10px}
+.kv b{color:var(--ink);font-weight:500;text-align:right}
+.advisor{border:1px solid color-mix(in srgb,var(--accent) 40%,var(--line));border-radius:8px;
+  background:#0c222b;padding:8px}
+.advisor-head{display:flex;justify-content:space-between;gap:7px;align-items:center;
+  color:var(--accent);font-size:9px;letter-spacing:.4px}
+.advisor-head small{color:var(--muted);font-size:8.5px}
+.advisor p{margin:5px 0;font-size:10px;color:#cbdadd;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:3px}
+.chip{font-size:8.5px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.action-row{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-top:3px}
+.action-row button{min-height:36px;font-size:10.5px}
+.manage{border:1px solid var(--line);border-radius:7px;padding:7px;background:#0b2029;
+  display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.manage label{display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:8.5px}
+.manage select{min-height:30px;padding:2px 5px;font-size:10px;background:var(--panel-2)}
+.manage .wide{grid-column:1/-1}
+.presets{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.presets button{min-height:31px;font-size:9px;padding:2px 4px}
+.build-card{border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.build-option{display:grid;grid-template-columns:38px 1fr auto;gap:7px;align-items:center;
+  padding:7px 8px;border-bottom:1px solid #1f3843;background:#0b2029}
+.build-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;border:1px solid #2f4853;
+  background:#142832;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.road-thumb i{display:block;width:27px;height:3px;border-radius:3px;background:#d8b476;
+  box-shadow:0 0 0 2px #2d2a23,0 0 7px #d8b47655;position:relative}
+.road-thumb i::before,.road-thumb i::after{content:"";position:absolute;top:-3px;width:7px;height:9px;
+  background:#d8b476;border-radius:2px}.road-thumb i::before{left:0}.road-thumb i::after{right:0}
+.build-option:last-child{border-bottom:0}
+.build-option b{display:block;font-size:10.5px;font-weight:600}
+.build-option small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
+.build-option button{min-height:30px;min-width:48px;font-size:9.5px}
+.hint{color:var(--faint);font-size:9.5px;line-height:1.5;padding:2px 0}
+.event-list{display:flex;flex-direction:column;gap:4px}
+.event{display:grid;grid-template-columns:38px 1fr;gap:6px;background:#0b2029;border-left:2px solid #3e5c67;
+  border-radius:5px;padding:5px 6px;font-size:9.5px;color:#b8cacd}
+.event .ed{color:var(--faint);font-variant-numeric:tabular-nums}
+.event b{color:var(--ink);font-weight:600}
+.event.action{border-left-color:#8fc17c}
+.event.build{border-left-color:var(--accent)}
+.event.trade{border-left-color:var(--blue)}
+.event.hazard{border-left-color:var(--bad);background:#261919}
+.event.research{border-left-color:#b394d3}
+.event.meta{border-left-color:#6d8d97}
+.mini-empty{color:var(--faint);font-size:10px;padding:8px 0}
+.observer-note{padding:7px 8px;border:1px solid #35525e;border-radius:7px;background:#0b2029;
+  color:var(--muted);font-size:9.5px;line-height:1.5}
+.observer-note b{color:var(--ink)}
+.modal{position:fixed;inset:0;background:#020a0ed9;backdrop-filter:blur(4px);z-index:50;
+  display:grid;place-items:center;padding:18px}
+.modal[hidden]{display:none}
+.modal-card{width:min(820px,96vw);max-height:88vh;overflow:auto;background:var(--shell);
+  border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:16px}
+.modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}
+.modal-head h2{font-size:16px;margin:0}.modal-head p{margin:3px 0 0;color:var(--muted);font-size:10.5px}
+.ai-country{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0b2029;margin-bottom:8px}
+.ai-country-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.ai-country-head b{font-size:11px;font-weight:600}
+.ai-fields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.ai-fields label{display:flex;flex-direction:column;gap:2px;color:var(--muted);font-size:8.5px}
+.ai-fields input,.ai-fields select{min-height:30px;padding:3px 6px;font-size:10px;
+  background:var(--panel-2);color:var(--ink);border:1px solid var(--line-2);border-radius:6px}
+.ai-fields .wide{grid-column:1/-1}
+.key-state{font-size:9px;color:var(--muted)}.key-state.ok{color:var(--good)}.key-state.missing{color:var(--warn)}
+.ai-actions-row{display:flex;justify-content:flex-end;margin-top:6px}
+@media(max-width:1120px){
+  .workspace{grid-template-columns:196px minmax(300px,1fr) 300px}
+  .topbar{grid-template-columns:190px minmax(230px,1fr) auto}
+  .res{min-width:64px}
+}
+@media(max-width:920px){
+  html,body{overflow:auto}.app{height:auto;min-height:100%}
+  .topbar{grid-template-columns:1fr auto;height:auto;min-height:74px}
+  .power{grid-column:1/-1;justify-content:flex-start;order:3}
+  .workspace{display:flex;flex-direction:column}
+  .left{order:2;border-right:0;border-top:1px solid var(--line)}
+  .left .scroll{max-height:290px}
+  .country-list{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+  .mapwrap{height:58vh;min-height:430px;order:1}
+  .right{order:3;border-left:0;border-top:1px solid var(--line)}
+  .right .scroll{max-height:none}
+}
+@media(max-width:560px){
+  .topbar{grid-template-columns:1fr}
+  .timebox{justify-self:start;flex-wrap:wrap}
+  .date{text-align:left}
+  .power{display:grid;grid-template-columns:1fr 1fr}
+  .res{min-width:0}
+  .mapwrap{height:56vh;min-height:360px}
+  .country-list{grid-template-columns:1fr}
+  .layer-note{display:none}
+  .ticker{display:none}
+  .tabs button{font-size:9px}
+}
+</style>
+</head>
+<body>
+<div class="screen menu" id="menuScreen">
+  <div class="menu-inner">
+    <div class="brand"><div class="sigil"><span>E</span></div>
+      <div><div class="menu-kicker">A LIVING WORLD · 2000 BCE</div></div></div>
+    <h1>PROJECT <span>EOS</span></h1>
+    <p class="menu-lead">一个会自己运行、也会等待你介入的文明沙盘。选择存档继续，或生成新的公平世界与四国。</p>
+    <div class="menu-actions">
+      <button class="primary" id="continueBtn">继续游戏 <small id="continueMeta">读取最近存档</small></button>
+      <button id="loadMenuBtn">载入存档 <small id="saveCount">0 个存档</small></button>
+      <button id="newWorldMenuBtn">新建世界 <small>随机地图与自定义国家</small></button>
+      <button id="menuAgentsBtn">AI 席位 <small>逐国选择模型</small></button>
+    </div>
+  </div>
+  <div class="menu-foot"><span>Project Eos · deterministic simulation</span><span>本地观察台 127.0.0.1</span></div>
+</div>
+<div class="screen load-screen" id="loadScreen" hidden>
+  <div class="load-head"><h1>载入存档</h1><button id="loadBackBtn">返回主菜单</button></div>
+  <div class="save-list" id="saveList"></div>
+</div>
+<div class="app" id="app" hidden>
+  <header class="topbar">
+    <div class="brand">
+      <div class="sigil"><span>E</span></div>
+      <div><h1>PROJECT EOS</h1><small id="eraLine">时代 I · 青铜时代早期</small></div>
+    </div>
+    <div class="power" id="powerBar"></div>
+    <div class="timebox">
+      <div class="modebar">
+        <button id="observeBtn">观战</button>
+        <button id="interveneBtn">介入</button>
+        <button id="techBtn">科技</button>
+        <button id="diploBtn">外交</button>
+        <button id="militaryBtn">军事</button>
+        <button id="cityBtn">城市</button>
+        <button id="gameMenuBtn">菜单</button>
+      </div>
+      <div class="date"><b id="date">正在载入</b><small id="nextPlan">连接本地世界</small></div>
+      <div class="timebtns">
+        <button class="pause" id="pauseBtn">Ⅱ</button>
+        <button class="speed" data-speed="1">1×</button>
+        <button class="speed on" data-speed="2">2×</button>
+        <button class="speed" data-speed="4">4×</button>
+        <button class="speed" data-speed="8">8×</button>
+        <button id="stepBtn">›</button>
+      </div>
+    </div>
+  </header>
+  <main class="workspace">
+    <aside class="left">
+      <div class="scroll">
+        <div class="player-banner" id="playerBanner" hidden></div>
+        <div class="sect"><span>世界列国</span><span>点击选择</span></div>
+        <div class="country-list" id="countries"></div>
+        <div class="sect" style="margin-top:8px"><span>建设进度</span><span id="jobCount">0 项</span></div>
+        <div class="activity" id="activities"></div>
+      </div>
+    </aside>
+    <section class="mapwrap">
+      <canvas id="map"></canvas>
+      <div class="map-toolbar">
+        <div class="map-tools">
+          <button class="on" data-layer="satellite">卫星</button>
+          <button data-layer="political">政治</button>
+          <button data-layer="terrain">海拔</button>
+          <button data-layer="rain">降水</button>
+          <button data-layer="resources">资源</button>
+          <button data-layer="routes">交通</button>
+        </div>
+        <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。艺术品可后续替换。</div>
+      </div>
+      <div class="map-legend" id="mapLegend"></div>
+      <div class="ticker" id="ticker"></div>
+      <div class="hover-card" id="hoverCard"></div>
+      <div class="toast" id="toast"></div>
+    </section>
+    <aside class="right">
+      <div class="tabs">
+        <button data-tab="country">国家</button>
+        <button data-tab="tile">地块</button>
+        <button class="on" data-tab="activity">动态</button>
+        <button data-tab="ranking">排名</button>
+      </div>
+      <div class="scroll">
+        <div class="panel" id="panel-country"></div>
+        <div class="panel" id="panel-tile"></div>
+        <div class="panel on" id="panel-activity"></div>
+        <div class="panel" id="panel-ranking"></div>
+      </div>
+    </aside>
+  </main>
+</div>
+<div class="end-modal" id="endModal" hidden>
+  <div class="end-card">
+    <div class="end-kicker">ERA REPORT · 本阶段结算</div>
+    <h2 id="endTitle">世界排名</h2>
+    <div class="end-sub" id="endSubtitle"></div>
+    <div class="rank-list" id="endRanking"></div>
+    <div class="end-actions">
+      <button id="endMenuBtn">返回主菜单</button>
+      <button class="primary" id="endContinueBtn">继续观察一年</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="techModal" hidden>
+  <div class="modal-card" style="width:min(1120px,96vw)">
+    <div class="modal-head">
+      <div><h2>科技树</h2><p id="techSubtitle">三条研究线共同决定时代推进</p></div>
+      <button id="techCloseBtn">关闭</button>
+    </div>
+    <div class="tech-grid" id="techGrid"></div>
+    <div class="hint" id="techHint"></div>
+  </div>
+</div>
+<div class="modal" id="diploModal" hidden>
+  <div class="modal-card" style="width:min(900px,96vw)">
+    <div class="modal-head">
+      <div><h2>外交</h2><p id="diploSubtitle">关系、贸易协定与双边提案</p></div>
+      <button id="diploCloseBtn">关闭</button>
+    </div>
+    <div id="diploBody"></div>
+  </div>
+</div>
+<div class="modal" id="militaryModal" hidden>
+  <div class="modal-card" style="width:min(880px,96vw)">
+    <div class="modal-head">
+      <div><h2>军事</h2><p id="militarySubtitle">常备军、边境战与战争疲劳</p></div>
+      <button id="militaryCloseBtn">关闭</button>
+    </div>
+    <div id="militaryBody"></div>
+  </div>
+</div>
+<div class="modal" id="cityModal" hidden>
+  <div class="modal-card" style="width:min(960px,96vw)">
+    <div class="modal-head">
+      <div><h2>城市</h2><p id="citySubtitle">城市人口、城域与独立发展方针</p></div>
+      <button id="cityCloseBtn">关闭</button>
+    </div>
+    <div class="city-grid" id="cityGrid"></div>
+    <div id="cityDetail" hidden style="margin-top:10px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">
+        <button id="cityDetailBack">返回城市列表</button>
+        <span class="key-state" id="cityDetailTitle"></span>
+        <button id="cityGovernanceBtn" hidden>切换托管</button>
+      </div>
+      <div class="city-detail">
+        <canvas id="cityCanvas"></canvas>
+        <div class="city-side">
+          <h4>粮食账本</h4>
+          <div class="city-coord" id="cityFoodInfo">等待首个结算日</div>
+          <div class="hint" id="cityGovNote"></div>
+          <h4>地方预算</h4>
+          <div class="zone-grid" id="cityBudgetPalette"></div>
+          <div class="city-coord" id="cityBudgetInfo">等待首个结算日</div>
+          <div class="hint" id="cityBudgetHint">紧缩节省财政但降低服务；投资提升宜居和增长，但由全国财政补贴。</div>
+          <h4>本地地块</h4>
+          <div class="city-coord" id="cityTileInfo">点击地图选择地块</div>
+          <div class="zone-grid" id="cityZonePalette"></div>
+          <div class="hint" id="cityZoneHint">住宅提供住房，农业和工矿区提高本地食物/矿业产出，商贸与学术区为全国税收和研究提供加成。</div>
+        </div>
+      </div>
+    </div>
+    <div class="hint">城市是独立经营单位：人口按城市住房增长，城域地块和设施决定本地农业/矿业潜力。发展方针直接乘入对应城市地块的产出。前哨会建立新城市，并从母城迁入居民。</div>
+  </div>
+</div>
+<div class="pause-menu" id="pauseMenu" hidden>
+  <div class="pause-card">
+    <div class="menu-kicker">PROJECT EOS</div>
+    <h2>游戏暂停</h2>
+    <div class="pause-sub" id="pauseStatus">时间已冻结</div>
+    <div class="pause-list">
+      <button class="primary" id="resumeGameBtn">继续游戏 <small>Esc</small></button>
+      <button id="pauseSaveBtn">保存游戏 <small>当前存档</small></button>
+      <button id="pauseLoadBtn">载入存档 <small>切换时间线</small></button>
+      <button id="pauseAgentsBtn">AI 席位 <small>逐国模型</small></button>
+      <button id="pauseMainBtn">返回主菜单 <small>自动保存</small></button>
+    </div>
+    <div class="pause-foot"><span>游戏时间已停止</span><span>Project Eos · v0.5</span></div>
+  </div>
+</div>
+<div class="modal" id="agentsModal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><h2>国家 AI 席位</h2><p>逐国选择 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
+      <button id="agentsClose">关闭</button>
+    </div>
+    <div class="observer-note" id="agentsBudget" style="margin-bottom:10px"></div>
+    <div id="agentsList"></div>
+  </div>
+</div>
+<div class="modal" id="newWorldModal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><h2>生成新世界</h2><p>系统已自动填入默认四国；不修改任何内容也能直接开始。地图会自动搜索并选择地理公平度更高的种子。</p></div>
+      <button id="newWorldClose">关闭</button>
+    </div>
+    <div class="ai-fields" style="margin-bottom:10px">
+      <label>存档名称（留空自动生成）<input id="saveName" maxlength="50" placeholder="自动"></label>
+      <label>地图种子（留空自动搜索公平地图）<input id="worldSeed" placeholder="自动" inputmode="numeric"></label>
+      <label>开局年份<input id="startYearValue" type="number" min="1" max="800" value="800"></label>
+      <label>纪年<select id="startYearEra"><option value="BCE">公元前 BCE</option><option value="CE">公元 CE</option></select></label>
+      <div class="wide key-state" id="startEraPreview" style="padding:4px 0">公元前 800 年 → 时代 II · 铁器时代，科技从 2 级起步</div>
+    </div>
+    <div id="setupCountries"></div>
+    <div class="ai-actions-row" style="justify-content:space-between;align-items:center">
+      <span class="key-state" id="setupStatus">四国初始各获得 16 格连通核心领土。</span>
+      <button class="primary" id="generateWorldBtn">生成并开始</button>
+    </div>
+  </div>
+</div>
+<script>
+const BIOME_COLORS={ocean:'#1b526d',alpine:'#8f9d99',tundra:'#9ba78f',
+  desert:'#d1b475',steppe:'#b4b178',savanna:'#9db06c',grassland:'#789f70',
+  forest:'#3d7a61',rainforest:'#286d54',wetland:'#5a9584'};
+const BIOME_NAMES={ocean:'海洋',alpine:'高山',tundra:'冻原',desert:'沙漠',steppe:'半干旱草原',
+  savanna:'稀树草原',grassland:'草原',forest:'森林',rainforest:'雨林',wetland:'湿地'};
+const BUILD_NAMES={FARM:'农田',MINE:'矿场',ROAD:'道路',GRANARY:'粮仓',IRRIGATION:'灌溉渠',
+  WORKSHOP:'工坊',LIBRARY:'书库',MARKET:'市场',TEMPLE:'神庙',GREAT_GRANARY:'大粮仓',
+  GREAT_FORGE:'大工坊',GREAT_LIBRARY:'大书库'};
+const BUILD_COLORS={FARM:'#d9b268',MINE:'#b7a18a',ROAD:'#8da4a7',GRANARY:'#c7b36c',
+  IRRIGATION:'#67a7a3',WORKSHOP:'#b89a7a',LIBRARY:'#829bc3',MARKET:'#c1a05a',TEMPLE:'#ad8fbe',
+  GREAT_GRANARY:'#f5d67d',GREAT_FORGE:'#e0b279',GREAT_LIBRARY:'#9db8e8'};
+const BUILD_ICON={FARM:'farm',MINE:'mine',GRANARY:'granary',
+  IRRIGATION:'irrigation',WORKSHOP:'workshop',LIBRARY:'library',MARKET:'market',TEMPLE:'temple',
+  GREAT_GRANARY:'great_granary',GREAT_FORGE:'great_forge',GREAT_LIBRARY:'great_library'};
+const ICONS={};
+for(const name of ['farm','mine','granary','irrigation','workshop',
+  'library','market','temple','great_granary','great_forge','great_library']){
+  const image=new Image();image.src='/assets/icons/'+name+'.png';
+  image.onload=()=>{if(WORLD)render(true);};
+  ICONS[name]=image;
+}
+const COUNTRY_COLORS={ELAR:'#e7b45f',MARIS:'#63b1c9',VAYR:'#d97f75',SAHAR:'#b98bcb'};
+const POLICY_LABELS={BALANCED:'均衡施政',AGRICULTURE:'农业优先',INDUSTRY:'工业优先',
+  RESEARCH:'学术优先',TRADE:'贸易优先',AUSTERITY:'紧缩政策'};
+const RESEARCH_LABELS={agriculture:'农业',bronze_metallurgy:'冶金',writing:'文字'};
+const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
+let WORLD=null,STATE=null,selectedCountry='ELAR',selectedTile=null,mapMode='satellite',rightTab='activity';
+let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
+let hoveredTile=null;
+const $=id=>document.getElementById(id);
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function tileKey(col,row){return col+','+row;}
+function getTile(col,row){return WORLD?.tileMap?.[tileKey(col,row)];}
+function countryMeta(id){return WORLD?.polities?.find(p=>p.id===id);}
+function countryColor(id){return countryMeta(id)?.color||COUNTRY_COLORS[id]||'#aaa';}
+function fmtNum(n,d=1){return Number(n??0).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});}
+function fmtInt(n){return Number(n??0).toLocaleString();}
+function fmtSelfSuff(ratio){if(!(ratio>0))return '—';return ratio>=2?`×${ratio.toFixed(1)}`:`${Math.round(ratio*100)}%`;}
+function cx(t){return Math.sqrt(3)*(t[0]+.5*(t[1]&1));}
+function cy(t){return 1.5*t[1];}
+function showToast(text,bad=false){
+  const el=$('toast');el.textContent=text;el.className='toast show'+(bad?' bad':'');
+  clearTimeout(showToast.timer);showToast.timer=setTimeout(()=>el.className='toast',3200);
+}
+function resize(){
+  const dpr=Math.min(window.devicePixelRatio||1,2),w=mapPanel.clientWidth,h=mapPanel.clientHeight;
+  canvas.width=Math.max(1,Math.floor(w*dpr));canvas.height=Math.max(1,Math.floor(h*dpr));
+  canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(WORLD)fitMap();else render();
+}
+function fitMap(){
+  const w=mapPanel.clientWidth,h=mapPanel.clientHeight,bw=Math.sqrt(3)*(WORLD.metadata.grid_width+1),bh=1.5*(WORLD.metadata.grid_height+1);
+  fitScale=Math.min((w-50)/bw,(h-66)/bh);baseOffX=(w-bw*fitScale)/2+Math.sqrt(3)*fitScale*.5;
+  baseOffY=(h-bh*fitScale)/2+1.5*fitScale;zoom=1;panX=0;panY=0;render(true);
+}
+function hexPath(x,y,r=.98){ctx.beginPath();for(let i=0;i<6;i++){
+  const a=(60*i-30)*Math.PI/180,xx=x+r*Math.cos(a),yy=y+r*Math.sin(a);
+  if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}ctx.closePath();}
+function dynamicOwnerMap(){
+  const owners={};
+  if(STATE)for(const [cid,c] of Object.entries(STATE.countries))for(const [col,row] of (c.tiles||[]))owners[col+','+row]=cid;
+  return owners;
+}
+function selectedTileData(){
+  if(!selectedTile)return null;const raw=getTile(selectedTile[0],selectedTile[1]);
+  const owner=dynamicOwnerMap()[selectedTile[0]+','+selectedTile[1]]||raw?.[4]||null;
+  return raw?{col:raw[0],row:raw[1],land:raw[2],biome:raw[3],owner,river:!!raw[5]}:null;
+}
+function hexDistance(a,b){
+  const q1=a[0]-((a[1]-(a[1]&1))>>1),q2=b[0]-((b[1]-(b[1]&1))>>1);
+  const dq=q1-q2,dr=a[1]-b[1];return (Math.abs(dq)+Math.abs(dr)+Math.abs(dq+dr))/2;
+}
+const HEX_DIR_EVEN=[[1,0],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]];
+const HEX_DIR_ODD=[[1,0],[1,-1],[0,-1],[-1,0],[0,1],[1,1]];
+function hexNeighbors(coord){
+  return (coord[1]&1?HEX_DIR_ODD:HEX_DIR_EVEN)
+    .map(([dx,dy])=>[coord[0]+dx,coord[1]+dy])
+    .filter(neighbor=>getTile(neighbor[0],neighbor[1])?.[2]);
+}
+function shortestLandPath(start,end){
+  if(start[0]===end[0]&&start[1]===end[1])return [start];
+  const key=start.join(',')+'>'+end.join(',');
+  if(roadPathCache[key])return roadPathCache[key];
+  const queue=[start],previous=new Map([[start.join(','),null]]);
+  let head=0,found=false;
+  while(head<queue.length&&!found){
+    const current=queue[head++];
+    for(const next of hexNeighbors(current)){
+      const id=next.join(',');if(previous.has(id))continue;
+      previous.set(id,current);
+      if(next[0]===end[0]&&next[1]===end[1]){found=true;break;}
+      queue.push(next);
+    }
+    if(queue.length>6000)break;
+  }
+  if(!found){roadPathCache[key]=null;return null;}
+  const path=[];let current=end;
+  while(current){path.push(current);current=previous.get(current.join(','));}
+  path.reverse();roadPathCache[key]=path;return path;
+}
+let roadPathCache={},roadNetworkCache={key:'',segments:[]};
+function roadSegments(){
+  if(!STATE||!WORLD)return [];
+  const roadTiles=STATE.buildings.filter(item=>item[2]==='ROAD');
+  const key=Object.keys(STATE.countries).map(id=>(STATE.countries[id].tiles?.length||0)).join('|')+'~'+
+    roadTiles.map(item=>item[0]+','+item[1]+','+item[3]).sort().join('|');
+  if(roadNetworkCache.key===key)return roadNetworkCache.segments;
+  const segments=[];
+  for(const polity of WORLD.polities){
+    const ownRoads=roadTiles.filter(item=>item[3]===polity.id).map(item=>[item[0],item[1]]);
+    if(!ownRoads.length)continue;
+    const network=[[polity.capital.col,polity.capital.row]];
+    ownRoads.sort((a,b)=>hexDistance(a,network[0])-hexDistance(b,network[0]));
+    for(const road of ownRoads){
+      let nearest=network[0],best=hexDistance(road,nearest);
+      for(const node of network){const distance=hexDistance(road,node);if(distance<best){nearest=node;best=distance;}}
+      const path=shortestLandPath(nearest,road);
+      if(path&&path.length>1){
+        segments.push({country:polity.id,points:path});
+        for(const point of path)network.push(point);
+      }
+    }
+  }
+  roadNetworkCache={key,segments};return segments;
+}
+function drawRoadNetwork(scale,strong=false){
+  const segments=roadSegments();if(!segments.length)return;
+  ctx.lineCap='round';ctx.lineJoin='round';
+  for(const segment of segments){
+    ctx.beginPath();ctx.moveTo(cx(segment.points[0]),cy(segment.points[0]));
+    for(let i=1;i<segment.points.length;i++)ctx.lineTo(cx(segment.points[i]),cy(segment.points[i]));
+    ctx.strokeStyle='#171b18';ctx.globalAlpha=.82;
+    ctx.lineWidth=Math.max(.12,(strong?2.1:1.7)/scale);ctx.stroke();
+    ctx.strokeStyle=strong?'#e9c57e':'#d0aa6d';ctx.globalAlpha=1;
+    ctx.lineWidth=Math.max(.07,(strong?1.05:.82)/scale);ctx.stroke();
+    for(const point of [segment.points[0],segment.points[segment.points.length-1]]){
+      ctx.beginPath();ctx.arc(cx(point),cy(point),Math.max(.07,.36/scale),0,Math.PI*2);
+      ctx.fillStyle=strong?'#e9c57e':'#d0aa6d';ctx.fill();
+      ctx.strokeStyle='#28251e';ctx.lineWidth=Math.max(.025,.12/scale);ctx.stroke();
+    }
+  }
+  ctx.lineCap='butt';
+}
+function canSettleHere(tile){
+  if(!tile?.land||tile.owner||!STATE?.player_country)return false;
+  const country=STATE.countries[STATE.player_country];
+  if((country.outposts||[]).length>=STATE.expansion.max_outposts)return false;
+  if(country.population<STATE.expansion.minimum_population)return false;
+  return (country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
+}
+function adjacencyOwner(col,row){
+  if(!STATE)return null;
+  for(const [cid,c] of Object.entries(STATE.countries))if((c.tiles||[]).some(coord=>hexDistance([col,row],coord)===1))return cid;
+  return null;
+}
+function buildingAt(col,row){
+  if(!STATE)return null;
+  for(const [c,r,b,cid] of STATE.buildings)if(c===col&&r===row)return {building:b,country:cid,project:false,progress:1};
+  for(const [c,r,b,cid,remaining,progress] of STATE.projects)if(c===col&&r===row)return {building:b,country:cid,project:true,remaining,progress};
+  return null;
+}
+function mix(rgbA,rgbB,t){return rgbA.map((v,i)=>Math.round(v+(rgbB[i]-v)*Math.max(0,Math.min(1,t))));}
+function rgb(arr){return `rgb(${arr[0]},${arr[1]},${arr[2]})`;}
+function elevationColor(elev){
+  const stops=[[0,[184,205,168]],[250,[151,182,133]],[650,[190,185,132]],[1200,[176,151,109]],[1900,[153,135,117]],[2600,[178,172,160]],[3400,[232,232,220]]];
+  const z=Math.max(0,elev);
+  for(let i=1;i<stops.length;i++)if(z<=stops[i][0]){
+    const t=(z-stops[i-1][0])/(stops[i][0]-stops[i-1][0]);return rgb(mix(stops[i-1][1],stops[i][1],t));
+  }
+  return 'rgb(238,238,230)';
+}
+function satelliteColor(t){
+  if(!t[2]){
+    const depth=Math.max(0,Math.min(1,(-t[7])/1400));
+    return rgb(mix([35,89,112],[7,30,45],depth));
+  }
+  const elev=Math.max(0,t[7]),precip=t[8],biome=t[3];
+  let base;
+  if(biome==='desert')base=[201,177,124];
+  else if(biome==='alpine')base=[153,162,158];
+  else if(biome==='tundra')base=[151,164,144];
+  else if(biome==='forest')base=[72,119,84];
+  else if(biome==='rainforest')base=[46,104,74];
+  else if(biome==='wetland')base=[92,145,128];
+  else if(biome==='steppe')base=[164,156,111];
+  else if(biome==='savanna')base=[158,166,98];
+  else base=[124,158,105];
+  const dry=1-Math.min(1,precip/1200);
+  base=mix(base,[142,117,81],dry*.5);
+  base=mix(base,[176,180,168],Math.min(1,elev/3000)*.45);
+  const west=getTile(t[0]-1,t[1]),north=getTile(t[0],t[1]-1);
+  const relief=((west?west[7]-elev:0)+(north?north[7]-elev:0))*.00032;
+  const shade=Math.max(-.16,Math.min(.16,relief));
+  const noise=((Math.sin(t[0]*12.9898+t[1]*78.233)*43758.5453)%1)*7;
+  return rgb(base.map(v=>Math.max(0,Math.min(255,v*(1+shade)+noise))));
+}
+function rainColor(t){return rgb(mix([206,190,147],[31,93,127],Math.min(1,t[8]/1500)));}
+function dominantResource(t){
+  if(!t[2])return null;
+  const scores={
+    grain:(['grassland','wetland','savanna'].includes(t[3])?.55:.15)+Math.min(1,t[8]/1100)*.3+(t[5]?.25:0),
+    metal:Math.max(0,t[7]-280)/2100+(['steppe','alpine'].includes(t[3])?.15:0),
+    timber:(['forest','rainforest'].includes(t[3])?.75:0)+(t[5]?.1:0),
+    stone:t[7]>1050?Math.min(.9,(t[7]-800)/1800):0,
+    pasture:['steppe','savanna'].includes(t[3])?.58:0
+  };
+  const type=Object.entries(scores).sort((a,b)=>b[1]-a[1])[0];
+  return type[1]>.24?type[0]:null;
+}
+const RESOURCE_STYLE={
+  grain:{color:'#d8c165',angle:0,width:.09,spacing:.28},
+  metal:{color:'#b9c5ce',angle:Math.PI/3,width:.08,spacing:.3},
+  timber:{color:'#56a276',angle:Math.PI/2,width:.1,spacing:.32},
+  stone:{color:'#b6a99d',angle:-Math.PI/4,width:.08,spacing:.34},
+  pasture:{color:'#b6b77c',angle:0,width:.05,spacing:.42}
+};
+function drawResourcePattern(type,x,y,rad){
+  const style=RESOURCE_STYLE[type];if(!style)return;
+  ctx.save();ctx.beginPath();
+  for(let i=0;i<6;i++){const a=(60*i-30)*Math.PI/180,xx=x+rad*.92*Math.cos(a),yy=y+rad*.92*Math.sin(a);if(i)ctx.lineTo(xx,yy);else ctx.moveTo(xx,yy);}
+  ctx.closePath();ctx.clip();ctx.strokeStyle=style.color;ctx.lineWidth=style.width;
+  for(let offset=-rad*.7;offset<=rad*.7;offset+=style.spacing){
+    const dx=Math.cos(style.angle)*rad,dy=Math.sin(style.angle)*rad;
+    ctx.beginPath();ctx.moveTo(x-offset-dx,y-offset+dy);ctx.lineTo(x-offset+dx,y-offset-dy);ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawNetwork(scale,owners){
+  const riverTiles=WORLD.tiles.filter(t=>t[5]&&t[6]);
+  ctx.strokeStyle='#5babc7';ctx.globalAlpha=.82;ctx.lineWidth=Math.max(.06,.14/scale);
+  for(const t of riverTiles){
+    const d=t[6];if(!d)continue;
+    ctx.beginPath();ctx.moveTo(cx(t),cy(t));ctx.lineTo(cx(d),cy(d));ctx.stroke();
+  }
+  ctx.globalAlpha=1;
+}
+function render(force=false){
+  const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
+  const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0)].join('~');
+  if(!force&&key===renderKey)return;renderKey=key;
+  const w=mapPanel.clientWidth,h=mapPanel.clientHeight;ctx.clearRect(0,0,w,h);
+  if(!WORLD)return;
+  const scale=fitScale*zoom,owners=dynamicOwnerMap();
+  ctx.save();ctx.translate(baseOffX+panX,baseOffY+panY);ctx.scale(scale,scale);
+  ctx.lineWidth=Math.max(.05,.2/scale);
+  for(const t of WORLD.tiles){
+    const owner=owners[t[0]+','+t[1]]||t[4];
+    const x=cx(t),y=cy(t);hexPath(x,y);
+    if(mapMode==='satellite'){
+      ctx.fillStyle=satelliteColor(t);ctx.fill();ctx.strokeStyle='rgba(6,20,26,.08)';ctx.stroke();
+    }else if(mapMode==='political'){
+      ctx.fillStyle=BIOME_COLORS[t[3]]||'#71857b';ctx.fill();
+      if(owner){ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.33;ctx.fill();ctx.globalAlpha=1;
+        ctx.strokeStyle=countryColor(owner)+'aa';ctx.stroke();}
+      else{ctx.strokeStyle='rgba(5,24,31,.18)';ctx.stroke();}
+    }else if(mapMode==='terrain'){
+      ctx.fillStyle=!t[2]?satelliteColor(t):elevationColor(t[7]);ctx.fill();
+      ctx.strokeStyle='rgba(5,24,31,.12)';ctx.stroke();
+    }else if(mapMode==='rain'){
+      ctx.fillStyle=!t[2]?'#143c4d':rainColor(t);ctx.fill();ctx.strokeStyle='rgba(5,24,31,.12)';ctx.stroke();
+    }else if(mapMode==='resources'){
+      if(!t[2]){
+        ctx.fillStyle='#0b2833';ctx.fill();
+      }else{
+        ctx.fillStyle='#13262c';ctx.fill();
+        const resource=dominantResource(t);
+        if(resource)drawResourcePattern(resource,x,y,1);
+      }
+      ctx.strokeStyle='rgba(120,160,160,.12)';ctx.stroke();
+    }else if(mapMode==='routes'){
+      ctx.fillStyle=!t[2]?'#0b2833':'#233a38';ctx.fill();ctx.strokeStyle='rgba(122,150,146,.13)';ctx.stroke();
+      if(owner){ctx.strokeStyle=countryColor(owner)+'88';ctx.stroke();}
+    }
+  }
+  if(mapMode==='routes'){
+    drawNetwork(scale,owners);
+  }else if(mapMode==='satellite'||mapMode==='political'||mapMode==='terrain'){
+    ctx.strokeStyle='#5babc7';ctx.lineWidth=Math.max(.03,.08/scale);ctx.globalAlpha=.5;
+    for(const t of WORLD.tiles){if(!t[5]||!t[6])continue;ctx.beginPath();ctx.moveTo(cx(t),cy(t));ctx.lineTo(cx(t[6]),cy(t[6]));ctx.stroke();}
+    ctx.globalAlpha=1;
+  }
+  if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes');
+  if(STATE&&mapMode!=='resources'){
+    for(const [col,row,building,cid] of STATE.buildings){
+      if(building==='ROAD')continue;
+      const p=[col,row],x=cx(p),y=cy(p),image=ICONS[BUILD_ICON[building]];
+      if(image&&image.complete&&image.naturalWidth){
+        ctx.drawImage(image,x-.66,y-.66,1.32,1.32);
+      }else{
+        ctx.beginPath();ctx.arc(x,y,.32,0,Math.PI*2);ctx.fillStyle=BUILD_COLORS[building]||'#ddd';ctx.fill();
+        ctx.strokeStyle='#07171e';ctx.lineWidth=.1;ctx.stroke();
+      }
+    }
+    ctx.lineWidth=Math.max(.12,.11/scale);
+    for(const [col,row,building,cid,remaining,progress] of STATE.projects){
+      const p=[col,row],x=cx(p),y=cy(p),image=ICONS[BUILD_ICON[building]];
+      ctx.beginPath();ctx.arc(x,y,.56,0,Math.PI*2);ctx.strokeStyle=countryColor(cid)||'#fff';ctx.globalAlpha=.42;ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,.56,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.02,Math.min(1,progress)));
+      ctx.strokeStyle=countryColor(cid)||'#fff';ctx.globalAlpha=1;ctx.stroke();
+      if(building==='ROAD'){
+        ctx.setLineDash([.18,.12]);ctx.strokeStyle='#e5c07b';ctx.lineWidth=Math.max(.07,.09/scale);
+        ctx.beginPath();ctx.moveTo(x-.42,y+.24);ctx.lineTo(x+.42,y-.24);ctx.stroke();ctx.setLineDash([]);
+      }else if(image&&image.complete&&image.naturalWidth){
+        ctx.globalAlpha=.66;ctx.drawImage(image,x-.5,y-.5,1,1);ctx.globalAlpha=1;
+      }else{
+        ctx.beginPath();ctx.arc(x,y,.19,0,Math.PI*2);ctx.fillStyle=BUILD_COLORS[building]||'#ddd';ctx.fill();
+      }
+    }
+  }
+  if(STATE){
+    for(const [cid,c] of Object.entries(STATE.countries)){
+      for(const city of c.cities||[]){
+        if(city.city_id===`${cid}-C1`)continue;
+        const x=cx(city.center),y=cy(city.center);
+        ctx.beginPath();ctx.rect(x-.18,y-.18,.36,.36);ctx.fillStyle='#e8ddc4';ctx.fill();
+        ctx.strokeStyle=countryColor(cid);ctx.lineWidth=Math.max(.05,.16/scale);ctx.stroke();
+      }
+      if(!c.army_position||c.army_strength<=0)continue;
+      const x=cx(c.army_position),y=cy(c.army_position);
+      ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
+      ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=countryColor(cid);
+      ctx.lineWidth=Math.max(.07,.2/scale);ctx.stroke();
+      ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(c.army_strength),x,y+.02);
+    }
+  }
+  for(const p of WORLD.polities){
+    const c=p.capital,x=cx([c.col,c.row]),y=cy([c.col,c.row]);
+    ctx.beginPath();ctx.arc(x,y,.6,0,Math.PI*2);ctx.fillStyle=countryColor(p.id)||'#fff';ctx.fill();
+    ctx.strokeStyle='#07171e';ctx.lineWidth=.14;ctx.stroke();
+    ctx.fillStyle='#fff9ea';ctx.font=`600 ${.72}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y+.03);
+  }
+  if(selectedTile){
+    const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
+    ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
+  }
+  ctx.restore();
+}
+function updateMapLegend(){
+  const items={
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346']],
+    political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
+    terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
+    rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],
+    resources:[['粮食','#d8c165'],['金属','#b9c5ce'],['木材','#56a276'],['石料','#b6a99d'],['牧草','#b6b77c']],
+    routes:[['道路','#e5c07b'],['河流','#5babc7'],['贸易联系','#d4a856']]
+  };
+  $('mapLegend').innerHTML=(items[mapMode]||[]).map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
+}
+function nextPlanning(){
+  if(!STATE)return 0;const interval=90;return ((Math.floor(STATE.day/interval)+1)*interval)-STATE.day;
+}
+function renderTop(){
+  if(!STATE)return;
+  const country=STATE.countries[selectedCountry],meta=countryMeta(selectedCountry);
+  document.documentElement.style.setProperty('--accent',countryColor(selectedCountry));
+  $('eraLine').textContent=(country.era?.short||'时代')+' · '+(country.era?.name||'');
+  $('date').textContent=STATE.date;
+  $('nextPlan').textContent=`游戏日 ${STATE.day} / ${STATE.maximum_day} · 下一规划 ${nextPlanning()} 日`;
+  $('pauseBtn').textContent=STATE.paused?'▶':'Ⅱ';
+  for(const b of document.querySelectorAll('.speed'))b.classList.toggle('on',Number(b.dataset.speed)===STATE.speed);
+  $('observeBtn').classList.toggle('on',STATE.mode==='observer');
+  $('interveneBtn').classList.toggle('on',STATE.mode==='player');
+  $('interveneBtn').textContent=STATE.mode==='player'?'治理中':'介入';
+  const bld=Object.keys(country.buildings).length;
+  const rank=(STATE.ranking||[]).findIndex(entry=>entry.country_id===selectedCountry);
+  $('powerBar').innerHTML=`
+    <div class="res"><small>${esc(meta?.name||selectedCountry)}</small><b style="color:${countryColor(selectedCountry)}">${esc(selectedCountry)}</b></div>
+    <div class="res"><small>存粮 / 仓容</small><b>${fmtNum(country.food)} / ${fmtNum(country.food_capacity,0)}</b></div>
+    <div class="res"><small>财政</small><b>${fmtNum(country.treasury)}</b></div>
+    <div class="res"><small>人口 / 住房</small><b>${fmtInt(country.population)} / ${fmtNum(country.housing,0)}k</b></div>
+    <div class="res"><small>稳定度</small><b style="color:${country.stability<35?'var(--bad)':country.stability>65?'var(--good)':'var(--ink)'}">${fmtNum(country.stability,0)}</b></div>
+    <div class="res"><small>${esc(country.city_tier||'聚落')} · 世界第 ${rank+1}</small><b>${fmtNum(country.total,0)} 分</b></div>`;
+  const banner=$('playerBanner');
+  if(STATE.player_country){
+    banner.hidden=false;banner.innerHTML=`<b>治理权 · ${esc(STATE.player_country)}</b>你正在接管该国。AI 决策已暂停，点击己方地块即可建造。`;
+  }else banner.hidden=true;
+}
+function renderCountries(){
+  if(!STATE)return;
+  $('countries').innerHTML=WORLD.polities.map(p=>{
+    const c=STATE.countries[p.id],agent=STATE.agents?.[p.id]||{};
+    const controlled=STATE.player_country===p.id,llm=agent.mode==='openai_compatible';
+    const tag=controlled?'<span class="tag player">玩家</span>':(llm?'<span class="tag llm">AI</span>':'<span class="tag">AI</span>');
+    return `<button class="country ${p.id===selectedCountry?'selected':''}" data-country="${p.id}" style="--c:${countryColor(p.id)}">
+      <span><b>${esc(p.name)}</b><small>粮 ${fmtNum(c.food,0)} · 财 ${fmtNum(c.treasury,0)} · 设施 ${Object.keys(c.buildings).length}</small></span>${tag}
+    </button>`;
+  }).join('');
+  for(const b of document.querySelectorAll('#countries .country'))b.onclick=()=>selectCountry(b.dataset.country);
+  const projects=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
+  $('jobCount').textContent=`${projects.length} 项`;
+  $('activities').innerHTML=projects.length?projects.map(p=>{
+    const [col,row,building,cid,remaining,progress]=p,pct=Math.max(0,Math.min(100,progress*100));
+    const icon=BUILD_ICON[building];
+    return `<div class="job" style="--c:${countryColor(cid)}">
+      <div class="job-head"><b>${icon?`<img src="/assets/icons/${icon}.png" alt="">`:''}${esc(cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
+      <div class="job-bar"><i style="width:${pct}%"></i></div>
+      <div class="job-sub"><span>地块 ${col},${row}</span><span>${pct.toFixed(0)}%</span></div>
+    </div>`;
+  }).join(''):'<div class="nojobs">当前没有在建工程</div>';
+}
+function renderRight(){
+  if(!STATE)return;
+  const c=STATE.countries[selectedCountry],meta=countryMeta(selectedCountry),agent=STATE.agents?.[selectedCountry]||{};
+  const llmEvents=STATE.latest_llm_decision?.country_id===selectedCountry?[STATE.latest_llm_decision]:[];
+  const decision=llmEvents[0]?.decision;
+  const source=agent.mode==='openai_compatible'?`${(agent.provider||'').toUpperCase()} · ${agent.model||''}`:'规则 AI';
+  $('panel-country').innerHTML=`
+    <div class="heading"><div><h2>${esc(meta?.name||selectedCountry)}</h2><small>${esc(c.city_tier||'聚落')} · ${esc(c.specialization||'综合聚落')} · ${esc(POLICY_LABELS[c.policy]||c.policy)} · ${esc(source)}</small></div>
+    <span class="pill">${STATE.player_country===selectedCountry?'玩家治理':(agent.mode==='openai_compatible'?'LLM 控制':'AI 控制')}</span></div>
+    <div class="stats">
+      <div class="stat"><small>存粮</small><b>${fmtNum(c.food)}</b></div>
+      <div class="stat"><small>财政</small><b>${fmtNum(c.treasury)}</b></div>
+      <div class="stat"><small>综合评分</small><b>${fmtNum(c.total,0)}</b></div>
+    </div>
+    <div class="split"><span>领先路线</span><b>${esc(c.victory_label||'均衡')} · 繁荣 ${fmtNum(c.breakdown?.prosperity,0)} / 知识 ${fmtNum(c.breakdown?.knowledge,0)} / 疆域 ${fmtNum(c.breakdown?.dominion,0)} / 安定 ${fmtNum(c.breakdown?.harmony,0)}</b></div>
+    <div class="sect"><span>胜利目标</span><span>${STATE.victory?.winner?`${esc(countryMeta(STATE.victory.winner)?.name||STATE.victory.winner)} 已达成`:'文明竞赛中'}</span></div>
+    ${Object.values(c.victory?.conditions||{}).map(v=>`<div class="victory-row ${v.achieved?'done':''}">
+      <div class="split"><span>${esc(v.label)}${v.achieved?' ✓':''}</span><b>${Math.round((v.progress||0)*100)}%</b></div>
+      <div class="bar"><i style="width:${Math.min(100,(v.progress||0)*100)}%"></i></div>
+      <div class="hint" style="font-size:8.5px;margin-top:2px">${esc(v.detail)}</div>
+    </div>`).join('')}
+    <div class="split"><span>存粮 / 仓容</span><b>${fmtNum(c.food)} / ${fmtNum(c.food_capacity,0)}</b></div>
+    <div class="bar"><i style="width:${Math.min(100,c.food/Math.max(c.food_capacity,1)*100)}%"></i></div>
+    <div class="split"><span>日产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
+    <div class="split"><span>人口 / 住房容量</span><b>${fmtInt(c.population)} / ${fmtNum(c.housing,0)}k</b></div>
+    <div class="split"><span>城市 / 军队 / 战争疲劳</span><b>${c.cities?.length||0} · ${c.army_strength} · ${fmtNum(c.war_exhaustion,1)}${c.at_war_with?.length?' · 交战中':''}</b></div>
+    <div class="bar"><i style="width:${Math.min(100,c.population/1000/Math.max(c.housing,1)*100)}%;background:${c.population/1000>=c.housing-1?'var(--warn)':'var(--good)'}"></i></div>
+    <div class="split"><span>稳定度 · 产出系数 ${fmtNum(c.stability_factor,2)}</span><b>${c.stability<35?'动荡':(c.stability>65?'安定':'平稳')}</b></div>
+    <div class="split"><span>劳动力 · 农业 ${Math.round((c.workers?.agriculture||0)*100)}%</span><b>矿业 ${Math.round((c.workers?.mining||0)*100)}%</b></div>
+    ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>日 ${STATE.latest_llm_decision.day}</small></div>
+      <p>${esc(decision.reason||'无说明')}</p><div class="chips">${(decision.actions||[]).map(a=>`<span class="chip">${esc(fmtAction(a))}</span>`).join('')}</div></div>`:''}
+    <div class="split"><span>建设队列</span><b>${c.projects} 项</b></div>
+    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option"><span class="hint">暂无在建工程</span></div>'}</div>
+    ${STATE.player_country===selectedCountry?`
+      <div class="sect"><span>国策命令</span><span>即时生效</span></div>
+      <div class="manage">
+        <label>税率
+          <select id="taxSelect">${[0.05,0.08,0.1,0.15,0.2,0.25].filter(v=>v<=STATE.maximum_tax_rate).map(v=>`<option value="${v}" ${Math.abs(v-c.tax_rate)<.001?'selected':''}>${Math.round(v*100)}%</option>`).join('')}</select>
+        </label>
+        <label>研究领域
+          <select id="researchSelect">${STATE.research_fields.map(f=>`<option value="${f}" ${f===c.research_field?'selected':''}>${esc(RESEARCH_LABELS[f]||f)}</option>`).join('')}</select>
+        </label>
+        <label class="wide">国家政策
+          <select id="policySelect">${STATE.policy_options.map(p=>`<option value="${p}" ${p===c.policy?'selected':''}>${esc(POLICY_LABELS[p]||p)}</option>`).join('')}</select>
+        </label>
+        <div class="presets wide">
+          <button data-preset="farm">农业优先</button>
+          <button data-preset="industry">矿业优先</button>
+          <button data-preset="build">建设优先</button>
+        </div>
+      </div>`:''}
+    <div class="action-row">
+      <button class="primary" id="controlCountryBtn">${STATE.player_country===selectedCountry?'退出介入':(STATE.player_country?'切换治理':'介入该国')}</button>
+      <button id="focusCapitalBtn">定位都城</button>
+    </div>
+    <div class="hint">${STATE.player_country===selectedCountry?'政府在当前暂停状态下等待你的命令。地图上点击己方地块可建设。':'观战模式下可查看该国全部资源、决策与建设；介入后 AI 将停止替该国决策。'}</div>`;
+  const btn=$('controlCountryBtn');
+  if(btn)btn.onclick=()=>{
+    if(STATE.player_country===selectedCountry)control('observe');
+    else control('take_control',selectedCountry);
+  };
+  $('focusCapitalBtn').onclick=()=>{const p=meta.capital;selectedTile=[p.col,p.row];render(true);renderRight();showDetailTab();};
+  const taxSelect=$('taxSelect');
+  if(taxSelect)taxSelect.onchange=()=>submitPlayerAction({type:'SET_TAX',rate:Number(taxSelect.value)},'税率已调整');
+  const researchSelect=$('researchSelect');
+  if(researchSelect)researchSelect.onchange=()=>submitPlayerAction({type:'SET_RESEARCH',field:researchSelect.value},'研究领域已调整');
+  const policySelect=$('policySelect');
+  if(policySelect)policySelect.onchange=()=>submitPlayerAction({type:'SET_POLICY',priority:policySelect.value},'国家政策已调整');
+  const workerPresets={
+    farm:{agriculture:.65,mining:.15,construction:.2},
+    industry:{agriculture:.45,mining:.35,construction:.2},
+    build:{agriculture:.5,mining:.15,construction:.35}
+  };
+  for(const btn of document.querySelectorAll('[data-preset]')){
+    btn.onclick=()=>{
+      const workers=workerPresets[btn.dataset.preset];
+      submitPlayerAction({type:'ALLOCATE_WORKERS',...workers},'劳动力分配已调整');
+    };
+  }
+
+  const tile=selectedTileData(),b=selectedTile?(buildingAt(selectedTile[0],selectedTile[1])):null;
+  if(!tile){
+    $('panel-tile').innerHTML='<div class="heading"><div><h2>未选择地块</h2><small>点击地图查看地块详情</small></div></div><div class="hint">地图是主要操作面。选择地块后，这里会显示地形、设施和可建造选项。</div>';
+  }else{
+    const player=STATE.player_country?STATE.countries[STATE.player_country]:null;
+    const owned=STATE.player_country&&selectedCountry===STATE.player_country&&tile.owner===STATE.player_country;
+    const settling=canSettleHere(tile);
+    const specs=STATE.building_specs||{};
+    const buildRows=owned?Object.entries(specs).map(([key,spec])=>{
+      const allowed=(spec.allowed_biomes||[]).includes(tile.biome);
+      const req=spec.required_technology;
+      const techOk=!req||(player.technology?.[req.field]||0)>=req.level;
+      const riverOk=!spec.requires_river||tile.river;
+      const existing=Object.values(player.buildings).filter(x=>x===key).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===key).length;
+      const limitOk=!spec.max_per_country||existing<spec.max_per_country;
+      const moneyOk=player.treasury>=spec.cost;
+      const blocked=!!b || !allowed || !techOk || !riverOk || !limitOk || !moneyOk;
+      const why=!allowed?'地形不符':(!techOk?`需要 ${req.field} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
+      const icon=BUILD_ICON[key];
+      const thumb=key==='ROAD'
+        ?'<span class="build-thumb road-thumb"><i></i></span>'
+        :(icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`);
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
+    }).join(''):'';
+    $('panel-tile').innerHTML=`
+      <div class="heading"><div><h2>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
+      <span class="pill">${b?(b.project?'施工中':'已建设'):'未建设'}</span></div>
+      <div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
+      <div class="kv"><span>地形</span><b>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</b></div>
+      <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
+      ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
+      ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
+        (settling?`<div class="sect"><span>边疆开拓</span><span>${STATE.expansion.treasury_cost} 财政</span></div>
+          <div class="build-card"><div class="build-option"><div><b>建立前哨</b><small>将此地纳入领土 · 与己方领土相邻</small></div><button id="settleBtn">开拓</button></div></div>`:
+        `<div class="observer-note"><b>${STATE.player_country?'不可开拓':'观战视角'}</b>${STATE.player_country?'此处要么已有主权，要么不与本国领土相邻。':'只有接管一个国家后，才能开拓或建设。'}</div>`)}
+    `;
+    for(const btn of document.querySelectorAll('[data-build]')){
+      btn.onclick=()=>submitBuild(tile.col,tile.row,btn.dataset.build);
+    }
+    const settleBtn=$('settleBtn');
+    if(settleBtn)settleBtn.onclick=()=>submitPlayerAction({type:'SETTLE',tile:{col:tile.col,row:tile.row}},'前哨已建立，国界已扩展');
+  }
+
+  const events=STATE.recent_events.map(formatEvent).filter(Boolean).slice(-70).reverse();
+  $('panel-activity').innerHTML=`<div class="heading"><div><h2>世界动态</h2><small>AI 动作、施工与外交记录</small></div><span class="pill">${events.length} 条</span></div>
+    <div class="observer-note"><b>观战记录</b> 这里展示 AI 正在做什么。左侧进度条随施工推进，完工后地图设施点会点亮。</div>
+    <div class="event-list">${events.map(e=>`<div class="event ${e[2]}"><span class="ed">日 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">尚未产生事件</div>'}</div>`;
+  const ranking=STATE.ranking||[];
+  $('panel-ranking').innerHTML=`<div class="heading"><div><h2>世界排名</h2><small>繁荣、知识、疆域与安定的综合竞争</small></div><span class="pill">${esc(STATE.leader||'')} 领先</span></div>
+    <div class="rank-list">${ranking.map((entry,index)=>{
+      const c=STATE.countries[entry.country_id];
+      return `<div class="rank-row"><span class="rank-no">${index+1}</span>
+        <div class="rank-name"><b style="color:${countryColor(entry.country_id)}">${esc(countryMeta(entry.country_id)?.name||entry.country_id)}</b><small>${esc(entry.victory_label)}路线</small></div>
+        <div class="rank-path">繁荣 ${fmtNum(entry.breakdown.prosperity,0)} · 知识 ${fmtNum(entry.breakdown.knowledge,0)}<br>疆域 ${fmtNum(entry.breakdown.dominion,0)} · 安定 ${fmtNum(entry.breakdown.harmony,0)}</div>
+        <span class="rank-score">${fmtNum(entry.total,1)}</span></div>`;
+    }).join('')}</div>
+    <div class="hint">评分每 90 日规划阶段后更新，四条路线分别奖励人口与仓容、科技与书库、领土与前哨、稳定度与住房。没有任何单一资源可以独占排名。</div>`;
+  const tick=events.slice(0,2).map(e=>`<b>${e[0]}</b> ${e[1]}`).join('　·　');
+  $('ticker').innerHTML=tick||'等待世界动态';
+}
+function fmtAction(a){
+  if(!a)return'无动作';
+  if(a.type==='BUILD')return`建${BUILD_NAMES[a.building]||a.building} (${a.tile?.col},${a.tile?.row})`;
+  if(a.type==='ALLOCATE_WORKERS')return`农业 ${Math.round(a.agriculture*100)}%`;
+  if(a.type==='SET_POLICY')return`政策 ${a.policy||a.priority}`;
+  if(a.type==='SET_RESEARCH')return`研究 ${a.field}`;
+  if(a.type==='SET_TAX')return`税率 ${Math.round(a.rate*100)}%`;
+  if(a.type==='TRADE')return`交易 ${a.operation||'提议'}`;
+  if(a.type==='SETTLE')return`开拓 (${a.tile?.col},${a.tile?.row})`;
+  return a.type||'动作';
+}
+function formatEvent(e){
+  if(!e)return null;const d=e.day;
+  switch(e.type){
+    case 'outpost_founded':return[d,`<b>${esc(e.country_id)}</b> 在 (${e.tile.col},${e.tile.row}) 建立前哨 · 国界扩展`,'build'];
+    case 'construction_started':return[d,`<b>${esc(e.country_id)}</b> 开始建设 ${esc(BUILD_NAMES[e.building]||e.building)} · (${e.tile.col},${e.tile.row})`,'build'];
+    case 'construction_completed':return[d,`<b>${esc(e.country_id)}</b> 完成 ${esc(BUILD_NAMES[e.building]||e.building)} · 地图设施点已出现`,'build'];
+    case 'agent_decision':return[d,`<b>${esc(e.country_id)}</b> AI 决议：${esc((e.reason||'').slice(0,100))}`,'action'];
+    case 'action_result':
+      if(e.action_type==='BUILD'||e.action_type==='TRADE')return[d,`<b>${esc(e.actor)}</b> ${esc(e.action_type)} · ${e.accepted?'通过':'拒绝'}${e.accepted?'':` · ${esc(e.reason_code)}`}`,'action'];
+      return null;
+    case 'llm_decision':return[d,`<b>${esc(e.country_id)} · 模型决议</b> ${esc((e.decision?.reason||'').slice(0,100))}`,'action'];
+    case 'llm_call':return e.status==='success'?[d,`<b>DeepSeek</b> 调用完成 · ${e.usage?.total_tokens||'?'} Token`,'meta']:[d,`<b>DeepSeek</b> 调用失败，规则回退`,'hazard'];
+    case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
+    case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
+    case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
+    case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募军队，规模 ${e.strength}`,'action'];
+    case 'army_marched':return[d,`<b>${esc(e.country_id)}</b> 行军至 (${e.tile.col},${e.tile.row})`,'action'];
+    case 'army_desertion':return[d,`<b>${esc(e.country_id)}</b> 军饷不足，军队规模降至 ${e.strength}`,'hazard'];
+    case 'war_declared':return[d,`<b>${esc(e.attacker)}</b> 向 <b>${esc(e.defender)}</b> 宣战`,'hazard'];
+    case 'battle':return[d,`<b>${esc(e.attacker)}</b> 与 <b>${esc(e.defender)}</b> 边境战${e.captured?'，占领一块领土':''}`,'hazard'];
+    case 'peace_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议和平`,'trade'];
+    case 'peace_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 停战`,'trade'];
+    case 'diplomatic_gift':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 赠礼 ${fmtNum(e.amount,1)}，关系升至 ${e.relation}`,'trade'];
+    case 'pact_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议贸易协定`,'trade'];
+    case 'pact_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 贸易协定生效，关系升至 ${e.relation}`,'trade'];
+    case 'pact_rejected':return[d,`${esc(e.actor)} 拒绝贸易协定`,'trade'];
+    case 'pact_expired':return[d,`协定提案 ${esc(e.proposal_id)} 到期`,'trade'];
+    case 'trade_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议贸易`,'trade'];
+    case 'trade_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 交易完成`,'trade'];
+    case 'trade_expired':return[d,`交易 ${esc(e.proposal_id)} 到期`,'trade'];
+    case 'hazard_impact':return[d,`<b>${esc(e.country_id)}</b> ${e.hazard_type==='flood'?'洪水':'干旱'}损失 ${fmtNum(e.food_loss,1)} 粮`,'hazard'];
+    case 'stability_crisis':return[d,`<b>${esc(e.country_id)}</b> 社会动荡 · 粮 ${fmtNum(e.food_loss,1)} / 财 ${fmtNum(e.treasury_loss,1)} 流失`,'hazard'];
+    case 'social_event':
+      if(e.event==='court_corruption')return[d,`<b>${esc(e.country_id)}</b> 宫廷腐败，财政 -${fmtNum(e.treasury_loss,1)}，稳定 -${e.stability_loss}`,'hazard'];
+      if(e.event==='harvest_festival')return[d,`<b>${esc(e.country_id)}</b> 举办丰收祭，稳定 +${e.stability_gain}`,'research'];
+      if(e.event==='craftsmen_migration')return[d,`<b>${esc(e.country_id)}</b> 工匠迁入，人口 +${e.population_gain}`,'research'];
+      return null;
+    case 'food_shortage':return[d,`<b>${esc(e.country_id)}</b> 缺粮，人口 -${e.population_loss}`,'hazard'];
+    case 'weather_month':return[d,`第 ${e.month} 月天气结算完成`,'meta'];
+    case 'control_changed':return[d,e.mode==='player'?`<b>${esc(e.country_id)}</b> 由玩家接管`:'返回观战模式','meta'];
+    case 'population_growth':return null;
+    default:return null;
+  }
+}
+function selectTab(name){
+  rightTab=name;
+  for(const b of document.querySelectorAll('.tabs button'))b.classList.toggle('on',b.dataset.tab===name);
+  for(const p of document.querySelectorAll('.panel'))p.classList.toggle('on',p.id==='panel-'+name);
+}
+function showDetailTab(){selectTab('tile');}
+function selectCountry(cid){
+  selectedCountry=cid;selectedTile=null;
+  if(STATE?.mode==='player'&&STATE.player_country!==cid)showToast(`当前治理 ${STATE.player_country}；切换到 ${cid} 需要重新介入。`);
+  renderTop();renderCountries();renderRight();render(true);
+}
+async function control(action,value){
+  try{
+    const r=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value})});
+    const data=await r.json();
+    if(!data.ok)showToast(data.error||'操作失败',true);
+    await poll(true);
+    if(action==='take_control'){selectTab('country');showToast(`已接管 ${value}，AI 已停止替该国决策`);}
+    if(action==='observe'){selectTab('activity');showToast('已返回观战模式');}
+  }catch(err){showToast('本地模拟服务连接中断',true);}
+}
+async function submitPlayerAction(action,successText){
+  if(!STATE?.player_country)return;
+  try{
+    const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({actor:STATE.player_country,action})});
+    const data=await r.json();
+    if(data.ok)showToast(successText);
+    else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
+    await poll(true);
+  }catch(err){showToast('命令请求失败',true);}
+}
+function submitBuild(col,row,building){
+  return submitPlayerAction(
+    {type:'BUILD',tile:{col,row},building},
+    `已下令建设 ${BUILD_NAMES[building]||building}`
+  );
+}
+function setOffline(flag){if(flag)showToast('观察台连接中断',true);}
+async function poll(force=false){
+  try{
+    const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw new Error('state');
+    STATE=await r.json();
+    if(force===true){
+      lastStateKey='';renderTop();renderCountries();renderRight();render(true);
+      if(STATE.finished&&!endShown)showEndScreen();
+    }else renderIfChanged();
+    return STATE;
+  }catch(e){setOffline(true);}
+}
+let lastStateKey='';
+function renderIfChanged(){
+  const key=STATE?[STATE.day,STATE.paused,STATE.mode,STATE.player_country,STATE.finished,selectedCountry,STATE.buildings.length,STATE.projects.map(x=>x.join(',')).join('|')].join('~'):'';
+  if(key===lastStateKey)return;lastStateKey=key;
+  const active=document.activeElement;
+  const editingRight=active&&['SELECT','INPUT'].includes(active.tagName)&&active.closest('.right');
+  renderTop();renderCountries();if(!editingRight)renderRight();render();
+  if(STATE?.finished&&!endShown)showEndScreen();
+}
+function showEndScreen(){
+  if(!STATE||endShown)return;endShown=true;
+  const leader=STATE.countries[STATE.leader];
+  const leaderMeta=countryMeta(STATE.leader);
+  const winner=STATE.victory?.winner?STATE.countries[STATE.victory.winner]:null;
+  const winnerMeta=STATE.victory?.winner?countryMeta(STATE.victory.winner):null;
+  if(winner){
+    $('endTitle').textContent=`${winnerMeta?.name||STATE.victory.winner} 达成${STATE.victory.label}`;
+    $('endSubtitle').textContent=`${STATE.date} · 游戏日 ${STATE.day} · 综合评分 ${fmtNum(winner.total,1)} · ${STATE.victory.condition}`;
+  }else{
+    $('endTitle').textContent=`${leaderMeta?.name||STATE.leader} 暂时领先`;
+    $('endSubtitle').textContent=`${STATE.date} · 游戏日 ${STATE.day} · 当前综合评分 ${fmtNum(leader?.total,1)}`;
+  }
+  $('endRanking').innerHTML=(STATE.ranking||[]).map((entry,i)=>{
+    const c=STATE.countries[entry.country_id],meta=countryMeta(entry.country_id);
+    return `<div class="rank-row"><span class="rank-no">${i+1}</span>
+      <div class="rank-name"><b style="color:${countryColor(entry.country_id)}">${esc(meta?.name||entry.country_id)}</b><small>${esc(c.city_tier)} · ${esc(entry.victory_label)}路线${c.victory?.any?` · ${esc(c.victory.label)}`:''}</small></div>
+      <div class="rank-path">人口 ${fmtInt(c.population)} · 科技合计 ${Object.values(c.technology).reduce((a,b)=>a+b,0)} · 领土 ${c.tiles.length}</div>
+      <span class="rank-score">${fmtNum(entry.total,1)}</span></div>`;
+  }).join('');
+  $('endModal').hidden=false;
+}
+$('endContinueBtn').onclick=async()=>{
+  $('endModal').hidden=true;endShown=false;
+  await control('extend_round');
+  await control('resume');
+};
+$('endMenuBtn').onclick=returnToMenu;
+function nearestTile(clientX,clientY){
+  if(!WORLD)return null;
+  const rect=canvas.getBoundingClientRect();
+  const x=(clientX-rect.left-baseOffX-panX)/(fitScale*zoom),y=(clientY-rect.top-baseOffY-panY)/(fitScale*zoom);
+  let row=Math.round(y/1.5),best=null,bd=1.1;
+  for(let rr=row-2;rr<=row+2;rr++){
+    if(rr<0||rr>=WORLD.metadata.grid_height)continue;
+    const col=Math.round(x/Math.sqrt(3)-.5*(rr&1));
+    for(let cc=col-2;cc<=col+2;cc++){
+      if(!getTile(cc,rr))continue;const d=Math.hypot(cx([cc,rr])-x,cy([cc,rr])-y);
+      if(d<bd){best=[cc,rr];bd=d;}
+    }
+  }
+  return best;
+}
+canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
+canvas.addEventListener('pointermove',e=>{
+  if(drag){
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;
+    panX+=dx;panY+=dy;drag={x:e.clientX,y:e.clientY};render(true);return;
+  }
+  const near=nearestTile(e.clientX,e.clientY),card=$('hoverCard');
+  if(!near){card.style.display='none';return;}
+  const t=getTile(near[0],near[1]),b=buildingAt(near[0],near[1]);
+  const hoverOwner=dynamicOwnerMap()[near[0]+','+near[1]]||t[4];
+  card.innerHTML=`<b>${esc(BIOME_NAMES[t[3]]||t[3])} · ${near[0]},${near[1]}</b>${hoverOwner?esc(countryMeta(hoverOwner)?.name||hoverOwner):'无国家控制'}${b?`<br>${esc(BUILD_NAMES[b.building]||b.building)}${b.project?' · 施工 '+Math.round(b.progress*100)+'%':''}`:''}`;
+  const rect=canvas.getBoundingClientRect();card.style.display='block';
+  card.style.left=Math.min(rect.width-190,e.clientX-rect.left+12)+'px';
+  card.style.top=Math.min(rect.height-70,e.clientY-rect.top+12)+'px';
+});
+canvas.addEventListener('pointerup',e=>{
+  if(!drag)return;const wasMoved=moved;
+  drag=null;canvas.classList.remove('drag');
+  if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near){selectedTile=near;renderRight();render(true);showDetailTab();}}
+  try{canvas.releasePointerCapture(e.pointerId);}catch(_){}
+});
+canvas.addEventListener('pointerleave',()=>{if(!drag)$('hoverCard').style.display='none';});
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();const rect=canvas.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top,old=zoom;
+  zoom=Math.max(.7,Math.min(8,zoom*Math.exp(-e.deltaY*.0013)));const k=zoom/old;
+  panX=mx-(mx-(baseOffX+panX))*k-baseOffX;panY=my-(my-(baseOffY+panY))*k-baseOffY;render(true);
+},{passive:false});
+for(const b of document.querySelectorAll('.tabs button'))b.onclick=()=>selectTab(b.dataset.tab);
+for(const b of document.querySelectorAll('.map-tools button'))b.onclick=()=>{
+  mapMode=b.dataset.layer;for(const x of document.querySelectorAll('.map-tools button'))x.classList.toggle('on',x===b);updateMapLegend();render(true);
+};
+$('pauseBtn').onclick=()=>control(STATE?.paused?'resume':'pause');
+$('stepBtn').onclick=()=>control('step');
+for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed',Number(b.dataset.speed));
+$('observeBtn').onclick=()=>{if(STATE?.mode==='player')control('observe');};
+$('interveneBtn').onclick=()=>{if(STATE?.mode!=='player')control('take_control',selectedCountry);};
+$('agentsClose').onclick=()=>$('agentsModal').hidden=true;
+$('agentsModal').onclick=e=>{if(e.target===$('agentsModal'))$('agentsModal').hidden=true;};
+$('newWorldClose').onclick=()=>$('newWorldModal').hidden=true;
+$('techBtn').onclick=openTechTree;
+$('techCloseBtn').onclick=closeTechTree;
+$('techModal').onclick=e=>{if(e.target===$('techModal'))closeTechTree();};
+$('diploBtn').onclick=openDiplomacy;
+$('diploCloseBtn').onclick=closeDiplomacy;
+$('diploModal').onclick=e=>{if(e.target===$('diploModal'))closeDiplomacy();};
+$('militaryBtn').onclick=openMilitary;
+$('militaryCloseBtn').onclick=closeMilitary;
+$('militaryModal').onclick=e=>{if(e.target===$('militaryModal'))closeMilitary();};
+$('cityBtn').onclick=openCities;
+$('cityCloseBtn').onclick=closeCities;
+$('cityModal').onclick=e=>{if(e.target===$('cityModal'))closeCities();};
+$('cityGovernanceBtn').onclick=()=>{
+  const city=currentCity();if(!city)return;
+  const next=city.managed_by==='ai'?'manual':'ai';
+  submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:city.city_id,managed_by:next},next==='ai'?'城市已交给AI托管':'城市已收回手动治理').then(()=>renderCityDetail());
+};
+$('startYearValue').oninput=updateStartEraPreview;
+$('startYearEra').onchange=()=>{
+  const bce=$('startYearEra').value==='BCE';
+  $('startYearValue').max=bce?'800':'500';
+  if(Number($('startYearValue').value)>(bce?800:500))$('startYearValue').value=bce?800:500;
+  updateStartEraPreview();
+};
+function updateStartEraPreview(){
+  const bce=$('startYearEra').value==='BCE',year=Number($('startYearValue').value||1);
+  const astronomical=bce?(1-year):year;
+  let era;
+  if(astronomical<=-500)era=['时代 II','铁器时代',2];
+  else if(astronomical<=0)era=['时代 III','古典时代',3];
+  else if(astronomical<=250)era=['时代 IV','帝国时代',4];
+  else era=['时代 V','晚期古典',5];
+  $('startEraPreview').textContent=`${bce?'公元前':'公元'} ${year} 年 → ${era[0]} · ${era[1]}，三条科技线从 ${era[2]} 级起步`;
+}
+$('newWorldModal').onclick=e=>{if(e.target===$('newWorldModal'))$('newWorldModal').hidden=true;};
+async function openNewWorld(){
+  try{
+    const r=await fetch('/api/setup');const data=await r.json();
+    $('setupCountries').innerHTML=data.countries.map((c,index)=>`<div class="ai-country" data-slot="${index}">
+      <div class="ai-country-head"><b>国家 ${index+1}</b><span class="key-state">${esc(data.archetypes[c.archetype])}</span></div>
+      <div class="ai-fields">
+        <label>国名<input data-field="name" value="${esc(c.name)}" maxlength="24"></label>
+        <label>颜色<input data-field="color" type="color" value="${esc(c.color)}"></label>
+        <label>文明类型<select data-field="archetype">${Object.entries(data.archetypes).map(([key,label])=>`<option value="${key}" ${key===c.archetype?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+        <label>初始人口<input data-field="population" type="number" min="8000" max="60000" value="${c.population}"></label>
+      </div>
+    </div>`).join('');
+    $('startYearValue').value=800;$('startYearEra').value='BCE';
+    $('startYearValue').max=800;updateStartEraPreview();
+    $('generateWorldBtn').disabled=false;
+    $('setupStatus').textContent=`已自动填入默认数据；四国各获得 ${data.core_tiles} 格连通核心领土。`;
+    $('newWorldModal').hidden=false;
+  }catch(err){showToast('无法读取新世界配置',true);}
+}
+$('generateWorldBtn').onclick=async()=>{
+  const button=$('generateWorldBtn');button.disabled=true;$('setupStatus').textContent='正在生成地图并评估公平度…';
+  const countries=[...document.querySelectorAll('#setupCountries .ai-country')].map(row=>{
+    const val=name=>row.querySelector(`[data-field="${name}"]`).value;
+    return {name:val('name').trim(),color:val('color'),archetype:val('archetype'),population:Number(val('population'))};
+  });
+  const seed=$('worldSeed').value.trim(),saveName=$('saveName').value.trim();
+  const bce=$('startYearEra').value==='BCE',year=Number($('startYearValue').value);
+  const startYear=bce?(1-year):year;
+  try{
+    const r=await fetch('/api/new_game',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({countries,seed:seed||null,save_name:saveName||null,start_year:startYear})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'生成失败');
+    $('newWorldModal').hidden=true;
+    await startSession();
+    showToast(`新世界已创建 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
+  }catch(err){button.disabled=false;$('setupStatus').textContent=`生成失败：${err.message}`;}
+};
+async function openAgents(){
+  try{
+    const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
+    $('agentsBudget').innerHTML=`模型只在每 90 日规划节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。`;
+    $('agentsList').innerHTML=Object.entries(data.countries).map(([cid,a])=>{
+      const mode=a.mode||'mock';
+      const keyClass=a.key_configured?'ok':'missing';
+      return `<div class="ai-country" data-country="${cid}">
+        <div class="ai-country-head"><b>${esc(cid)} · ${esc(countryMeta(cid)?.name||cid)}</b>
+          <span class="key-state ${keyClass}">${a.key_configured?'密钥环境变量已配置':'未检测到密钥'}</span></div>
+        <div class="ai-fields">
+          <label>控制方式<select data-field="mode"><option value="mock" ${mode==='mock'?'selected':''}>Mock 规则 AI</option><option value="openai_compatible" ${mode!=='mock'?'selected':''}>OpenAI 兼容模型</option></select></label>
+          <label>供应商<input data-field="provider" value="${esc(a.provider||'deepseek')}" placeholder="deepseek"></label>
+          <label>模型<input data-field="model" value="${esc(a.model||'deepseek-flash')}" placeholder="deepseek-flash"></label>
+          <label>密钥环境变量<input data-field="api_key_env" value="${esc(a.api_key_env||('EOS_AGENT_'+cid+'_API_KEY'))}" placeholder="EOS_AGENT_ELAR_API_KEY"></label>
+          <label class="wide">Base URL<input data-field="base_url" value="${esc(a.base_url||'https://api.deepseek.com')}" placeholder="https://api.deepseek.com"></label>
+          <label>超时秒数<input data-field="timeout_seconds" type="number" min="1" max="120" value="45"></label>
+          <label>重试次数<input data-field="retries" type="number" min="0" max="3" value="0"></label>
+          <label>最大输出 Token<input data-field="max_output_tokens" type="number" min="1" max="4000" value="4000"></label>
+        </div>
+        <div class="ai-actions-row"><button class="primary" data-save-agent>应用该席位</button></div>
+      </div>`;
+    }).join('');
+    for(const btn of document.querySelectorAll('[data-save-agent]'))btn.onclick=()=>saveAgent(btn.closest('.ai-country'));
+    $('agentsModal').hidden=false;
+  }catch(err){showToast('无法读取 AI 席位配置',true);}
+}
+async function saveAgent(row){
+  const cid=row.dataset.country;
+  const value=name=>row.querySelector(`[data-field="${name}"]`).value.trim();
+  const settings={mode:value('mode')};
+  if(settings.mode==='openai_compatible'){
+    settings.provider=value('provider');settings.model=value('model');settings.base_url=value('base_url');
+    settings.api_key_env=value('api_key_env');settings.timeout_seconds=Number(value('timeout_seconds'));
+    settings.retries=Number(value('retries'));settings.max_output_tokens=Number(value('max_output_tokens'));
+  }
+  try{
+    const r=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({country_id:cid,settings})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'配置失败');
+    showToast(`${cid} 已切换为 ${settings.mode==='mock'?'Mock':settings.model}`);
+    await openAgents();await poll(true);
+  }catch(err){showToast(`AI 配置失败：${err.message}`,true);}
+}
+window.addEventListener('resize',resize);
+let gameLoaded=false,pollTimer=null,latestSaves=[],pauseOpen=false,resumeAfterPause=false,loadOrigin='menu',endShown=false,techResume=false,diploResume=false,militaryResume=false,cityResume=false,selectedCityId=null,selectedCityTile=null;
+const bootParams=new URLSearchParams(location.search);
+function showOnlyScreen(name){
+  $('menuScreen').hidden=name!=='menu';
+  $('loadScreen').hidden=name!=='load';
+  $('app').hidden=name!=='game';
+}
+async function refreshSaves(){
+  const r=await fetch('/api/saves',{cache:'no-store'});const data=await r.json();
+  latestSaves=data.saves||[];
+  $('saveCount').textContent=`${latestSaves.length} 个存档`;
+  $('continueBtn').disabled=latestSaves.length===0;
+  $('continueMeta').textContent=latestSaves.length
+    ?`${latestSaves[0].name} · ${latestSaves[0].date}`:'没有可继续的存档';
+  $('menuAgentsBtn').disabled=!gameLoaded;
+  $('saveList').innerHTML=latestSaves.length?latestSaves.map(save=>`<div class="save-card">
+    <div><b>${esc(save.name)}</b><small>${esc(save.date)} · 日 ${save.day} · 种子 ${save.seed}</small>
+    <small>${esc(Object.values(save.countries||{}).join(' / '))}</small></div>
+    <div class="save-actions"><button data-load="${save.id}">载入</button><button data-delete="${save.id}">删除</button></div>
+  </div>`).join(''):'<div class="observer-note">还没有存档。新建一个世界后会自动建立第一个存档。</div>';
+  for(const btn of document.querySelectorAll('[data-load]'))btn.onclick=()=>loadSave(btn.dataset.load);
+  for(const btn of document.querySelectorAll('[data-delete]'))btn.onclick=()=>deleteSave(btn.dataset.delete);
+}
+async function startSession(){
+  const r=await fetch('/api/world');WORLD=await r.json();
+  WORLD.tileMap={};for(const t of WORLD.tiles)WORLD.tileMap[t[0]+','+t[1]]=t;
+  selectedCountry=WORLD.polities[0].id;selectedTile=null;endShown=false;
+  $('endModal').hidden=true;
+  const wantedLayer=bootParams.get('layer');
+  if(['satellite','political','terrain','rain','resources','routes'].includes(wantedLayer)){
+    mapMode=wantedLayer;
+    for(const b of document.querySelectorAll('.map-tools button'))b.classList.toggle('on',b.dataset.layer===wantedLayer);
+  }
+  showOnlyScreen('game');gameLoaded=true;
+  await new Promise(requestAnimationFrame);resize();fitMap();await poll(true);
+  renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('activity');
+  if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
+  await refreshSaves();
+  if(bootParams.get('tech')==='1')await openTechTree();
+  else if(bootParams.get('diplo')==='1')await openDiplomacy();
+  else if(bootParams.get('mil')==='1')await openMilitary();
+  else if(bootParams.get('city')==='1')await openCities();
+  else if(bootParams.get('citymap')==='1'){
+    await openCities();
+    const first=STATE.countries[selectedCountry].cities?.[0];
+    if(first)openCityDetail(first.city_id);
+  }
+}
+async function loadSave(id){
+  const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({operation:'load',id})});
+  const data=await r.json();
+  if(!data.ok){showToast(data.error||'载入失败',true);return;}
+  pauseOpen=false;$('pauseMenu').hidden=true;
+  await startSession();showOnlyScreen('game');
+  selectedCountry=STATE.player_country||selectedCountry;
+  renderTop();renderCountries();renderRight();
+  showToast(`已载入 ${data.save.name}${STATE.mode==='player'?` · 继续治理 ${STATE.player_country}`:''}`);
+}
+async function deleteSave(id){
+  if(!confirm('删除这个存档？此操作不可撤销。'))return;
+  const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({operation:'delete',id})});
+  const data=await r.json();if(!data.ok){showToast(data.error||'删除失败',true);return;}
+  await refreshSaves();$('loadScreen').hidden=false;
+}
+async function saveNow(){
+  const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({operation:'save'})});
+  const data=await r.json();
+  if(data.ok){showToast('游戏已保存');await refreshSaves();}
+  else showToast(data.error||'保存失败',true);
+}
+async function openPauseMenu(){
+  if(!gameLoaded||pauseOpen)return;
+  pauseOpen=true;resumeAfterPause=!STATE?.paused;
+  if(resumeAfterPause)await control('pause');
+  $('pauseStatus').textContent=`${STATE?.current_save_name||'当前时间线'} · ${STATE?.date||''} · 游戏日 ${STATE?.day??''}`;
+  $('pauseMenu').hidden=false;
+}
+async function closePauseMenu(){
+  if(!pauseOpen)return;
+  pauseOpen=false;$('pauseMenu').hidden=true;
+  if(resumeAfterPause&&STATE?.paused)await control('resume');
+  resumeAfterPause=false;
+}
+async function returnToMenu(){
+  if(gameLoaded){
+    if(STATE&&!STATE.paused)await control('pause');
+    const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({operation:'save'})});
+    const data=await r.json();
+    if(!data.ok){showToast(data.error||'保存失败，未返回主菜单',true);return;}
+  }
+  pauseOpen=false;$('pauseMenu').hidden=true;
+  gameLoaded=false;WORLD=null;showOnlyScreen('menu');await refreshSaves();
+}
+$('continueBtn').onclick=async()=>{
+  if(!latestSaves.length)return;
+  await loadSave(latestSaves[0].id);
+};
+$('loadMenuBtn').onclick=async()=>{loadOrigin='menu';await refreshSaves();showOnlyScreen('load');};
+$('loadBackBtn').onclick=()=>{
+  if(loadOrigin==='pause'&&gameLoaded){showOnlyScreen('game');$('pauseMenu').hidden=false;}
+  else showOnlyScreen('menu');
+};
+$('newWorldMenuBtn').onclick=openNewWorld;
+$('menuAgentsBtn').onclick=()=>{if(gameLoaded)openAgents();};
+$('gameMenuBtn').onclick=openPauseMenu;
+$('resumeGameBtn').onclick=closePauseMenu;
+$('pauseSaveBtn').onclick=saveNow;
+$('pauseLoadBtn').onclick=async()=>{loadOrigin='pause';$('pauseMenu').hidden=true;await refreshSaves();showOnlyScreen('load');};
+$('pauseAgentsBtn').onclick=openAgents;
+$('pauseMainBtn').onclick=async()=>{
+  if(confirm('返回主菜单？当前进度会先自动保存。'))await returnToMenu();
+};
+async function openCities(){
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  cityResume=!STATE.paused;
+  if(cityResume)await control('pause');
+  selectedCityId=null;selectedCityTile=null;
+  $('cityGrid').hidden=false;$('cityDetail').hidden=true;
+  renderCities();$('cityModal').hidden=false;
+}
+async function closeCities(){
+  $('cityModal').hidden=true;$('cityDetail').hidden=true;$('cityGrid').hidden=false;
+  selectedCityId=null;selectedCityTile=null;
+  if(cityResume)await control('resume');
+  cityResume=false;
+}
+$('cityDetailBack').onclick=()=>{
+  selectedCityId=null;selectedCityTile=null;
+  $('cityDetail').hidden=true;$('cityGrid').hidden=false;renderCities();
+};
+function renderCities(){
+  if(!STATE)return;
+  const country=STATE.countries[selectedCountry],isPlayer=STATE.player_country===selectedCountry;
+  $('citySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.cities.length} 座城市 · 全国人口 ${fmtInt(country.population)}`;
+  $('cityGrid').innerHTML=country.cities.map(city=>`<div class="city-card">
+    <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(BIOME_NAMES[city.dominant_biome]||city.dominant_biome)} · ${city.managed_by==='ai'?'AI托管':'手动治理'}</small></div>
+      <span class="pill">${esc(city.focus_label)}</span></div>
+    <div class="city-stats">
+      <div class="city-stat"><small>人口</small><b>${fmtInt(city.population)}</b></div>
+      <div class="city-stat"><small>住房</small><b>${fmtNum(city.housing,0)}k</b></div>
+      <div class="city-stat"><small>地方预算</small><b style="color:${STATE.city_budgets?.[city.budget]?.color||'inherit'}">${esc(city.budget_label||'均衡预算')}</b></div>
+      <div class="city-stat"><small>粮食自给</small><b style="color:${city.food_status==='缺口'?'#e18a7c':city.food_status==='盈余'?'#9fc873':'inherit'}">${city.food_need>0?fmtSelfSuff(city.food_self_sufficiency):'—'}</b></div>
+      <div class="city-stat"><small>粮食余缺</small><b style="color:${city.food_balance<-0.01?'#e18a7c':city.food_balance>0.01?'#9fc873':'inherit'}">${city.food_need>0?`${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}`:'—'}</b></div>
+      <div class="city-stat"><small>宜居度</small><b>${fmtNum(city.livability,0)}</b></div>
+    </div>
+    <div class="city-buildings">${Object.entries(city.buildings).length?Object.entries(city.buildings).map(([kind,count])=>`<span>${esc(BUILD_NAMES[kind]||kind)} ×${count}</span>`).join(''):'<span>暂无设施</span>'}</div>
+    ${isPlayer?`<div class="city-focus">
+      <button data-city-open="${city.city_id}">进入城市</button>
+      <button data-city-governance="${city.city_id}" data-next-mode="${city.managed_by==='ai'?'manual':'ai'}">${city.managed_by==='ai'?'收回手动':'交给AI托管'}</button>
+      ${city.managed_by==='manual'?`<select data-city-select="${city.city_id}">${Object.entries(STATE.city_focuses).map(([key,focus])=>`<option value="${key}" ${key===city.focus?'selected':''}>${esc(focus.label)}</option>`).join('')}</select><button data-city-apply="${city.city_id}">应用方针</button>`:''}
+    </div>`:`<div class="city-focus"><button data-city-open="${city.city_id}">查看城市</button></div>`}
+  </div>`).join('');
+  for(const button of document.querySelectorAll('[data-city-open]'))button.onclick=()=>openCityDetail(button.dataset.cityOpen);
+  for(const button of document.querySelectorAll('[data-city-governance]'))button.onclick=()=>{
+    submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:button.dataset.cityGovernance,managed_by:button.dataset.nextMode},'城市托管状态已调整').then(renderCities);
+  };
+  for(const button of document.querySelectorAll('[data-city-apply]')){
+    button.onclick=()=>{
+      const select=document.querySelector(`[data-city-select="${button.dataset.cityApply}"]`);
+      submitPlayerAction({type:'SET_CITY_FOCUS',city_id:button.dataset.cityApply,focus:select.value},'城市发展方针已调整').then(renderCities);
+    };
+  }
+}
+function currentCity(){
+  if(!STATE||!selectedCityId)return null;
+  return (STATE.countries[selectedCountry].cities||[]).find(city=>city.city_id===selectedCityId);
+}
+function openCityDetail(cityId){
+  selectedCityId=cityId;
+  const city=currentCity();
+  if(!city)return;
+  selectedCityTile=city.center;
+  $('cityGrid').hidden=true;$('cityDetail').hidden=false;
+  $('cityDetailTitle').textContent=`${city.name} · ${city.population_share*100}% 全国人口 · 宜居 ${fmtNum(city.livability,0)}`;
+  $('cityGovernanceBtn').hidden=STATE.player_country!==selectedCountry;
+  renderCityDetail();
+}
+function renderCityDetail(){
+  const city=currentCity();if(!city)return;
+  const isPlayer=STATE.player_country===selectedCountry;
+  $('cityGovernanceBtn').hidden=!isPlayer;
+  $('cityGovernanceBtn').textContent=city.managed_by==='ai'?'收回手动治理':'交给AI托管';
+  $('cityFoodInfo').innerHTML=city.food_need>0
+    ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食由全国储备统一调配，缺口城市优先承受饥荒。`
+    :'等待首个结算日。';
+  $('cityGovNote').textContent=city.governance_note||(city.managed_by==='ai'?'AI市长将在每个规划周期评估粮食与分区。':'手动城市：粮食缺口时请扩建农业区或调整方针。');
+  const canEditBudget=isPlayer&&city.managed_by==='manual';
+  $('cityBudgetInfo').innerHTML=city.local_revenue>0||city.local_upkeep>0
+    ?`本地收入 <b>${fmtNum(city.local_revenue,3)}</b> / 服务与维护 <b>${fmtNum(city.local_upkeep,3)}</b> · 结余 <b style="color:${city.local_net>=0?'#9fc873':'#e18a7c'}">${city.local_net>=0?'+':''}${fmtNum(city.local_net,3)}</b>`
+    :'等待首个结算日。';
+  $('cityBudgetPalette').innerHTML=Object.entries(STATE.city_budgets||{}).map(([key,b])=>
+    `<button class="zone-btn ${city.budget===key?'on':''}" style="--zc:${b.color}" data-budget="${key}" ${canEditBudget?'':'disabled'}>${esc(b.label)}</button>`
+  ).join('');
+  $('cityBudgetHint').textContent=!isPlayer?'观战模式只能查看预算。':city.managed_by==='ai'?'AI 托管城市由市长自动选择预算，收回手动治理后才能调整。':'投资预算提升宜居与增长但增加全国服务支出；紧缩预算相反。';
+  for(const button of document.querySelectorAll('[data-budget]'))button.onclick=()=>{
+    submitPlayerAction({type:'SET_CITY_BUDGET',city_id:city.city_id,budget:button.dataset.budget},'城市预算已调整').then(()=>renderCityDetail());
+  };
+  const detail=$('cityCanvas'),c=detail.getContext('2d');
+  const rect=detail.getBoundingClientRect(),w=Math.max(300,rect.width),h=Math.max(280,rect.height);
+  const dpr=Math.min(window.devicePixelRatio||1,2);detail.width=w*dpr;detail.height=h*dpr;c.setTransform(dpr,0,0,dpr,0,0);
+  c.clearRect(0,0,w,h);c.fillStyle='#091b23';c.fillRect(0,0,w,h);
+  const tiles=city.tiles_detail||[];
+  const xs=tiles.map(t=>Math.sqrt(3)*(t.coord[0]+.5*(t.coord[1]&1)));
+  const ys=tiles.map(t=>1.5*t.coord[1]);
+  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
+  const scale=Math.min((w-42)/Math.max(1,maxX-minX+1.8),(h-36)/Math.max(1,maxY-minY+1.8));
+  const ox=(w-(maxX-minX+1.6)*scale)/2,oy=(h-(maxY-minY+1.4)*scale)/2;
+  const pos=new Map();
+  for(const tile of tiles){
+    const x=ox+(Math.sqrt(3)*(tile.coord[0]+.5*(tile.coord[1]&1))-minX+.9)*scale;
+    const y=oy+(1.5*tile.coord[1]-minY+.75)*scale;
+    pos.set(tile.coord.join(','),{x,y});
+    const zone=STATE.city_zones[tile.zone]||STATE.city_zones.unzoned;
+    c.beginPath();
+    for(let i=0;i<6;i++){const a=(60*i-30)*Math.PI/180,xx=x+scale*.92*Math.cos(a),yy=y+scale*.92*Math.sin(a);if(i)c.lineTo(xx,yy);else c.moveTo(xx,yy);}
+    c.closePath();c.fillStyle=BIOME_COLORS[tile.biome]||'#567';c.fill();
+    c.fillStyle=zone.color;c.globalAlpha=.46;c.fill();c.globalAlpha=1;
+    c.strokeStyle='#06171e';c.lineWidth=1;c.stroke();
+    const building=city.building_tiles?.[tile.coord.join(',')];
+    const image=ICONS[BUILD_ICON[building]];
+    if(building==='ROAD'){
+      c.strokeStyle='#e0b975';c.lineWidth=2;c.beginPath();c.moveTo(x-scale*.55,y);c.lineTo(x+scale*.55,y);c.stroke();
+    }else if(image&&image.complete&&image.naturalWidth){
+      c.drawImage(image,x-scale*.5,y-scale*.5,scale,scale);
+    }
+    const adj=tile.adjacency||{},hasBonus=Math.max(adj.food||1,adj.mining||1,adj.tax||1,adj.research||1)>1.001;
+    if(hasBonus){c.beginPath();c.arc(x+scale*.58,y-scale*.58,2.4,0,Math.PI*2);c.fillStyle='#f1d27b';c.fill();}
+    if(selectedCityTile&&tile.coord[0]===selectedCityTile[0]&&tile.coord[1]===selectedCityTile[1]){
+      c.strokeStyle='#fff0ae';c.lineWidth=2.5;c.stroke();
+    }
+  }
+  const center=pos.get(city.center.join(','));
+  if(center){c.fillStyle='#fff4cf';c.beginPath();c.arc(center.x,center.y,3,0,Math.PI*2);c.fill();}
+  const selected=tiles.find(tile=>selectedCityTile&&tile.coord[0]===selectedCityTile[0]&&tile.coord[1]===selectedCityTile[1]);
+  const adjacency=selected?.adjacency||{};
+  const bonuses=[['food','农业'],['mining','矿业'],['tax','税收'],['research','研究']]
+    .filter(([key])=>(adjacency[key]||1)>1.001)
+    .map(([key,label])=>`${label} +${Math.round(((adjacency[key]||1)-1)*100)}%`).join(' · ');
+  $('cityTileInfo').textContent=selected
+    ?`地块 ${selected.coord[0]},${selected.coord[1]} · ${BIOME_NAMES[selected.biome]||selected.biome} · ${STATE.city_zones[selected.zone]?.label||selected.zone}${bonuses?' · '+bonuses:''}`
+    :'点击地图选择地块';
+  $('cityZonePalette').innerHTML=Object.entries(STATE.city_zones).map(([key,zone])=>
+    `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'?'':'disabled'}><i></i>${esc(zone.label)}</button>`
+  ).join('');
+  $('cityZoneHint').textContent=!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
+  for(const button of document.querySelectorAll('[data-zone]'))button.onclick=()=>{
+    if(!selectedCityTile)return;
+    submitPlayerAction({type:'SET_CITY_ZONE',city_id:city.city_id,tile:{col:selectedCityTile[0],row:selectedCityTile[1]},zone:button.dataset.zone},'城市分区已调整').then(()=>renderCityDetail());
+  };
+  detail.onclick=e=>{
+    const rect=detail.getBoundingClientRect(),mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    let best=null,distance=scale*1.05;
+    for(const tile of tiles){const p=pos.get(tile.coord.join(','));const d=Math.hypot(p.x-mx,p.y-my);if(d<distance){distance=d;best=tile;}}
+    if(best){selectedCityTile=best.coord;renderCityDetail();}
+  };
+  detail._tiles=tiles;detail._positions=pos;
+}
+async function openMilitary(){
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  militaryResume=!STATE.paused;
+  if(militaryResume)await control('pause');
+  renderMilitary();$('militaryModal').hidden=false;
+}
+async function closeMilitary(){
+  $('militaryModal').hidden=true;
+  if(militaryResume)await control('resume');
+  militaryResume=false;
+}
+function renderMilitary(){
+  if(!STATE)return;
+  const c=STATE.countries[selectedCountry],isPlayer=STATE.player_country===selectedCountry;
+  const wars=c.at_war_with||[];
+  const others=WORLD.polities.filter(p=>p.id!==selectedCountry);
+  const warTargets=others.filter(p=>!wars.includes(p.id));
+  const position=c.army_position?`${c.army_position[0]},${c.army_position[1]}`:'无';
+  const selected=selectedTile?`${selectedTile[0]},${selectedTile[1]}`:'未选择地块';
+  $('militarySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 军队维护费每天 ${fmtNum(c.military_upkeep,3)} 财政`;
+  const warRows=wars.length?wars.map(id=>`<div class="war-row"><span>与 <b>${esc(countryMeta(id)?.name||id)}</b> 交战中</span>
+    ${isPlayer?`<span><button data-attack="${id}">边境进攻</button><button data-peace="${id}">请求和平</button></span>`:''}</div>`).join(''):'<div class="hint">当前没有战争。</div>';
+  $('militaryBody').innerHTML=`<div class="mil-grid">
+    <div class="mil-card"><h3>王国军势</h3>
+      <div class="mil-stat"><span>军队规模</span><b>${c.army_strength}</b></div>
+      <div class="mil-stat"><span>驻扎地块</span><b>${position}</b></div>
+      <div class="mil-stat"><span>每日维护</span><b>${fmtNum(c.military_upkeep,3)}</b></div>
+      <div class="mil-stat"><span>战争疲劳</span><b>${fmtNum(c.war_exhaustion,1)}</b></div>
+      <div class="mil-stat"><span>已选地块</span><b>${selected}</b></div>
+      ${isPlayer?`<div class="mil-buttons"><button data-recruit="1">招募 1</button><button data-recruit="2">招募 2</button>
+        <button data-march="1" ${selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
+    </div>
+    <div class="mil-card"><h3>战争状态</h3>${warRows}
+      ${isPlayer&&warTargets.length?`<div class="mil-buttons"><select id="warTarget">${warTargets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button data-declare-war>宣战</button></div>`:''}
+      <div class="hint">战斗是战略级边境结算：进攻需要双方领土接壤。胜利可占领一块边境领土；军事维护费是后期财政出口。</div>
+    </div>
+  </div>
+  <div class="hint"><b>行军：</b>先在地图选择己方或中立地块闭合本窗口，再次打开军事面板并点击“行军至已选地块”。单次最多 4 格；敌对领土不能直接行军，需要宣战后从边境进攻。</div>`;
+  for(const b of document.querySelectorAll('[data-recruit]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RECRUIT',strength:Number(b.dataset.recruit)},'招募完成').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack},'边境战已结算').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-peace]'))b.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PEACE',target:b.dataset.peace},'和平提议已发送').then(renderMilitary);
+  const declare=document.querySelector('[data-declare-war]');
+  if(declare)declare.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:$('warTarget').value},'战争状态已建立').then(renderMilitary);
+  const march=document.querySelector('[data-march]');
+  if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]}},'军队已行军').then(renderMilitary);
+}
+async function openDiplomacy(){
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  diploResume=!STATE.paused;
+  if(diploResume)await control('pause');
+  renderDiplomacy();$('diploModal').hidden=false;
+}
+async function closeDiplomacy(){
+  $('diploModal').hidden=true;
+  if(diploResume)await control('resume');
+  diploResume=false;
+}
+function renderDiplomacy(){
+  if(!STATE)return;
+  const c=STATE.countries[selectedCountry],dip=c.diplomacy;
+  const isPlayer=STATE.player_country===selectedCountry;
+  $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 与该国的关系影响贸易接受度和协定提案`;
+  const rows=WORLD.polities.filter(p=>p.id!==selectedCountry).map(p=>{
+    const relation=dip.relations[p.id]||0;
+    const active=dip.active_pacts?.find(pact=>pact.pact==='TRADE'&&pact.status==='ACTIVE'&&[pact.sender,pact.target].includes(p.id));
+    const pending=dip.outgoing_proposals?.find(proposal=>proposal.target===p.id);
+    const atWar=(c.at_war_with||[]).includes(p.id);
+    const pct=Math.max(0,Math.min(100,(relation+100)/2));
+    const actions=isPlayer?`<div class="diplo-actions">
+      ${atWar?'<span class="key-state missing">交战中</span>':''}
+      ${!atWar&&relation<15?`<button data-gift="${p.id}">赠礼 5</button>`:''}
+      ${!atWar&&!active&&!pending&&relation>=15?`<button data-pact="${p.id}">提议贸易协定</button>`:''}
+      ${active?'<span class="pact-pill">贸易协定</span>':''}
+    </div>`:(active?'<span class="pact-pill">贸易协定</span>':'');
+    return `<div class="diplo-row" style="--dc:${countryColor(p.id)}">
+      <span class="diplo-color"></span>
+      <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${active?'协定生效':'无协定'}</small></div>
+      <div><div class="relation-track"><span class="relation-marker" style="left:${pct}%"></span></div>
+      <div class="relation-meta"><span>敌对 -100</span><span>${relation>0?'友好':relation<0?'紧张':'中立'} ${relation}</span><span>+100</span></div></div>
+      ${actions}
+    </div>`;
+  }).join('');
+  const incoming=(dip.incoming_proposals||[]).map(proposal=>`<div class="proposal-row">
+    <span><b>${esc(proposal.sender)}</b> 提议建立 ${proposal.pact==='TRADE'?'贸易协定':'协定'}</span>
+    ${isPlayer?`<span><button data-pact-accept="${proposal.proposal_id}">接受</button>
+      <button data-pact-reject="${proposal.proposal_id}">拒绝</button></span>`:'<span class="key-state">等待回应</span>'}
+  </div>`).join('');
+  $('diploBody').innerHTML=`<div class="diplo-list">${rows}</div>
+    <div class="sect" style="margin-top:10px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>
+    ${incoming||'<div class="hint">没有待回应的协定提案。</div>'}
+    <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。有效贸易协定为国家税收提供 +5%。</div>`;
+  for(const btn of document.querySelectorAll('[data-gift]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'GIFT',target:btn.dataset.gift,amount:5},'赠礼已完成').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PACT',target:btn.dataset.pact,pact:'TRADE'},'贸易协定提案已发送').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact-accept]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'ACCEPT_PACT',proposal_id:btn.dataset.pactAccept},'贸易协定已生效').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact-reject]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'REJECT_PACT',proposal_id:btn.dataset.pactReject},'已拒绝协定').then(renderDiplomacy);
+}
+async function openTechTree(){
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  techResume=!STATE.paused;
+  if(techResume)await control('pause');
+  renderTechTree();$('techModal').hidden=false;
+}
+async function closeTechTree(){
+  $('techModal').hidden=true;
+  if(techResume)await control('resume');
+  techResume=false;
+}
+function renderTechTree(){
+  if(!STATE)return;
+  const country=STATE.countries[selectedCountry];
+  $('techSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.era.short} · ${country.era.name} · 起点 ${STATE.start_era_index} 级`;
+  $('techGrid').innerHTML=Object.entries(STATE.tech_tree).map(([field,definition])=>{
+    const level=country.technology[field]||1,next=Math.min(STATE.research_max_level,level+1);
+    const progress=country.research_progress[field]||0;
+    const threshold=STATE.research_base_threshold*level;
+    const pct=Math.min(100,progress/Math.max(threshold,1)*100);
+    const nodes=definition.levels.map(node=>{
+      const era=STATE.eras.find(item=>item.min_tech_level===node.level);
+      const state=node.level<=level?'lit':(node.level===next?'available':'locked');
+      const isCurrent=node.level===level;
+      const status=node.level<level||node.level===level?'已掌握':(node.level===next?(country.research_field===field?'研究中':'可研究'):'未解锁');
+      return `<div class="tech-node ${state} ${isCurrent?'current':''}" ${node.level===next?`data-tech-field="${field}"`:''}>
+        <div class="tech-node-head"><b>${esc(node.name)}</b><span>${esc(era?.short||'')} · L${node.level}</span></div>
+        <small>${esc(node.effect)}</small>
+        ${node.unlocks?.length?`<div class="unlocks">${node.unlocks.map(u=>`<i>${esc(u)}</i>`).join('')}</div>`:''}
+        <span class="tech-state">${status}</span></div>`;
+    }).join('');
+    return `<section class="tech-branch" style="--tc:${definition.color}">
+      <h3>${esc(definition.label)}研究线</h3>
+      <div class="tech-progress">${country.research_field===field?`当前研究 ${pct.toFixed(0)}% · ${progress.toFixed(1)}/${threshold}`:'未在研究中'}${country.research_field===field?`<div class="bar"><i style="width:${pct}%;background:${definition.color}"></i></div>`:''}</div>
+      ${nodes}</section>`;
+  }).join('');
+  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">三条研究线全部达到下一等级时，时代自动推进。点击金色节点可以切换当前研究领域；观察模式只能查看。</div>';
+  for(const node of document.querySelectorAll('[data-tech-field]'))node.onclick=()=>{
+    if(!STATE.player_country)return showToast('观战模式只能查看科技树；介入国家后可选择研究',true);
+    if(STATE.player_country!==selectedCountry)return showToast('请先接管当前选中的国家',true);
+    submitPlayerAction({type:'SET_RESEARCH',field:node.dataset.techField},`已切换研究路线：${STATE.tech_tree[node.dataset.techField].label}`).then(renderTechTree);
+  };
+}
+document.addEventListener('keydown',async e=>{
+  if(e.key!=='Escape')return;
+  if(!$('endModal').hidden)return;
+  if(!$('cityModal').hidden){await closeCities();return;}
+  if(!$('militaryModal').hidden){await closeMilitary();return;}
+  if(!$('diploModal').hidden){await closeDiplomacy();return;}
+  if(!$('techModal').hidden){await closeTechTree();return;}
+  if(!$('agentsModal').hidden){$('agentsModal').hidden=true;return;}
+  if(!$('newWorldModal').hidden){$('newWorldModal').hidden=true;return;}
+  if(!$('loadScreen').hidden){$('loadBackBtn').click();return;}
+  if(pauseOpen)await closePauseMenu();
+  else if(gameLoaded)await openPauseMenu();
+});
+async function boot(){
+  resize();showOnlyScreen('menu');
+  try{
+    await refreshSaves();
+    if(bootParams.get('play')==='latest'&&latestSaves.length)await loadSave(latestSaves[0].id);
+  }catch(e){showToast('无法读取存档',true);}
+}
+boot();
+</script>
+</body>
+</html>

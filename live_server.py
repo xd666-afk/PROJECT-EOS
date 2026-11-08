@@ -1,0 +1,657 @@
+"""Local-only real-time observer for the existing Project Eos simulation."""
+from __future__ import annotations
+
+import argparse
+from copy import deepcopy
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import json
+import os
+from pathlib import Path
+import re
+import threading
+import time
+from datetime import datetime, timezone
+from urllib.parse import urlparse
+import webbrowser
+
+from agents.heuristic import HeuristicAgent
+from agents.llm_adapter import CallBudget, LLMSettings, OpenAICompatibleAgent, load_agents
+from agents.scheduler import AgentScheduler
+from core.simulation import Simulation
+
+BASE_DIR = Path(__file__).resolve().parent
+DASHBOARD_HTML = BASE_DIR / "dashboard.html"
+SAVE_DIR = BASE_DIR / "runs" / "saves"
+ASSETS_DIR = BASE_DIR / "assets"
+COUNTRY_COLORS = {
+    "ELAR": "#e7b45f",
+    "MARIS": "#63b1c9",
+    "VAYR": "#d97f75",
+    "SAHAR": "#b98bcb",
+}
+COUNTRY_NAMES = {
+    "ELAR": "埃兰河谷城邦联盟",
+    "MARIS": "玛瑞斯海湾城邦",
+    "VAYR": "维尔山麓诸侯",
+    "SAHAR": "萨赫尔河岸王国",
+}
+
+
+def load_key_file(path: Path) -> None:
+    """Inject one local key into this process without printing or persisting it."""
+    text = path.read_text(encoding="utf-8-sig").strip()
+    keys = re.findall(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{8,}", text)
+    if not keys and re.fullmatch(r"[A-Za-z0-9_-]{16,}", text):
+        keys = [text]
+    if len(keys) != 1:
+        raise RuntimeError("API key file must contain exactly one key")
+    os.environ.setdefault("EOS_API_KEY", keys[0])
+    os.environ.setdefault("EOS_AGENT_ELAR_API_KEY", keys[0])
+
+
+class LiveSession:
+    def __init__(
+        self,
+        speed: float = 4.0,
+        maximum_day: int = 365,
+        paused: bool = False,
+        scheduler: AgentScheduler | None = None,
+        budget: CallBudget | None = None,
+        agent_meta: dict | None = None,
+    ) -> None:
+        self.lock = threading.RLock()
+        self.scheduler = scheduler
+        self.budget = budget or CallBudget()
+        self.agent_meta = agent_meta or {}
+        self.player_country: str | None = None
+        self.current_save_id: str | None = None
+        self.current_save_name: str | None = None
+        self.simulation = self._new_simulation()
+        self.speed = speed
+        self.maximum_day = maximum_day
+        self.paused = paused
+        self.finished = False
+        self._stop = threading.Event()
+        self.thread = threading.Thread(target=self._run_loop, daemon=True)
+        self.thread.start()
+
+    def _new_simulation(self) -> Simulation:
+        if self.scheduler is None:
+            simulation = Simulation.new(use_mock_agents=True)
+            self.scheduler = simulation.scheduler
+        else:
+            simulation = Simulation.new(use_mock_agents=True)
+            simulation.scheduler = self.scheduler
+            simulation.engine.planner = self.scheduler
+        self.scheduler.set_player_country(self.player_country)
+        return simulation
+
+    def _run_loop(self) -> None:
+        while not self._stop.is_set():
+            should_save = False
+            with self.lock:
+                if not self.paused and self.simulation.state.day_index < self.maximum_day:
+                    self.simulation.run(1, force=True)
+                    day = self.simulation.state.day_index
+                    if not self.simulation.state.victory_announced():
+                        victory = self.simulation.state.victory_status()
+                        if victory["winner"]:
+                            self.simulation.state.record(
+                                "victory",
+                                country_id=victory["winner"],
+                                condition=victory["condition"],
+                                label=victory["label"],
+                            )
+                            self.paused = True
+                            self.finished = True
+                            should_save = True
+                    if day >= self.maximum_day:
+                        self.paused = True
+                        self.finished = True
+                        should_save = True
+                    elif day % 30 == 0:
+                        should_save = True
+                speed = self.speed
+            if should_save:
+                self.save_current()
+            self._stop.wait(max(0.03, 1.0 / speed))
+
+    def stop(self) -> None:
+        self._stop.set()
+        self.thread.join(timeout=2)
+        self.save_current()
+
+    def _save_meta_path(self, slot_id: str) -> Path:
+        return SAVE_DIR / f"{slot_id}.meta.json"
+
+    def save_current(self, name: str | None = None) -> dict:
+        with self.lock:
+            SAVE_DIR.mkdir(parents=True, exist_ok=True)
+            if self.current_save_id is None:
+                self.current_save_id = f"save_{int(time.time() * 1000)}_{self.simulation.state.seed}"
+            if name:
+                self.current_save_name = name[:50]
+            if not self.current_save_name:
+                self.current_save_name = f"{self.simulation.state.date['label']} 的世界"
+            path = SAVE_DIR / f"{self.current_save_id}.json"
+            self.simulation.state.save(path)
+            meta = {
+                "id": self.current_save_id,
+                "name": self.current_save_name,
+                "day": self.simulation.state.day_index,
+                "date": self.simulation.state.date["label"],
+                "seed": self.simulation.state.seed,
+                "start_year": self.simulation.state.start_astronomical_year,
+                "era": self.simulation.state.summary()["era"]["name"],
+                "countries": {
+                    key: value.name for key, value in self.simulation.state.countries.items()
+                },
+                "player_country": self.player_country,
+                "saved_at": datetime.now(timezone.utc).isoformat(),
+                "file": path.name,
+            }
+            self._save_meta_path(self.current_save_id).write_text(
+                json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            return meta
+
+    def list_saves(self) -> list[dict]:
+        SAVE_DIR.mkdir(parents=True, exist_ok=True)
+        saves = []
+        for meta_path in SAVE_DIR.glob("*.meta.json"):
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                continue
+            if (SAVE_DIR / meta.get("file", "")).exists():
+                saves.append(meta)
+        saves.sort(key=lambda item: item.get("saved_at", ""), reverse=True)
+        return saves
+
+    def load_game(self, slot_id: str) -> dict:
+        from core.simulation import Simulation
+        with self.lock:
+            meta_path = self._save_meta_path(slot_id)
+            if not meta_path.exists():
+                return {"ok": False, "error": "存档不存在"}
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            save_path = SAVE_DIR / meta["file"]
+            try:
+                simulation = Simulation.load(save_path, use_mock_agents=True)
+            except Exception as exc:
+                return {"ok": False, "error": f"存档加载失败：{type(exc).__name__}"}
+            self.simulation = simulation
+            self.scheduler = simulation.scheduler
+            self.agent_meta = {
+                country_id: {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+                for country_id in simulation.state.countries
+            }
+            restored_player = meta.get("player_country")
+            self.player_country = (
+                restored_player
+                if restored_player in simulation.state.countries
+                else None
+            )
+            self.scheduler.set_player_country(self.player_country)
+            self.paused = True
+            self.finished = False
+            self.maximum_day = max(simulation.state.day_index + 365, simulation.state.day_index + 1)
+            self.current_save_id = slot_id
+            self.current_save_name = meta.get("name")
+            return {"ok": True, "save": meta}
+
+    def delete_save(self, slot_id: str) -> dict:
+        with self.lock:
+            meta_path = self._save_meta_path(slot_id)
+            if not meta_path.exists():
+                return {"ok": False, "error": "存档不存在"}
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            (SAVE_DIR / meta["file"]).unlink(missing_ok=True)
+            meta_path.unlink(missing_ok=True)
+            if slot_id == self.current_save_id:
+                self.current_save_id = None
+                self.current_save_name = None
+            return {"ok": True}
+
+    def control(self, action: str, value: object = None) -> dict:
+        with self.lock:
+            if action == "pause":
+                self.paused = True
+            elif action == "resume":
+                if self.finished:
+                    return {"ok": False, "error": "本轮已完成，请使用单步继续观察"}
+                self.paused = False
+            elif action == "step":
+                self.simulation.step(1)
+                if self.simulation.state.day_index >= self.maximum_day:
+                    self.finished = True
+                    self.paused = True
+            elif action == "speed":
+                speed = float(value)
+                if not 0.25 <= speed <= 64:
+                    return {"ok": False, "error": "速度必须在 0.25 到 64 日/秒"}
+                self.speed = speed
+            elif action == "take_control":
+                if value not in self.simulation.state.countries:
+                    return {"ok": False, "error": "unknown country"}
+                self.player_country = str(value)
+                self.scheduler.set_player_country(self.player_country)
+                for city in self.simulation.state.countries[self.player_country].cities:
+                    city.managed_by = "manual"
+                self.paused = True
+                self.simulation.state.record(
+                    "control_changed", country_id=self.player_country, mode="player"
+                )
+            elif action == "observe":
+                if self.player_country:
+                    for city in self.simulation.state.countries[self.player_country].cities:
+                        city.managed_by = "ai"
+                self.player_country = None
+                self.scheduler.set_player_country(None)
+                self.simulation.state.record("control_changed", country_id=None, mode="observer")
+            elif action == "extend_round":
+                self.maximum_day += 365
+                self.finished = False
+                self.paused = True
+            elif action == "reset":
+                paused = self.paused
+                self.simulation = self._new_simulation()
+                self.paused = paused
+                self.finished = False
+            else:
+                return {"ok": False, "error": "unknown control"}
+            return {
+                "ok": True,
+                "paused": self.paused,
+                "speed": self.speed,
+                "player_country": self.player_country,
+            }
+
+    def start_new_game(
+        self,
+        countries: list[dict] | None,
+        base_seed: int | None,
+        save_name: str | None = None,
+        start_astronomical_year: int = -799,
+    ) -> dict:
+        from mapgen import generate_fair_world, normalize_countries
+
+        with self.lock:
+            normalized = normalize_countries(countries)
+            world, path = generate_fair_world(normalized, base_seed=base_seed)
+            from core.simulation import Simulation
+            simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
+            start_era = simulation.state.configure_starting_era(start_astronomical_year)
+            self.simulation = simulation
+            self.scheduler = simulation.scheduler
+            self.agent_meta = {
+                country_id: {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+                for country_id in (p["id"] for p in world["polities"])
+            }
+            self.scheduler.set_player_country(None)
+            self.player_country = None
+            self.paused = True
+            self.finished = False
+            self.maximum_day = 365
+            self.current_save_id = None
+            self.current_save_name = None
+            simulation.state.record(
+                "world_generated",
+                seed=world["metadata"]["seed"],
+                fairness=world["metadata"]["fairness"]["score"],
+            )
+            default_name = save_name or f"新世界 {world['metadata']['seed']}"
+            save = self.save_current(default_name)
+            return {
+                "ok": True,
+                "seed": world["metadata"]["seed"],
+                "fairness": world["metadata"]["fairness"],
+                "countries": {p["id"]: p["name"] for p in world["polities"]},
+                "path": str(path),
+                "save": save,
+                "start_year": start_astronomical_year,
+                "start_era": start_era,
+            }
+
+    def agent_payload(self) -> dict:
+        with self.lock:
+            countries = {}
+            for country_id, meta in self.agent_meta.items():
+                env_name = meta.get("api_key_env") or f"EOS_AGENT_{country_id}_API_KEY"
+                countries[country_id] = {
+                    **meta,
+                    "api_key_env": env_name,
+                    "key_configured": bool(os.environ.get(env_name) or os.environ.get("EOS_API_KEY")),
+                }
+            return {
+                "countries": countries,
+                "budget": self.budget.summary(),
+                "player_country": self.player_country,
+            }
+
+    def configure_agent(self, country_id: str, settings: dict) -> dict:
+        with self.lock:
+            if country_id not in self.simulation.state.countries:
+                return {"ok": False, "error": "unknown country"}
+            mode = settings.get("mode")
+            if mode == "mock":
+                agent = HeuristicAgent(country_id)
+                meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+            elif mode == "openai_compatible":
+                try:
+                    llm_settings = LLMSettings.from_dict(country_id, settings)
+                except (ValueError, KeyError, TypeError) as exc:
+                    return {"ok": False, "error": f"invalid model settings: {exc}"}
+                if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", llm_settings.api_key_env):
+                    return {"ok": False, "error": "api_key_env must be an environment variable name"}
+                agent = OpenAICompatibleAgent(country_id, llm_settings, self.budget)
+                meta = {
+                    "mode": "openai_compatible",
+                    "provider": llm_settings.provider,
+                    "model": llm_settings.model,
+                    "base_url": llm_settings.base_url,
+                    "api_key_env": llm_settings.api_key_env,
+                }
+            else:
+                return {"ok": False, "error": "mode must be mock or openai_compatible"}
+            self.scheduler.set_agent(country_id, agent)
+            self.agent_meta[country_id] = meta
+            self.simulation.state.record(
+                "agent_configured",
+                country_id=country_id,
+                mode=meta["mode"],
+                provider=meta["provider"],
+                model=meta["model"],
+            )
+            return {"ok": True, "country_id": country_id, **self.agent_payload()["countries"][country_id]}
+
+    def player_action(self, actor: str, action: object) -> dict:
+        with self.lock:
+            if self.player_country is None:
+                return {"ok": False, "error": "当前为观战模式，请先介入一个国家"}
+            if actor != self.player_country:
+                return {"ok": False, "error": "只能为自己接管的国家下达动作"}
+            result = self.simulation.engine.apply_action(actor, action)
+            return {"ok": result.accepted, "result": result.to_dict()}
+
+    def world_payload(self) -> dict:
+        world = self.simulation.state.world
+        metadata = world.data["metadata"]
+        polities = []
+        for country_id, polity in world.polities.items():
+            polities.append({
+                "id": country_id,
+                "name": polity["name"],
+                "color": polity.get("color") or COUNTRY_COLORS.get(country_id, "#ffffff"),
+                "archetype": polity.get("type"),
+                "capital": polity["capital"],
+            })
+        tiles = [
+            [
+                tile["col"], tile["row"], 1 if tile["land"] else 0,
+                tile["biome"], tile["owner_id"] or "", 1 if tile["river"] else 0,
+                [tile["downstream"]["col"], tile["downstream"]["row"]]
+                if tile.get("downstream") else None,
+                tile["elevation_m"], tile["annual_precip_mm"],
+                tile["annual_mean_temp_c"], round(tile.get("slope", 0), 4),
+            ]
+            for tile in world.data["tiles"]
+        ]
+        return {
+            "metadata": {
+                "grid_width": metadata["grid_width"],
+                "grid_height": metadata["grid_height"],
+                "cell_area_km2": metadata["cell_area_km2"],
+                "hex_radius_km": metadata["hex_radius_km"],
+            },
+            "polities": polities,
+            "tiles": tiles,
+        }
+
+    def snapshot(self) -> dict:
+        with self.lock:
+            summary = self.simulation.state.summary()
+            recent = [
+                deepcopy(event) for event in self.simulation.state.event_log
+                if event["type"] not in {"economy_daily"}
+            ][-35:]
+            buildings = []
+            projects = []
+            for country_id, country in self.simulation.state.countries.items():
+                for coord, building in country.buildings.items():
+                    buildings.append([coord[0], coord[1], building, country_id])
+                for project in country.projects:
+                    total = max(float(project["total_days"]), 1.0)
+                    projects.append([
+                        project["tile"][0], project["tile"][1],
+                        project["building"], country_id,
+                        round(project["remaining_days"], 1),
+                        round(1.0 - project["remaining_days"] / total, 4),
+                        total,
+                    ])
+            llm_calls = [
+                deepcopy(event) for event in self.simulation.state.event_log
+                if event["type"] == "llm_call"
+            ]
+            llm_decisions = [
+                deepcopy(event) for event in self.simulation.state.event_log
+                if event["type"] == "llm_decision"
+            ]
+            return {
+                "day": self.simulation.state.day_index,
+                "date": summary["date"],
+                "paused": self.paused,
+                "finished": self.finished,
+                "speed": self.speed,
+                "maximum_day": self.maximum_day,
+                "player_country": self.player_country,
+                "mode": "player" if self.player_country else "observer",
+                "current_save_id": self.current_save_id,
+                "current_save_name": self.current_save_name,
+                "era": summary["era"],
+                "building_specs": self.simulation.state.config["buildings"],
+                "policy_options": sorted(self.simulation.state.config["policies"]),
+                "research_fields": self.simulation.state.config["research_fields"],
+                "tech_tree": self.simulation.state.config["tech_tree"],
+                "eras": self.simulation.state.config["eras"],
+                "research_max_level": self.simulation.state.config["research_max_level"],
+                "research_base_threshold": self.simulation.state.config["research_base_threshold"],
+                "city_focuses": self.simulation.state.config["city_focuses"],
+                "city_zones": self.simulation.state.config["city_zones"],
+                "city_budgets": self.simulation.state.config["city_budgets"],
+                "maximum_tax_rate": self.simulation.state.config["maximum_tax_rate"],
+                "expansion": self.simulation.state.config["expansion"],
+                "countries": summary["countries"],
+                "ranking": summary["ranking"],
+                "leader": summary["leader"],
+                "victory": summary["victory"],
+                "recent_events": recent,
+                "buildings": buildings,
+                "projects": projects,
+                "agents": self.agent_meta,
+                "latest_llm_decision": llm_decisions[-1] if llm_decisions else None,
+                "latest_llm_call": llm_calls[-1] if llm_calls else None,
+                "llm_budget": self.budget.summary(),
+                "fairness": self.simulation.state.world.data["metadata"].get("fairness"),
+                "start_year": self.simulation.state.start_astronomical_year,
+                "start_era_index": self.simulation.state.start_era_index,
+                "action_counts": {
+                    "accepted": sum(
+                        entry["result"]["accepted"] for entry in self.simulation.state.action_log
+                    ),
+                    "rejected": sum(
+                        not entry["result"]["accepted"] for entry in self.simulation.state.action_log
+                    ),
+                },
+                "trades": summary["trades"],
+            }
+
+
+class Handler(BaseHTTPRequestHandler):
+    session: LiveSession
+
+    def _send(self, status: int, body: bytes, content_type: str) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _json(self, payload: dict, status: int = 200) -> None:
+        self._send(
+            status,
+            json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
+            "application/json; charset=utf-8",
+        )
+
+    def do_GET(self) -> None:
+        path = urlparse(self.path).path
+        if path in {"/", "/index.html"}:
+            self._send(200, DASHBOARD_HTML.read_bytes(), "text/html; charset=utf-8")
+        elif path == "/api/world":
+            self._json(self.session.world_payload())
+        elif path == "/api/state":
+            self._json(self.session.snapshot())
+        elif path == "/api/agents":
+            self._json(self.session.agent_payload())
+        elif path == "/api/setup":
+            from mapgen import ARCHETYPES, CORE_TILES, DEFAULT_COUNTRIES
+            self._json({
+                "countries": DEFAULT_COUNTRIES,
+                "archetypes": ARCHETYPES,
+                "core_tiles": CORE_TILES,
+            })
+        elif path == "/api/saves":
+            self._json({
+                "saves": self.session.list_saves(),
+                "current": self.session.current_save_id,
+            })
+        elif path == "/favicon.ico":
+            self._send(204, b"", "image/x-icon")
+        elif path.startswith("/assets/"):
+            target = (ASSETS_DIR / path.removeprefix("/assets/")).resolve()
+            if target.is_relative_to(ASSETS_DIR.resolve()) and target.is_file():
+                content_types = {
+                    ".png": "image/png", ".jpg": "image/jpeg",
+                    ".jpeg": "image/jpeg", ".webp": "image/webp",
+                }
+                self._send(200, target.read_bytes(), content_types.get(target.suffix.lower(), "application/octet-stream"))
+            else:
+                self._json({"error": "asset not found"}, 404)
+        else:
+            self._json({"error": "not found"}, 404)
+
+    def do_POST(self) -> None:
+        if self.path not in {"/api/control", "/api/action", "/api/agents", "/api/new_game", "/api/saves"}:
+            self._json({"error": "not found"}, 404)
+            return
+        length = int(self.headers.get("Content-Length", "0"))
+        try:
+            payload = json.loads(self.rfile.read(length) or b"{}")
+            if self.path == "/api/agents":
+                result = self.session.configure_agent(
+                    str(payload.get("country_id", "")), payload.get("settings", {})
+                )
+            elif self.path == "/api/saves":
+                operation = payload.get("operation")
+                if operation == "save":
+                    result = {"ok": True, "save": self.session.save_current(payload.get("name"))}
+                elif operation == "load":
+                    result = self.session.load_game(str(payload.get("id", "")))
+                elif operation == "delete":
+                    result = self.session.delete_save(str(payload.get("id", "")))
+                else:
+                    result = {"ok": False, "error": "unknown save operation"}
+            elif self.path == "/api/new_game":
+                seed = payload.get("seed")
+                start_year = payload.get("start_year", -799)
+                result = self.session.start_new_game(
+                    payload.get("countries"),
+                    None if seed in (None, "") else int(seed),
+                    payload.get("save_name"),
+                    int(start_year),
+                )
+            elif self.path == "/api/action":
+                result = self.session.player_action(
+                    str(payload.get("actor", "")), payload.get("action")
+                )
+            else:
+                result = self.session.control(
+                    str(payload.get("action", "")), payload.get("value")
+                )
+        except (ValueError, TypeError, json.JSONDecodeError) as exc:
+            result = {"ok": False, "error": str(exc)}
+        self._json(result)
+
+    def log_message(self, fmt: str, *args) -> None:
+        if not self.path.startswith("/api/state"):
+            print("live:", fmt % args)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Project Eos local real-time observer")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--speed", type=float, default=4.0, help="game days per real second")
+    parser.add_argument("--days", type=int, default=365)
+    parser.add_argument("--paused", action="store_true")
+    parser.add_argument("--open", action="store_true", help="open the dashboard in a browser")
+    parser.add_argument("--models", type=Path, help="per-country Mock/LLM JSON configuration")
+    parser.add_argument("--api-key-file", type=Path, help="local key file read once into process memory")
+    parser.add_argument("--max-calls", type=int, default=None)
+    parser.add_argument("--max-cost-usd", type=float, default=None)
+    args = parser.parse_args()
+    if args.host not in {"127.0.0.1", "localhost"}:
+        raise SystemExit("Refusing non-loopback host: this dashboard has no authentication")
+
+    budget = CallBudget(args.max_calls, args.max_cost_usd)
+    scheduler = None
+    agent_meta = {}
+    if args.models:
+        config_data = json.loads(args.models.read_text(encoding="utf-8"))
+        agent_meta = {
+            country_id: {
+                "mode": settings.get("mode", "mock"),
+                "provider": settings.get("provider"),
+                "model": settings.get("model"),
+            }
+            for country_id, settings in config_data["countries"].items()
+        }
+        if args.api_key_file:
+            load_key_file(args.api_key_file)
+        scheduler = AgentScheduler(load_agents(args.models, budget))
+
+    session = LiveSession(
+        args.speed, args.days, args.paused, scheduler, budget, agent_meta
+    )
+    Handler.session = session
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    server.daemon_threads = True
+    url = f"http://{args.host}:{args.port}/"
+    print(f"Project Eos live dashboard: {url}")
+    print(f"Real-time: {args.speed} game day(s) per second; stop at day {args.days}.")
+    if agent_meta:
+        controllers = ", ".join(
+            f"{country}={meta['provider'] or 'mock'}:{meta['model'] or 'rules'}"
+            for country, meta in agent_meta.items()
+        )
+        print(f"Controllers: {controllers}")
+        print(
+            f"API budget: {args.max_calls} call(s), "
+            f"{args.max_cost_usd} USD known-cost limit"
+        )
+    if args.open:
+        threading.Timer(0.8, lambda: webbrowser.open(url)).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        print("\nStopping and saving...")
+    finally:
+        server.server_close()
+        session.stop()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
