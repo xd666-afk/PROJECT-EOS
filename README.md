@@ -4,7 +4,7 @@
 
 > 共同开发请先读 [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md)：环境、架构、动作协议、API、存档/回放、测试与协作规范。
 >
-> GitHub 仓库：<https://github.com/xd666-afk/PRJECT-EOS>（默认分支 `main`）
+> GitHub 仓库：<https://github.com/xd666-afk/PROJECT-EOS>（默认分支 `main`）
 
 ## 项目目标
 

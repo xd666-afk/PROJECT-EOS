@@ -1059,15 +1059,15 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 项目已初始化 Git，并推送到：
 
 ```text
-https://github.com/xd666-afk/PRJECT-EOS
+https://github.com/xd666-afk/PROJECT-EOS
 默认分支：main
 ```
 
 同事首次获取：
 
 ```bash
-git clone https://github.com/xd666-afk/PRJECT-EOS.git
-cd PRJECT-EOS
+git clone https://github.com/xd666-afk/PROJECT-EOS.git
+cd PROJECT-EOS
 python -m venv .venv
 ./.venv/Scripts/python -m pip install -r requirements.txt pytest
 ./.venv/Scripts/python -m pytest -q
