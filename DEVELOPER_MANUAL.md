@@ -1036,35 +1036,44 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 
 ### 16.1 当前版本控制状态
 
-当前目录**尚未初始化 Git**，但已有 `.gitignore`。多人开发前建议先建立仓库：
+项目已初始化 Git，并推送到：
+
+```text
+https://github.com/xd666-afk/PRJECT-EOS
+默认分支：main
+```
+
+同事首次获取：
 
 ```bash
-git init
-git add .gitignore README.md PROJECT_PLAN.md DEVELOPER_MANUAL.md START_HERE.md
-git add core agents config tests assets dashboard.html live_server.py \
-        run_simulation.py worldgen.py mapgen.py build_viewer.py \
-        simulate_climate.py plot_elevation.py requirements.txt
-git add -f output/world_2000BCE.json output/world_summary.json output/first_year_weather.json
-git commit -m "chore: initialize Project Eos development repository"
+git clone https://github.com/xd666-afk/PRJECT-EOS.git
+cd PRJECT-EOS
+python -m venv .venv
+./.venv/Scripts/python -m pip install -r requirements.txt pytest
+./.venv/Scripts/python -m pytest -q
 ```
 
-**关键：** `.gitignore` 忽略了 `output/`，但 `output/world_2000BCE.json` 是运行必需基线，必须用 `git add -f` 强制加入。否则同事克隆后无法启动。
+日常提交：
 
-建议再加 `.gitattributes` 防止 JSON 换行转换：
-
-```gitattributes
-output/world_2000BCE.json -text
-*.py text eol=lf
-*.html text eol=lf
-*.json text eol=lf
+```bash
+git switch -c feat/<topic>
+# 修改、测试
+git add <具体文件>
+git commit -m "feat(scope): ..."
+git push -u origin feat/<topic>
 ```
+
+**基线文件：** `.gitignore` 使用 `output/*` 排除生成物，但显式保留 `output/world_2000BCE.json`、`world_summary.json`、`first_year_weather.json`、`sha256_manifest.json`、`viewer.html`。不要用 `git add -f` 绕过规则，也不要把整个 `output/` 重新加回来。
+
+**换行保护：** `.gitattributes` 已固定 `output/world_2000BCE.json -text`，避免 Git 转换换行后导致世界 SHA-256 校验失败；图片按二进制处理。
 
 不要提交：
 
 - `.venv/`
 - `runs/`（存档、实验输出、截图）
 - `output_regenerated/`
-- 任何 API 密钥文件
+- `.idea/`、`Thumbs.db`
+- 任何 API 密钥文件（本机 `api.txt` 在仓库目录之外）
 - `__pycache__/`、`.pytest_cache/`
 
 ### 16.2 分支与提交
@@ -1118,13 +1127,14 @@ docs(manual): document action protocol and save format
 - 是否泄露密钥或预算失控？
 - 是否跑过长期模拟？
 
-### 16.6 远程协作
+### 16.6 GitHub 协作
 
-如果需要局域网共享：
-
-- 优先使用系统级远程桌面/VPN/受控文件共享，不要把 `live_server.py` 直接暴露到公网。
-- 服务无认证，只允许 loopback；如确需远程访问，必须加认证层和访问控制。
-- 大文件（世界 JSON、存档、截图）不要走聊天工具反复传输，使用受控共享目录并校验 SHA-256。
+- 所有人通过 GitHub 仓库协作，不再使用 SMB/SSH/Radmin 远程接入。
+- `main` 保持可运行；功能在 `feat/<topic>` 分支开发，通过 Pull Request 合并。
+- PR 描述写清：改动目的、影响的存档/协议/配置、测试与长期模拟结果。
+- 世界基线 `output/world_2000BCE.json` 是二进制等价输入，任何修改都必须单独评审并同步更新哈希/存档兼容说明。
+- 大存档、实验输出和截图不提交；需要分享时使用 Release 附件或外部存储。
+- 本机 `live_server.py` 仍然只监听 `127.0.0.1`，没有认证；不要把它部署到公网。
 
 ---
 
