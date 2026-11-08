@@ -121,6 +121,8 @@ class CityState:
     local_revenue: float = 0.0
     local_upkeep: float = 0.0
     local_net: float = 0.0
+    security: float = 55.0
+    health: float = 55.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -142,6 +144,8 @@ class CityState:
             "local_revenue": self.local_revenue,
             "local_upkeep": self.local_upkeep,
             "local_net": self.local_net,
+            "security": self.security,
+            "health": self.health,
         }
 
     @classmethod
@@ -165,6 +169,8 @@ class CityState:
             local_revenue=float(data.get("local_revenue", 0.0)),
             local_upkeep=float(data.get("local_upkeep", 0.0)),
             local_net=float(data.get("local_net", 0.0)),
+            security=float(data.get("security", 55.0)),
+            health=float(data.get("health", 55.0)),
         )
 
 

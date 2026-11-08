@@ -235,6 +235,13 @@ class HeuristicAgent(CountryAgent):
         for name, field, level, cost in wonders:
             if technology.get(field, 0) >= level and not counts.get(name) and country["treasury"] >= cost:
                 return name
+        cities = country.get("cities", [])
+        low_health = any(float(city.get("health", 100)) < 45 for city in cities)
+        low_security = any(float(city.get("security", 100)) < 45 for city in cities)
+        if low_health and technology.get("agriculture", 0) >= 2 and not counts.get("GRANARY"):
+            return "GRANARY"
+        if low_security and technology.get("writing", 0) >= 1 and not counts.get("TEMPLE"):
+            return "TEMPLE"
         crowded = country["population"] / 1000.0 >= country["housing"] - 1
         if country["stability"] < 55 and technology.get("writing", 0) >= 1 and not counts.get("TEMPLE"):
             return "TEMPLE"

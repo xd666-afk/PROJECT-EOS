@@ -100,6 +100,56 @@ def zone_adjacency(city, coord: tuple[int, int]) -> dict[str, float]:
     return {"food": food, "mining": mining, "tax": tax, "research": research}
 
 
+def city_service_targets(city, country, config: dict[str, Any]) -> dict[str, float]:
+    settings = config["city_services"]
+    counts = Counter(
+        country.buildings[coord] for coord in city.tiles if coord in country.buildings
+    )
+    zones = Counter(city.zones.values())
+    crowding = max(
+        0.0, city.population / 1000.0 - city_housing(city, country, config)
+    )
+    industry = zones.get("industry", 0)
+    security = (
+        settings["base"]
+        + counts.get("TEMPLE", 0) * settings["temple_security"]
+        + counts.get("MARKET", 0) * settings["market_security"]
+        + counts.get("ROAD", 0) * settings["road_security"]
+        - industry * settings["industry_security_penalty"]
+        - crowding * settings["crowding_security_penalty"]
+        + settings["budget_security"].get(city.budget, 0.0)
+    )
+    food_deficit = (
+        settings["food_deficit_health_penalty"]
+        if city.food_need > 1e-9 and city.food_balance < 0
+        else 0.0
+    )
+    health = (
+        settings["base"]
+        + counts.get("GRANARY", 0) * settings["granary_health"]
+        + counts.get("IRRIGATION", 0) * settings["irrigation_health"]
+        + counts.get("TEMPLE", 0) * settings["temple_health"]
+        + counts.get("MARKET", 0) * settings["market_health"]
+        - industry * settings["industry_health_penalty"]
+        - crowding * settings["crowding_health_penalty"]
+        - food_deficit
+        + settings["budget_health"].get(city.budget, 0.0)
+    )
+    return {
+        "security": round(max(5.0, min(95.0, security)), 2),
+        "health": round(max(5.0, min(95.0, health)), 2),
+    }
+
+
+def service_status(value: float, config: dict[str, Any]) -> str:
+    settings = config["city_services"]
+    if value < settings["critical_threshold"]:
+        return "危机"
+    if value < settings["low_threshold"]:
+        return "紧张"
+    return "良好"
+
+
 def city_livability_target(city, country, config: dict[str, Any]) -> float:
     zones = Counter(city.zones.values())
     counts = Counter(
@@ -115,6 +165,9 @@ def city_livability_target(city, country, config: dict[str, Any]) -> float:
     target += counts.get("GRANARY", 0) * 2
     budget = config["city_budgets"].get(city.budget, config["city_budgets"]["balanced"])
     target += budget["livability"]
+    service_base = config["city_services"]["base"]
+    target += (city.security - service_base) * 0.08
+    target += (city.health - service_base) * 0.08
     target -= max(0.0, city.population / 1000.0 - city_housing(city, country, config)) * 2
     return max(10.0, min(95.0, target))
 
@@ -128,6 +181,8 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
         food_status = "盈余"
     else:
         food_status = "缺口"
+    service_targets = city_service_targets(city, country, config)
+    settings = config["city_services"]
     governance_note = ""
     if city.managed_by == "ai" and city_need > 1e-9:
         focus_label = config["city_focuses"].get(city.focus, {}).get(
@@ -136,6 +191,14 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
         if city_ratio < 0.95:
             governance_note = (
                 f"粮食自给仅 {city_ratio:.0%}，优先扩张农业区并转入增长方针"
+            )
+        elif city.security < settings["low_threshold"]:
+            governance_note = (
+                f"治安仅 {city.security:.0f}，提高服务预算并等待神庙/道路覆盖"
+            )
+        elif city.health < settings["low_threshold"]:
+            governance_note = (
+                f"卫生仅 {city.health:.0f}，提高服务预算并等待粮仓/灌溉覆盖"
             )
         else:
             governance_note = f"粮食自给 {city_ratio:.0%}，按{focus_label}方向继续规划"
@@ -179,6 +242,12 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
         "local_revenue": round(city.local_revenue, 4),
         "local_upkeep": round(city.local_upkeep, 4),
         "local_net": round(city.local_net, 4),
+        "security": round(city.security, 2),
+        "health": round(city.health, 2),
+        "security_target": service_targets["security"],
+        "health_target": service_targets["health"],
+        "security_status": service_status(city.security, config),
+        "health_status": service_status(city.health, config),
         "mining_potential": round(mining, 2),
         "dominant_biome": dominant,
         "buildings": dict(building_counts_for_city),

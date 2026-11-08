@@ -389,6 +389,7 @@ class RuleEngine:
             monthly = self.state.weather.complete_month(self.state.day_index)
             self.state.record("weather_month", **monthly)
             self._apply_hazards(monthly)
+            self.economy.update_city_services_monthly()
             self.economy.update_city_livability_monthly()
             self.economy.grow_population_monthly()
             self.economy.update_stability_monthly()

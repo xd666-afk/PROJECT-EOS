@@ -222,3 +222,75 @@ def test_prosperity_victory_requires_all_three_targets(state):
     assert state.victory_status()["countries"]["ELAR"]["conditions"]["prosperity"]["achieved"]
     country.treasury = settings["treasury"] * 0.5
     assert not state.victory_status()["countries"]["ELAR"]["conditions"]["prosperity"]["achieved"]
+
+
+def test_city_service_targets_react_to_buildings_budget_and_pollution(state):
+    from core.society import city_service_targets
+
+    country = state.countries["ELAR"]
+    city = country.cities[0]
+    base = city_service_targets(city, country, state.config)
+    assert 5 <= base["security"] <= 95
+    assert 5 <= base["health"] <= 95
+
+    country.buildings[city.center] = "TEMPLE"
+    templed = city_service_targets(city, country, state.config)
+    assert templed["security"] > base["security"]
+    assert templed["health"] > base["health"]
+
+    country.buildings[city.center] = "GRANARY"
+    granaried = city_service_targets(city, country, state.config)
+    assert granaried["health"] > base["health"]
+
+    for coord in city.tiles:
+        city.zones[coord] = "industry"
+    polluted = city_service_targets(city, country, state.config)
+    assert polluted["security"] < templed["security"]
+    assert polluted["health"] < granaried["health"]
+
+    city.budget = "investment"
+    invested = city_service_targets(city, country, state.config)
+    assert invested["security"] > polluted["security"]
+    city.budget = "austerity"
+    austere = city_service_targets(city, country, state.config)
+    assert austere["security"] < invested["security"]
+
+
+def test_low_security_reduces_tax_and_services_converge_monthly(engine):
+    country = engine.state.countries["ELAR"]
+    city = country.cities[0]
+    weather = {"rain": np.full((54, 72), 3.0), "temperature": np.full((54, 72), 18.0)}
+    city.security = 10.0
+    low_tax = engine.economy.settle_country(country, weather)["tax_income"]
+    city.security = 90.0
+    high_tax = engine.economy.settle_country(country, weather)["tax_income"]
+    assert high_tax > low_tax
+
+    city.security = 90.0
+    city.health = 90.0
+    for coord in city.tiles:
+        city.zones[coord] = "industry"
+    engine.economy.update_city_services_monthly()
+    assert city.security < 90.0
+    assert city.health < 90.0
+
+
+def test_city_unrest_and_epidemic_apply_real_losses(engine, monkeypatch):
+    country = engine.state.countries["ELAR"]
+    city = country.cities[0]
+    city.population = 10_000
+    country.population = 10_000
+    city.security = 5.0
+    city.health = 5.0
+    country.treasury = 100.0
+    country.stability = 50.0
+    country.food = 0.0
+    monkeypatch.setattr(engine.state.weather, "random", lambda: 0.0)
+    engine.economy.apply_social_events()
+    types = {event["type"] for event in engine.state.event_log}
+    assert "city_unrest" in types
+    assert "city_epidemic" in types
+    assert country.treasury < 100.0
+    assert country.stability < 50.0
+    assert city.population < 10_000
+    assert sum(item.population for item in country.cities) == country.population

@@ -9,6 +9,7 @@ from core.society import (
     building_counts,
     city_housing,
     city_livability_target,
+    city_service_targets,
     food_capacity,
     housing_capacity,
     stability_factor,
@@ -133,6 +134,7 @@ class Economy:
             country.technology.get("bronze_metallurgy", 1) - 1
         ) * self.config["metallurgy_bonus_per_level"]
         counts = building_counts(country)
+        service_settings = self.config["city_services"]
         policy = self.config["policies"][country.policy]
         tax_factor = self._tax_factor(country)
         social_factor = stability_factor(country.stability, self.config)
@@ -195,6 +197,16 @@ class Economy:
             * (1.0 + trade_pacts * 0.05)
             * city_tax_multiplier
         )
+        if country.cities and population_total:
+            security_tax_factor = sum(
+                city.population
+                * max(
+                    0.75,
+                    min(1.0, 0.75 + city.security / service_settings["base"] * 0.25),
+                )
+                for city in country.cities
+            ) / population_total
+            tax_income *= security_tax_factor
         upkeep = len(country.buildings) * self.config["building_upkeep_per_day"]
         food_per_1000 = self.config["food_per_1000_people_per_day"]
         consumption = country.population / 1000.0 * food_per_1000
@@ -429,6 +441,13 @@ class Economy:
                     city.budget, self.config["city_budgets"]["balanced"]
                 )
                 growth_factor *= budget["growth"]
+                service_base = self.config["city_services"]["base"]
+                growth_factor *= max(
+                    0.9, min(1.0, 0.9 + city.security / service_base * 0.1)
+                )
+                growth_factor *= max(
+                    0.9, min(1.0, 0.9 + city.health / service_base * 0.1)
+                )
                 growth = (
                     city.population
                     * self.config["monthly_population_growth_rate"]
@@ -468,6 +487,11 @@ class Economy:
             if country.cities:
                 average_livability = sum(city.livability for city in country.cities) / len(country.cities)
                 target += (average_livability - 60.0) * 0.08
+                service_base = self.config["city_services"]["base"]
+                average_security = sum(city.security for city in country.cities) / len(country.cities)
+                average_health = sum(city.health for city in country.cities) / len(country.cities)
+                target += (average_security - service_base) * 0.08
+                target += (average_health - service_base) * 0.08
             target = max(0.0, min(90.0, target))
             country.stability += (target - country.stability) * settings["convergence"]
             country.stability = max(0.0, min(100.0, country.stability))
@@ -491,6 +515,20 @@ class Economy:
                 housing=housing,
                 population=country.population,
             )
+
+    def update_city_services_monthly(self) -> None:
+        settings = self.config["city_services"]
+        for country in self.state.countries.values():
+            for city in country.cities:
+                targets = city_service_targets(city, country, self.config)
+                city.security += (
+                    targets["security"] - city.security
+                ) * settings["convergence"]
+                city.health += (
+                    targets["health"] - city.health
+                ) * settings["convergence"]
+                city.security = max(0.0, min(100.0, city.security))
+                city.health = max(0.0, min(100.0, city.health))
 
     def update_city_livability_monthly(self) -> None:
         for country in self.state.countries.values():
@@ -535,3 +573,69 @@ class Economy:
                     event="craftsmen_migration",
                     population_gain=growth,
                 )
+            service_settings = self.config["city_services"]
+            for city in country.cities:
+                if city.security < service_settings["critical_threshold"]:
+                    severity = (
+                        service_settings["critical_threshold"] - city.security
+                    ) / service_settings["critical_threshold"]
+                    chance = min(
+                        0.6, service_settings["unrest_chance"] * (1.0 + severity)
+                    )
+                    if self.state.weather.random() < chance:
+                        loss = country.treasury * service_settings["unrest_treasury_loss"]
+                        country.treasury = max(0.0, country.treasury - loss)
+                        country.stability = max(
+                            0.0,
+                            country.stability - service_settings["unrest_stability_loss"],
+                        )
+                        city.security = max(0.0, city.security - 2.0)
+                        self.state.record(
+                            "city_unrest",
+                            country_id=country.country_id,
+                            city_id=city.city_id,
+                            city_name=city.name,
+                            treasury_loss=round(loss, 4),
+                            stability_loss=service_settings["unrest_stability_loss"],
+                            security=round(city.security, 2),
+                        )
+                if (
+                    city.health < service_settings["critical_threshold"]
+                    and city.population > 0
+                ):
+                    severity = (
+                        service_settings["critical_threshold"] - city.health
+                    ) / service_settings["critical_threshold"]
+                    chance = min(
+                        0.6, service_settings["epidemic_chance"] * (1.0 + severity)
+                    )
+                    if self.state.weather.random() < chance:
+                        population_loss = min(
+                            city.population,
+                            max(
+                                1,
+                                int(
+                                    city.population
+                                    * service_settings["epidemic_population_fraction"]
+                                    * (1.0 + severity)
+                                ),
+                            ),
+                        )
+                        city.population -= population_loss
+                        country.population = max(
+                            0, country.population - population_loss
+                        )
+                        country.stability = max(
+                            0.0,
+                            country.stability - service_settings["epidemic_stability_loss"],
+                        )
+                        city.health = max(0.0, city.health - 2.0)
+                        self.state.record(
+                            "city_epidemic",
+                            country_id=country.country_id,
+                            city_id=city.city_id,
+                            city_name=city.name,
+                            population_loss=population_loss,
+                            stability_loss=service_settings["epidemic_stability_loss"],
+                            health=round(city.health, 2),
+                        )

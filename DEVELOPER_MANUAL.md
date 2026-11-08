@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-07，对应当前代码与 65 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-08，对应当前代码与 68 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 四国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、65 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、68 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -624,10 +624,29 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 - 每 90 日规划一次：方针、预算、目标分区。
 - 粮食自给低 → 农业优先。
 - 国库紧张且本地亏损 → 紧缩。
-- 宜居低且国库允许 → 投资。
+- 宜居低或治安/卫生偏低且国库允许 → 投资。
+- 卫生紧张 → 优先把工矿地块转为住宅。
 - 手动城市完全跳过，不覆盖玩家操作。
 
-### 8.8 新增城市功能的检查清单
+### 8.8 城市服务
+
+每座城市维护独立 `security`（治安）和 `health`（卫生），目标值由 `city_service_targets` 计算：
+
+- 治安：神庙、市场、道路提升；工矿分区和住房拥挤压低。
+- 卫生：粮仓、灌溉、神庙、市场提升；工矿污染、住房拥挤、缺粮压低。
+- 预算档位也会直接修正治安/卫生目标。
+
+阈值与后果：
+
+- `< 45`：紧张；`< 35`：危机。
+- 低治安降低税收和人口增长；低卫生降低人口增长。
+- 每月危机检查：治安事件损失财政与稳定度；疫病损失人口与稳定度。
+- 服务值、目标值和状态显示在城市卡片与城市详情。
+
+字段：`security`、`health`；目标与状态由 `city_static_metrics` 派生为
+`security_target`、`health_target`、`security_status`、`health_status`。
+
+### 8.9 新增城市功能的检查清单
 
 1. `CityState` 加字段。
 2. `to_dict/from_dict` 加持久化与默认值（旧存档兼容）。
@@ -931,6 +950,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 | `city_logistics` | 城市粮食物流 |
 | `city_service_cost_per_1000` | 城市服务基础成本 |
 | `city_budgets` | 城市预算档位 |
+| `city_services` | 治安/卫生目标、阈值、事件概率与损失 |
 | `victory_conditions` | 胜利条件 |
 | `tech_tree` / `eras` / `research_*` | 科技与时代 |
 | `policies` | 国家政策 |
@@ -1006,7 +1026,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**65 passed**。
+当前：**68 passed**。
 
 ### 15.2 测试原则
 
@@ -1207,7 +1227,7 @@ taskkill /PID <PID> /F
 
 - 军事是战略抽象：单支军队，无海军、围城、补给线、多军团。
 - 城市没有完整物资库存与城市间商品网络；目前只有粮食账本与地方预算。
-- 城市服务只有宜居度抽象，没有卫生/治安/消防等独立设施。
+- 城市服务已有治安/卫生指标，但还没有独立的卫生所、治安所、消防等设施与事件链。
 - 无正式胜利动画、音效、过场；结算为 UI 面板。
 - 世界气象是游戏模型，不是科学天气预报。
 - 前端是单文件原生 JS，无组件化/构建系统；规模继续增长时需要拆分。
@@ -1290,6 +1310,7 @@ city_id, name, center, population, focus, tiles
 housing, food_potential, food_output, food_need, food_balance
 food_self_sufficiency, food_status, food_loss
 budget, budget_label, local_revenue, local_upkeep, local_net
+security, health, security_target, health_target, security_status, health_status
 livability, managed_by, zones, buildings, tiles_detail
 ```
 
@@ -1301,7 +1322,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：65 项。
+- 测试：68 项。
 - 实时服务默认端口：8765。
 
 ---

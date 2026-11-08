@@ -520,6 +520,9 @@ button.primary:hover{filter:brightness(1.08)}
           <div class="zone-grid" id="cityBudgetPalette"></div>
           <div class="city-coord" id="cityBudgetInfo">等待首个结算日</div>
           <div class="hint" id="cityBudgetHint">紧缩节省财政但降低服务；投资提升宜居和增长，但由全国财政补贴。</div>
+          <h4>城市服务</h4>
+          <div id="cityServiceBars"></div>
+          <div class="hint" id="cityServiceHint"></div>
           <h4>本地地块</h4>
           <div class="city-coord" id="cityTileInfo">点击地图选择地块</div>
           <div class="zone-grid" id="cityZonePalette"></div>
@@ -1003,6 +1006,7 @@ function renderRight(){
     <div class="split"><span>日产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
     <div class="split"><span>人口 / 住房容量</span><b>${fmtInt(c.population)} / ${fmtNum(c.housing,0)}k</b></div>
     <div class="split"><span>城市 / 军队 / 战争疲劳</span><b>${c.cities?.length||0} · ${c.army_strength} · ${fmtNum(c.war_exhaustion,1)}${c.at_war_with?.length?' · 交战中':''}</b></div>
+    ${c.cities?.length?`<div class="split"><span>城市服务（均）</span><b>治安 ${fmtNum(c.cities.reduce((a,x)=>a+(x.security||0),0)/c.cities.length,0)} · 卫生 ${fmtNum(c.cities.reduce((a,x)=>a+(x.health||0),0)/c.cities.length,0)}</b></div>`:''}
     <div class="bar"><i style="width:${Math.min(100,c.population/1000/Math.max(c.housing,1)*100)}%;background:${c.population/1000>=c.housing-1?'var(--warn)':'var(--good)'}"></i></div>
     <div class="split"><span>稳定度 · 产出系数 ${fmtNum(c.stability_factor,2)}</span><b>${c.stability<35?'动荡':(c.stability>65?'安定':'平稳')}</b></div>
     <div class="split"><span>劳动力 · 农业 ${Math.round((c.workers?.agriculture||0)*100)}%</span><b>矿业 ${Math.round((c.workers?.mining||0)*100)}%</b></div>
@@ -1166,6 +1170,8 @@ function formatEvent(e){
       if(e.event==='craftsmen_migration')return[d,`<b>${esc(e.country_id)}</b> 工匠迁入，人口 +${e.population_gain}`,'research'];
       return null;
     case 'food_shortage':return[d,`<b>${esc(e.country_id)}</b> 缺粮，人口 -${e.population_loss}`,'hazard'];
+    case 'city_unrest':return[d,`<b>${esc(e.city_name||e.city_id)}</b> 治安事件 · 财政 -${fmtNum(e.treasury_loss,2)} / 稳定 -${e.stability_loss}`,'hazard'];
+    case 'city_epidemic':return[d,`<b>${esc(e.city_name||e.city_id)}</b> 疫病 · 人口 -${e.population_loss} / 稳定 -${e.stability_loss}`,'hazard'];
     case 'weather_month':return[d,`第 ${e.month} 月天气结算完成`,'meta'];
     case 'control_changed':return[d,e.mode==='player'?`<b>${esc(e.country_id)}</b> 由玩家接管`:'返回观战模式','meta'];
     case 'population_growth':return null;
@@ -1582,6 +1588,7 @@ function renderCities(){
       <div class="city-stat"><small>宜居度</small><b>${fmtNum(city.livability,0)}</b></div>
     </div>
     <div class="city-buildings">${Object.entries(city.buildings).length?Object.entries(city.buildings).map(([kind,count])=>`<span>${esc(BUILD_NAMES[kind]||kind)} ×${count}</span>`).join(''):'<span>暂无设施</span>'}</div>
+    <div class="hint">治安 ${fmtNum(city.security,0)}（${esc(city.security_status||'—')}） · 卫生 ${fmtNum(city.health,0)}（${esc(city.health_status||'—')}）</div>
     ${isPlayer?`<div class="city-focus">
       <button data-city-open="${city.city_id}">进入城市</button>
       <button data-city-governance="${city.city_id}" data-next-mode="${city.managed_by==='ai'?'manual':'ai'}">${city.managed_by==='ai'?'收回手动':'交给AI托管'}</button>
@@ -1633,6 +1640,18 @@ function renderCityDetail(){
   for(const button of document.querySelectorAll('[data-budget]'))button.onclick=()=>{
     submitPlayerAction({type:'SET_CITY_BUDGET',city_id:city.city_id,budget:button.dataset.budget},'城市预算已调整').then(()=>renderCityDetail());
   };
+  const serviceRows=[
+    ['治安','security','security_target','security_status'],
+    ['卫生','health','health_target','health_status'],
+  ];
+  $('cityServiceBars').innerHTML=serviceRows.map(([label,key,targetKey,statusKey])=>{
+    const value=Number(city[key]??0),target=Number(city[targetKey]??0),status=city[statusKey]||'—';
+    const color=status==='危机'?'#e18a7c':status==='紧张'?'#d9b56b':'#9fc873';
+    return `<div class="victory-row"><div class="split"><span>${label} · ${esc(status)}</span><b>${fmtNum(value,0)} / 目标 ${fmtNum(target,0)}</b></div><div class="bar"><i style="width:${Math.min(100,value)}%;background:${color}"></i></div></div>`;
+  }).join('');
+  $('cityServiceHint').textContent=city.security_status==='危机'||city.health_status==='危机'
+    ?'服务处于危机：可能触发治安事件或疫病，造成财政、稳定度和人口损失。提高预算、修建神庙/粮仓/灌溉，或减少工矿污染。'
+    :'神庙和道路提升治安；粮仓、灌溉和神庙提升卫生；工矿区与住房拥挤会压低服务。';
   const detail=$('cityCanvas'),c=detail.getContext('2d');
   const rect=detail.getBoundingClientRect(),w=Math.max(300,rect.width),h=Math.max(280,rect.height);
   const dpr=Math.min(window.devicePixelRatio||1,2);detail.width=w*dpr;detail.height=h*dpr;c.setTransform(dpr,0,0,dpr,0,0);
