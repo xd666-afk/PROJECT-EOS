@@ -339,6 +339,13 @@ button.primary:hover{filter:brightness(1.08)}
 .diary-actions{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0 4px}
 .diary-action{font-size:9px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
 .diary-meta{color:var(--faint);font-size:8.5px}
+.ai-simple{border:1px solid var(--line);border-radius:8px;padding:8px;background:#0a1c24;margin-bottom:7px}
+.ai-simple .ai-fields{gap:6px}
+.ai-simple-note{font-size:9px;color:var(--muted);line-height:1.5;margin:5px 0}
+.ai-simple-note a{color:var(--accent);text-decoration:none}
+.ai-advanced{border-top:1px solid var(--line);padding-top:6px;margin-top:4px}
+.ai-advanced summary{cursor:pointer;color:var(--muted);font-size:10px;margin-bottom:6px}
+.ai-advanced summary:hover{color:var(--ink)}
 .diary-bubbles{position:absolute;inset:0;pointer-events:none;z-index:6}
 .diary-bubble{position:absolute;transform:translate(-50%,-100%);max-width:240px;min-width:188px;
   padding:9px 11px 8px;border:1px solid var(--c);border-left:3px solid var(--c);border-radius:12px;
@@ -1641,28 +1648,75 @@ async function openAgents(){
   try{
     const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
     $('agentsBudget').innerHTML=`模型只在每 90 日规划节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。`;
+    const providers=data.providers||[];
     $('agentsList').innerHTML=Object.entries(data.countries).map(([cid,a])=>{
       const mode=a.mode||'mock';
       const keyClass=a.key_configured?'ok':'missing';
-      return `<div class="ai-country" data-country="${cid}">
+      const currentProvider=a.provider_id||providers.find(p=>p.label===a.provider)?.id||providers[0]?.id||'deepseek';
+      const providerOptions=providers.map(p=>`<option value="${esc(p.id)}" ${p.id===currentProvider?'selected':''}>${esc(p.label)}</option>`).join('');
+      const provider=providers.find(p=>p.id===currentProvider)||providers[0]||{label:'DeepSeek',model:'deepseek-chat',docs_url:'https://api-docs.deepseek.com/zh-cn/'};
+      return `<div class="ai-country" data-country="${cid}" data-key-configured="${a.key_configured?'1':'0'}">
         <div class="ai-country-head"><b>${esc(cid)} · ${esc(countryMeta(cid)?.name||cid)}</b>
-          <span class="key-state ${keyClass}">${a.key_configured?'密钥环境变量已配置':'未检测到密钥'}</span></div>
-        <div class="ai-fields">
-          <label>控制方式<select data-field="mode"><option value="mock" ${mode==='mock'?'selected':''}>Mock 规则 AI</option><option value="openai_compatible" ${mode!=='mock'?'selected':''}>OpenAI 兼容模型</option></select></label>
-          <label>供应商<input data-field="provider" value="${esc(a.provider||'deepseek')}" placeholder="deepseek"></label>
-          <label>模型<input data-field="model" value="${esc(a.model||'deepseek-flash')}" placeholder="deepseek-flash"></label>
-          <label>密钥环境变量<input data-field="api_key_env" value="${esc(a.api_key_env||('EOS_AGENT_'+cid+'_API_KEY'))}" placeholder="EOS_AGENT_ELAR_API_KEY"></label>
-          <label class="wide">Base URL<input data-field="base_url" value="${esc(a.base_url||'https://api.deepseek.com')}" placeholder="https://api.deepseek.com"></label>
-          <label>超时秒数<input data-field="timeout_seconds" type="number" min="1" max="120" value="45"></label>
-          <label>重试次数<input data-field="retries" type="number" min="0" max="3" value="0"></label>
-          <label>最大输出 Token<input data-field="max_output_tokens" type="number" min="1" max="4000" value="4000"></label>
+          <span style="display:flex;gap:6px;align-items:center"><span class="pill">${mode==='mock'?'规则 AI':'LLM'}</span>
+          <span class="key-state ${keyClass}">${a.key_configured?'密钥已配置':'未配置密钥'}</span></span></div>
+        <div class="ai-simple">
+          <div class="ai-fields">
+            <label>厂商<select data-simple-provider>${providerOptions}</select></label>
+            <label class="wide">API Key<input type="password" data-simple-key autocomplete="off" placeholder="${a.key_configured?'留空沿用当前进程密钥':'粘贴 API Key'}"></label>
+          </div>
+          <div class="ai-simple-note" data-simple-note>默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。</div>
+          <div class="ai-actions-row">
+            <button class="primary" data-save-simple>保存并启用</button>
+            <button data-save-mock>使用规则 AI</button>
+          </div>
         </div>
-        <div class="ai-actions-row"><button class="primary" data-save-agent>应用该席位</button></div>
+        <details class="ai-advanced">
+          <summary>高级配置：自定义模型、Base URL、超时与重试</summary>
+          <div class="ai-fields">
+            <label>控制方式<select data-field="mode"><option value="mock" ${mode==='mock'?'selected':''}>Mock 规则 AI</option><option value="openai_compatible" ${mode!=='mock'?'selected':''}>OpenAI 兼容模型</option></select></label>
+            <label>供应商<input data-field="provider" value="${esc(a.provider||'deepseek')}" placeholder="deepseek"></label>
+            <label>模型<input data-field="model" value="${esc(a.model||'deepseek-flash')}" placeholder="deepseek-flash"></label>
+            <label>密钥环境变量<input data-field="api_key_env" value="${esc(a.api_key_env||('EOS_AGENT_'+cid+'_API_KEY'))}" placeholder="EOS_AGENT_ELAR_API_KEY"></label>
+            <label class="wide">Base URL<input data-field="base_url" value="${esc(a.base_url||'https://api.deepseek.com')}" placeholder="https://api.deepseek.com"></label>
+            <label>超时秒数<input data-field="timeout_seconds" type="number" min="1" max="120" value="45"></label>
+            <label>重试次数<input data-field="retries" type="number" min="0" max="3" value="0"></label>
+            <label>最大输出 Token<input data-field="max_output_tokens" type="number" min="1" max="4000" value="4000"></label>
+          </div>
+          <div class="ai-actions-row"><button data-save-agent>应用高级配置</button></div>
+        </details>
       </div>`;
     }).join('');
+    for(const select of document.querySelectorAll('[data-simple-provider]'))select.onchange=()=>updateSimpleProviderHint(select.closest('.ai-country'),providers);
+    for(const btn of document.querySelectorAll('[data-save-simple]'))btn.onclick=()=>saveSimpleAgent(btn.closest('.ai-country'));
+    for(const btn of document.querySelectorAll('[data-save-mock]'))btn.onclick=()=>saveMockAgent(btn.closest('.ai-country'));
     for(const btn of document.querySelectorAll('[data-save-agent]'))btn.onclick=()=>saveAgent(btn.closest('.ai-country'));
     $('agentsModal').hidden=false;
   }catch(err){showToast('无法读取 AI 席位配置',true);}
+}
+function updateSimpleProviderHint(row,providers){
+  const provider=providers.find(p=>p.id===row.querySelector('[data-simple-provider]').value)||providers[0];
+  const note=row.querySelector('[data-simple-note]');
+  if(note&&provider)note.innerHTML=`默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。`;
+}
+async function postAgentSettings(cid,settings,successText){
+  try{
+    const r=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({country_id:cid,settings})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'配置失败');
+    showToast(successText);
+    await openAgents();await poll(true);
+  }catch(err){showToast(`AI 配置失败：${err.message}`,true);}
+}
+function saveSimpleAgent(row){
+  const cid=row.dataset.country;
+  const providerId=row.querySelector('[data-simple-provider]').value;
+  const key=row.querySelector('[data-simple-key]').value.trim();
+  if(!key&&row.dataset.keyConfigured!=='1'){showToast('请粘贴 API Key',true);return;}
+  postAgentSettings(cid,{mode:'openai_compatible',provider_id:providerId,api_key:key},`${cid} 已启用简单模式`);
+}
+function saveMockAgent(row){
+  postAgentSettings(row.dataset.country,{mode:'mock'},`${row.dataset.country} 已切回规则 AI`);
 }
 async function saveAgent(row){
   const cid=row.dataset.country;
@@ -1673,14 +1727,7 @@ async function saveAgent(row){
     settings.api_key_env=value('api_key_env');settings.timeout_seconds=Number(value('timeout_seconds'));
     settings.retries=Number(value('retries'));settings.max_output_tokens=Number(value('max_output_tokens'));
   }
-  try{
-    const r=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({country_id:cid,settings})});
-    const data=await r.json();
-    if(!data.ok)throw new Error(data.error||'配置失败');
-    showToast(`${cid} 已切换为 ${settings.mode==='mock'?'Mock':settings.model}`);
-    await openAgents();await poll(true);
-  }catch(err){showToast(`AI 配置失败：${err.message}`,true);}
+  await postAgentSettings(cid,settings,settings.mode==='mock'?`${cid} 已切换为 Mock`:`${cid} 已应用高级配置`);
 }
 window.addEventListener('resize',resize);
 let gameLoaded=false,pollTimer=null,latestSaves=[],pauseOpen=false,resumeAfterPause=false,loadOrigin='menu',endShown=false,techResume=false,diploResume=false,militaryResume=false,cityResume=false,selectedCityId=null,selectedCityTile=null;

@@ -16,6 +16,7 @@ import webbrowser
 
 from agents.heuristic import HeuristicAgent
 from agents.llm_adapter import CallBudget, LLMSettings, OpenAICompatibleAgent, load_agents
+from agents.providers import provider_payload, resolve_simple_settings
 from agents.scheduler import AgentScheduler
 from core.simulation import Simulation
 
@@ -331,13 +332,22 @@ class LiveSession:
             countries = {}
             for country_id, meta in self.agent_meta.items():
                 env_name = meta.get("api_key_env") or f"EOS_AGENT_{country_id}_API_KEY"
+                if meta.get("provider_id"):
+                    configured = bool(os.environ.get(env_name))
+                else:
+                    configured = bool(
+                        os.environ.get(env_name) or os.environ.get("EOS_API_KEY")
+                    )
                 countries[country_id] = {
                     **meta,
                     "api_key_env": env_name,
-                    "key_configured": bool(os.environ.get(env_name) or os.environ.get("EOS_API_KEY")),
+                    "key_configured": (
+                        meta.get("mode") == "openai_compatible" and configured
+                    ),
                 }
             return {
                 "countries": countries,
+                "providers": provider_payload(),
                 "budget": self.budget.summary(),
                 "player_country": self.player_country,
             }
@@ -372,8 +382,40 @@ class LiveSession:
                 agent = HeuristicAgent(country_id)
                 meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
             elif mode == "openai_compatible":
+                provider_id = str(settings.get("provider_id") or "").strip()
+                resolved = dict(settings)
+                if provider_id:
+                    try:
+                        preset, env_name = resolve_simple_settings(country_id, provider_id)
+                    except (ValueError, TypeError) as exc:
+                        return {"ok": False, "error": f"unknown provider preset: {exc}"}
+                    api_key = settings.get("api_key")
+                    key_text = api_key.strip() if isinstance(api_key, str) else ""
+                    if key_text:
+                        # Simple setup: keep the key only in this process, never in
+                        # saves, logs, /api/state, or the response payload.
+                        os.environ[env_name] = key_text
+                    previous_meta = self.agent_meta.get(country_id, {})
+                    previous_provider = previous_meta.get("provider_id") or (
+                        previous_meta.get("provider")
+                        if previous_meta.get("mode") == "openai_compatible"
+                        else None
+                    )
+                    if not key_text and previous_provider and previous_provider != provider_id:
+                        return {"ok": False, "error": "切换厂商请重新填写 API Key"}
+                    if not os.environ.get(env_name):
+                        return {"ok": False, "error": "请填写 API Key"}
+                    resolved = {
+                        "provider": preset["label"],
+                        "model": preset["model"],
+                        "base_url": preset["base_url"],
+                        "api_key_env": env_name,
+                        "timeout_seconds": preset["timeout_seconds"],
+                        "retries": preset["retries"],
+                        "max_output_tokens": preset["max_output_tokens"],
+                    }
                 try:
-                    llm_settings = LLMSettings.from_dict(country_id, settings)
+                    llm_settings = LLMSettings.from_dict(country_id, resolved)
                 except (ValueError, KeyError, TypeError) as exc:
                     return {"ok": False, "error": f"invalid model settings: {exc}"}
                 if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", llm_settings.api_key_env):
@@ -382,6 +424,7 @@ class LiveSession:
                 meta = {
                     "mode": "openai_compatible",
                     "provider": llm_settings.provider,
+                    "provider_id": provider_id or None,
                     "model": llm_settings.model,
                     "base_url": llm_settings.base_url,
                     "api_key_env": llm_settings.api_key_env,

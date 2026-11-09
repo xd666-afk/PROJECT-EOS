@@ -1,0 +1,58 @@
+{
+  "providers": {
+    "deepseek": {
+      "label": "DeepSeek",
+      "base_url": "https://api.deepseek.com",
+      "model": "deepseek-chat",
+      "docs_url": "https://api-docs.deepseek.com/zh-cn/",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    },
+    "doubao": {
+      "label": "字节豆包",
+      "base_url": "https://ark.cn-beijing.volces.com/api/v3",
+      "model": "doubao-seed-2-1-pro-260915",
+      "docs_url": "https://www.volcengine.com/docs/82379/1099455",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    },
+    "qwen": {
+      "label": "阿里千问",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "model": "qwen-plus",
+      "docs_url": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    },
+    "kimi": {
+      "label": "月之暗面 Kimi",
+      "base_url": "https://api.moonshot.cn/v1",
+      "model": "moonshot-v1-auto",
+      "docs_url": "https://platform.moonshot.cn/docs/api/chat",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    },
+    "glm": {
+      "label": "智谱 GLM",
+      "base_url": "https://open.bigmodel.cn/api/paas/v4",
+      "model": "glm-5.3",
+      "docs_url": "https://docs.bigmodel.cn/cn/guide/develop/http/introduction",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    },
+    "minimax": {
+      "label": "MiniMax",
+      "base_url": "https://api.minimax.cn/v1",
+      "model": "MiniMax-M3",
+      "docs_url": "https://platform.minimaxi.com/docs/api-reference/text-openai-api",
+      "timeout_seconds": 45,
+      "retries": 0,
+      "max_output_tokens": 4000
+    }
+  }
+}

@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-08，对应当前代码与 69 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-09，对应当前代码与 71 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 四国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、69 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、71 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -695,25 +695,53 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 
 ### 9.4 运行时切换
 
-`POST /api/agents`：
+**简单模式**：只提交厂商预设和 API Key，服务端解析官方默认值：
 
 ```json
 {
   "country_id": "ELAR",
   "settings": {
     "mode": "openai_compatible",
-    "provider": "deepseek",
-    "model": "deepseek-chat",
-    "base_url": "https://api.deepseek.com/v1",
+    "provider_id": "qwen",
+    "api_key": "玩家粘贴的本地密钥"
+  }
+}
+```
+
+服务端把 Key 写入该进程的环境变量 `EOS_AGENT_<COUNTRY>_API_KEY`，不会写回响应、存档、日志或页面。重启服务后内存密钥清空。
+
+当前预设（`config/llm_providers.json`）：
+
+| ID | 厂商 | OpenAI 兼容 Base URL | 默认模型 |
+| --- | --- | --- | --- |
+| `deepseek` | DeepSeek | `https://api.deepseek.com` | `deepseek-chat` |
+| `doubao` | 字节豆包 / 火山方舟 | `https://ark.cn-beijing.volces.com/api/v3` | `doubao-seed-2-1-pro-260915` |
+| `qwen` | 阿里千问 / 百炼 | `https://dashscope.aliyuncs.com/compatible-mode/v1` | `qwen-plus` |
+| `kimi` | 月之暗面 Kimi | `https://api.moonshot.cn/v1` | `moonshot-v1-auto` |
+| `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` |
+| `minimax` | MiniMax | `https://api.minimax.cn/v1` | `MiniMax-M3` |
+
+厂商切换但 Key 留空时，服务端拒绝，避免把旧厂商的 Key 发给新厂商。预设模型以各厂商账号实际开通情况为准，可用高级模式覆盖。
+
+**高级模式**：完整自定义：
+
+```json
+{
+  "country_id": "ELAR",
+  "settings": {
+    "mode": "openai_compatible",
+    "provider": "custom-gateway",
+    "model": "custom-model",
+    "base_url": "https://gateway.example.com/v1",
     "api_key_env": "EOS_AGENT_ELAR_API_KEY",
-    "timeout_seconds": 20,
-    "retries": 1,
+    "timeout_seconds": 45,
+    "retries": 0,
     "max_output_tokens": 4000
   }
 }
 ```
 
-密钥环境变量必须在启动服务前配置好；页面只显示“是否已配置”，不会返回密钥。
+`GET /api/agents` 同时返回安全的 `providers` 预设列表；页面只显示“是否已配置”，不会返回密钥。Mock 席位不会因为存在全局 `EOS_API_KEY` 而误显示为已配置。
 
 ### 9.5 LLM 统治日记
 
@@ -828,7 +856,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 | `/` | 返回 `dashboard.html` |
 | `/api/world` | 静态世界压缩载荷（metadata/polities/tiles） |
 | `/api/state` | 实时完整快照：日期、国家、城市、事件、建筑、项目、AI、预算、胜利 |
-| `/api/agents` | 四国控制器、模型、预算（不含密钥） |
+| `/api/agents` | 四国控制器、模型、预算、厂商预设（不含密钥） |
 | `/api/diary` | LLM 国家统治日记；`country`、`limit` 可选 |
 | `/api/setup` | 新建世界的默认四国、文明类型、核心格数 |
 | `/api/saves` | 存档列表与当前存档 ID |
@@ -918,6 +946,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 - 主菜单：继续、载入、新建世界、AI 席位。
 - 游戏壳：顶部资源条、左侧国家/建设队列、中间六边形地图、右侧国家/地块/动态/排名标签。
 - 弹窗：科技树、外交、军事、城市、AI 统治档案、AI 席位、新世界、Esc 暂停、结算。
+- AI 席位默认显示简单配置（厂商 + API Key），高级配置折叠在下方。
 - LLM 决策还会以地图思考气泡出现：首都锚定、最多 2 个、高亮/常亮/淡出、悬停救回、点击展开、关闭归档。
 - 城市详情：局部六边形地图、粮食账本、地方预算、分区编辑。
 
@@ -1060,7 +1089,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**69 passed**。
+当前：**71 passed**。
 
 ### 15.2 测试原则
 
@@ -1259,6 +1288,8 @@ taskkill /PID <PID> /F
 
 已知限制：
 
+- 六家 LLM 厂商的预设已完成接入与本地安全测试，但尚未用五家真实账号逐一验收；模型 ID 以各账号控制台实际开通情况为准。
+- Mock 规则 AI 仍是基线强度，尚未进行“无 Key 玩家也能获得完整体验”的深度策略优化。
 - 军事是战略抽象：单支军队，无海军、围城、补给线、多军团。
 - 城市没有完整物资库存与城市间商品网络；目前只有粮食账本与地方预算。
 - 城市服务已有治安/卫生指标，但还没有独立的卫生所、治安所、消防等设施与事件链。
@@ -1319,6 +1350,7 @@ core/city_governance.py       AI 市长
 live_server.py                HTTP + 会话 + 存档槽
 dashboard.html                单页 UI
 config/rules.json             全部平衡参数
+config/llm_providers.json     LLM 厂商简单模式预设（端点/默认模型/文档）
 output/world_2000BCE.json     不可覆盖的静态世界基线
 runs/saves/                   存档槽（不入库）
 runs/worlds/                  自定义随机世界（不入库）
@@ -1356,7 +1388,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：69 项。
+- 测试：71 项。
 - 实时服务默认端口：8765。
 
 ---
