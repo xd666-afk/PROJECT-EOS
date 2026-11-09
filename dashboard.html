@@ -1665,7 +1665,7 @@ $('addCountryBtn').onclick=()=>{
   const base=setupDefaults[defaults.length%Math.max(1,setupDefaults.length)]||{archetype:'river_valley',population:20000};
   const used=new Set(defaults.map(c=>c.color.toLowerCase()));
   const color=SETUP_PALETTE.find(c=>!used.has(c.toLowerCase()))||'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
-  const extra={name:`新国家${defaults.length+1}`,color,archetype:base.archetype,population:base.population};
+  const extra={name:`国家${String.fromCharCode(65+defaults.length)}`,color,archetype:base.archetype,population:base.population};
   $('setupCountries').insertAdjacentHTML('beforeend',setupCountryRow(extra,defaults.length));
   const addedRow=$('setupCountries').lastElementChild;
   addedRow.querySelector('[data-remove-country]').onclick=()=>{

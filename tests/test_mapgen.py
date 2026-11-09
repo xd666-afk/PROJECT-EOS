@@ -32,19 +32,17 @@ def test_six_country_world_and_engine_are_dynamic():
     ]
     world, path = generate_fair_world(countries, base_seed=44100, attempts=2)
     assert len(world["polities"]) == 6
-    assert [p["id"] for p in world["polities"]] == [
-        "ELAR", "MARIS", "VAYR", "SAHAR", "C5", "C6"
-    ]
+    assert [p["id"] for p in world["polities"]] == ["A", "B", "C", "D", "E", "F"]
     assert all(len(p["initial_tiles"]) == CORE_TILES for p in world["polities"])
     assert set(world["metadata"]["fairness"]["countries"]) == {
-        "ELAR", "MARIS", "VAYR", "SAHAR", "C5", "C6"
+        "A", "B", "C", "D", "E", "F"
     }
 
     from core.state import GameState
     state = GameState.new(world_path=path, seed=world["metadata"]["seed"])
-    assert len(state.countries) == 6
+    assert set(state.countries) == {"A", "B", "C", "D", "E", "F"}
     assert len(state.summary()["countries"]) == 6
     from agents.heuristic import HeuristicAgent
-    assert HeuristicAgent("C5").preference["policy"] in {
+    assert HeuristicAgent("E").preference["policy"] in {
         "AGRICULTURE", "TRADE", "INDUSTRY", "BALANCED"
     }

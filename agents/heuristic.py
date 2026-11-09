@@ -17,6 +17,7 @@ DEFAULT_PROFILES = [
     {"policy": "INDUSTRY", "research": "bronze_metallurgy", "building": "MINE"},
     {"policy": "BALANCED", "research": "writing", "building": "LIBRARY"},
 ]
+PROFILE_ALIASES = {"A": "ELAR", "B": "MARIS", "C": "VAYR", "D": "SAHAR"}
 
 
 class HeuristicAgent(CountryAgent):
@@ -24,9 +25,10 @@ class HeuristicAgent(CountryAgent):
         self.country_id = country_id
         # New/custom worlds may contain any number of countries. Keep the four
         # tuned profiles as special cases, but never fail for an unknown ID.
+        profile_id = PROFILE_ALIASES.get(country_id, country_id)
         profile_index = sum(ord(char) for char in country_id) % len(DEFAULT_PROFILES)
         self.preference = dict(
-            PREFERENCES.get(country_id, DEFAULT_PROFILES[profile_index])
+            PREFERENCES.get(profile_id, DEFAULT_PROFILES[profile_index])
         )
 
     async def decide(self, observation: dict[str, Any]) -> dict[str, Any]:

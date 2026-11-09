@@ -17,7 +17,7 @@ from worldgen import (
 )
 
 BASE_DIR = Path(__file__).resolve().parent
-COUNTRY_IDS = ["ELAR", "MARIS", "VAYR", "SAHAR"]
+COUNTRY_IDS = ["A", "B", "C", "D"]
 COUNTRY_PALETTE = [
     "#e7b45f", "#63b1c9", "#d97f75", "#b98bcb",
     "#8fbf7f", "#d6a36f", "#7f9ed6", "#c98fae",
@@ -30,22 +30,19 @@ ARCHETYPES = {
     "semiarid": "河岸王权",
 }
 DEFAULT_COUNTRIES = [
-    {"name": "埃兰河谷城邦联盟", "color": "#e7b45f", "archetype": "river_valley", "population": 37000},
-    {"name": "玛瑞斯海湾城邦", "color": "#63b1c9", "archetype": "maritime", "population": 21000},
-    {"name": "维尔山麓诸侯", "color": "#d97f75", "archetype": "highland", "population": 15500},
-    {"name": "萨赫尔河岸王国", "color": "#b98bcb", "archetype": "semiarid", "population": 28000},
+    {"name": "国家A", "color": "#e7b45f", "archetype": "river_valley", "population": 37000},
+    {"name": "国家B", "color": "#63b1c9", "archetype": "maritime", "population": 21000},
+    {"name": "国家C", "color": "#d97f75", "archetype": "highland", "population": 15500},
+    {"name": "国家D", "color": "#b98bcb", "archetype": "semiarid", "population": 28000},
 ]
 CORE_TILES = 16
 
 
 def country_ids(count: int) -> list[str]:
-    """Stable IDs for the legacy four countries plus generated extras."""
+    """Stable generic IDs A, B, C, ... for any supported country count."""
     if count < 1:
         raise ValueError("at least one country is required")
-    ids = list(COUNTRY_IDS[:count])
-    for index in range(len(ids), count):
-        ids.append(f"C{index + 1}")
-    return ids
+    return [chr(ord("A") + index) for index in range(count)]
 
 
 def normalize_countries(countries: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
@@ -57,7 +54,7 @@ def normalize_countries(countries: list[dict[str, Any]] | None) -> list[dict[str
     seen_colors = set()
     for index, source in enumerate(countries):
         base = DEFAULT_COUNTRIES[index % len(DEFAULT_COUNTRIES)]
-        name = str(source.get("name") or f"新国家{index + 1}").strip()
+        name = str(source.get("name") or f"国家{chr(ord('A') + index)}").strip()
         color = str(source.get("color") or COUNTRY_PALETTE[index % len(COUNTRY_PALETTE)]).strip()
         archetype = source.get("archetype", base["archetype"])
         population = int(source.get("population", base["population"]))
