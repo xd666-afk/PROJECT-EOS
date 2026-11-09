@@ -160,7 +160,10 @@ class OpenAICompatibleAgent(CountryAgent):
     def _decision_request(self, observation: dict[str, Any]) -> dict[str, Any]:
         system = (
             "Output one json object only. 你是国家策略控制器。只返回一个 JSON 对象，不要 Markdown。"
-            "结构为 country_id, world_day, actions, reason。country_id 与 world_day 必须复制观察值。"
+            "结构为 country_id, world_day, actions, reason, diary。country_id 与 world_day 必须复制观察值。"
+            "diary 必须是对象：{title: 不超过20字, mood: 2-6字, text: 120-260字第一人称统治日记}。"
+            "text 要写清当前最关心的局势、为什么采取这些动作、放弃了什么、下一步计划；"
+            "写公开的决策叙事，不要逐步推理链，不要编造观察中不存在的数字。"
             "actions 最多4项，只允许 BUILD(tile,building), SETTLE(tile) 用于开拓相邻无主地块, "
             "ALLOCATE_WORKERS(agriculture,mining,construction), SET_TAX(rate), "
             "SET_RESEARCH(field), SET_POLICY(priority), "

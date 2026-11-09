@@ -324,6 +324,21 @@ button.primary:hover{filter:brightness(1.08)}
 .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
   border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}
 .modal-head h2{font-size:16px;margin:0}.modal-head p{margin:3px 0 0;color:var(--muted);font-size:10.5px}
+.diary-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
+.diary-countries{display:flex;gap:5px;flex-wrap:wrap}
+.diary-country-btn{min-height:30px;padding:4px 9px;font-size:10px;background:#0b2029;border:1px solid var(--line)}
+.diary-country-btn.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,#0b2029)}
+.diary-country-btn small{display:block;color:var(--faint);font-size:8px}
+.diary-list{display:flex;flex-direction:column;gap:10px;max-height:65vh;overflow:auto;padding-right:4px}
+.diary-entry{border:1px solid var(--line);border-left:2px solid var(--accent);border-radius:8px;padding:11px 13px;background:#0a1c24}
+.diary-entry-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.diary-entry-head small{color:var(--faint);font-size:9px}
+.diary-entry-head h4{margin:3px 0 0;font:600 14px/1.35 Georgia,serif;color:var(--text)}
+.diary-mood{font-size:9px;color:var(--accent);border:1px solid color-mix(in srgb,var(--accent) 45%,transparent);border-radius:20px;padding:2px 8px;white-space:nowrap}
+.diary-text{white-space:pre-wrap;line-height:1.75;font-size:11.5px;color:#c4d5d9;margin:9px 0 7px}
+.diary-actions{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0 4px}
+.diary-action{font-size:9px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
+.diary-meta{color:var(--faint);font-size:8.5px}
 .ai-country{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0b2029;margin-bottom:8px}
 .ai-country-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
 .ai-country-head b{font-size:11px;font-weight:600}
@@ -400,6 +415,7 @@ button.primary:hover{filter:brightness(1.08)}
         <button id="diploBtn">外交</button>
         <button id="militaryBtn">军事</button>
         <button id="cityBtn">城市</button>
+        <button id="diaryBtn">AI 日记</button>
         <button id="gameMenuBtn">菜单</button>
       </div>
       <div class="date"><b id="date">正在载入</b><small id="nextPlan">连接本地世界</small></div>
@@ -543,6 +559,7 @@ button.primary:hover{filter:brightness(1.08)}
       <button id="pauseSaveBtn">保存游戏 <small>当前存档</small></button>
       <button id="pauseLoadBtn">载入存档 <small>切换时间线</small></button>
       <button id="pauseAgentsBtn">AI 席位 <small>逐国模型</small></button>
+      <button id="pauseDiaryBtn">AI 日记 <small>LLM 决策叙事</small></button>
       <button id="pauseMainBtn">返回主菜单 <small>自动保存</small></button>
     </div>
     <div class="pause-foot"><span>游戏时间已停止</span><span>Project Eos · v0.5</span></div>
@@ -556,6 +573,22 @@ button.primary:hover{filter:brightness(1.08)}
     </div>
     <div class="observer-note" id="agentsBudget" style="margin-bottom:10px"></div>
     <div id="agentsList"></div>
+  </div>
+</div>
+<div class="modal" id="diaryModal" hidden>
+  <div class="modal-card" style="width:min(920px,96vw)">
+    <div class="modal-head">
+      <div><h2>AI 统治日记</h2><p>仅记录 LLM 控制国家的决策叙事：它看到了什么、为什么这样做、放弃了什么、下一步准备做什么。</p></div>
+      <button id="diaryClose">关闭</button>
+    </div>
+    <div class="diary-toolbar">
+      <div class="diary-countries" id="diaryCountries"></div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <span class="key-state" id="diaryStatus">等待读取</span>
+        <button id="diaryRefresh">刷新</button>
+      </div>
+    </div>
+    <div class="diary-list" id="diaryList"></div>
   </div>
 </div>
 <div class="modal" id="newWorldModal" hidden>
@@ -1143,6 +1176,7 @@ function formatEvent(e){
       if(e.action_type==='BUILD'||e.action_type==='TRADE')return[d,`<b>${esc(e.actor)}</b> ${esc(e.action_type)} · ${e.accepted?'通过':'拒绝'}${e.accepted?'':` · ${esc(e.reason_code)}`}`,'action'];
       return null;
     case 'llm_decision':return[d,`<b>${esc(e.country_id)} · 模型决议</b> ${esc((e.decision?.reason||'').slice(0,100))}`,'action'];
+    case 'llm_diary':return[d,`<b>${esc(e.country_id)}</b> 写下统治日记《${esc(e.title||'决策记录')}》`,'meta'];
     case 'llm_call':return e.status==='success'?[d,`<b>DeepSeek</b> 调用完成 · ${e.usage?.total_tokens||'?'} Token`,'meta']:[d,`<b>DeepSeek</b> 调用失败，规则回退`,'hazard'];
     case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
@@ -1318,6 +1352,57 @@ $('observeBtn').onclick=()=>{if(STATE?.mode==='player')control('observe');};
 $('interveneBtn').onclick=()=>{if(STATE?.mode!=='player')control('take_control',selectedCountry);};
 $('agentsClose').onclick=()=>$('agentsModal').hidden=true;
 $('agentsModal').onclick=e=>{if(e.target===$('agentsModal'))$('agentsModal').hidden=true;};
+let diaryCountry=null;
+async function openDiary(){
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  diaryCountry=diaryCountry||selectedCountry||STATE.leader||Object.keys(STATE.countries)[0];
+  $('diaryModal').hidden=false;
+  await loadDiary();
+}
+async function loadDiary(){
+  if(!diaryCountry)return;
+  try{
+    const r=await fetch(`/api/diary?country=${encodeURIComponent(diaryCountry)}&limit=80`,{cache:'no-store'});
+    if(!r.ok)throw new Error('diary');
+    renderDiary(await r.json());
+  }catch(err){
+    $('diaryStatus').textContent='读取失败';
+    $('diaryList').innerHTML='<div class="mini-empty">无法读取 AI 日记</div>';
+  }
+}
+function renderDiary(data){
+  const countries=data.countries||{};
+  $('diaryCountries').innerHTML=Object.entries(countries).map(([cid,meta])=>{
+    const llm=meta.mode==='openai_compatible';
+    return `<button class="diary-country-btn ${cid===diaryCountry?'on':''}" data-diary-country="${cid}">${esc(countryMeta(cid)?.name||cid)}<small>${llm?'LLM':'规则 AI'}</small></button>`;
+  }).join('');
+  for(const b of document.querySelectorAll('[data-diary-country]'))b.onclick=()=>{diaryCountry=b.dataset.diaryCountry;loadDiary();};
+  const meta=countries[diaryCountry]||{};
+  const entries=(data.entries||[]).slice().sort((a,b)=>(b.day||0)-(a.day||0));
+  $('diaryStatus').textContent=meta.mode==='openai_compatible'
+    ?`${meta.provider||'LLM'} · ${meta.model||''} · ${entries.length} 篇`
+    :'当前由规则 AI 控制，不生成日记';
+  if(!entries.length){
+    $('diaryList').innerHTML=`<div class="mini-empty">${meta.mode==='openai_compatible'
+      ?'等待下一次 90 日规划产生第一篇日记。'
+      :'规则 AI 不写日记；可在 AI 席位把该国切换为 OpenAI 兼容模型，从下一次规划开始记录。'}</div>`;
+    return;
+  }
+  $('diaryList').innerHTML=entries.map(e=>{
+    const actions=(e.actions||[]).map(a=>`<span class="diary-action">${esc(fmtAction(a))}</span>`).join('');
+    return `<article class="diary-entry">
+      <div class="diary-entry-head"><div><small>日 ${e.day} · ${esc(e.date||'')}</small><h4>《${esc(e.title||'决策记录')}》</h4></div><span class="diary-mood">${esc(e.mood||'未说明')}</span></div>
+      <div class="diary-text">${esc(e.text||'')}</div>
+      ${actions?`<div class="diary-actions">${actions}</div>`:''}
+      <div class="diary-meta">${esc(e.provider||'')}${e.model?' · '+esc(e.model):''}${e.synthetic?' · 模型未提供日记，显示决策理由':''}</div>
+    </article>`;
+  }).join('');
+}
+$('diaryBtn').onclick=openDiary;
+$('pauseDiaryBtn').onclick=()=>{$('pauseMenu').hidden=true;openDiary();};
+$('diaryClose').onclick=()=>$('diaryModal').hidden=true;
+$('diaryRefresh').onclick=loadDiary;
+$('diaryModal').onclick=e=>{if(e.target===$('diaryModal'))$('diaryModal').hidden=true;};
 $('newWorldClose').onclick=()=>$('newWorldModal').hidden=true;
 $('techBtn').onclick=openTechTree;
 $('techCloseBtn').onclick=closeTechTree;

@@ -11,7 +11,7 @@ import re
 import threading
 import time
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 import webbrowser
 
 from agents.heuristic import HeuristicAgent
@@ -180,10 +180,23 @@ class LiveSession:
                 simulation = Simulation.load(save_path, use_mock_agents=True)
             except Exception as exc:
                 return {"ok": False, "error": f"存档加载失败：{type(exc).__name__}"}
+            preserved_agents = dict(self.scheduler.agents) if self.scheduler else {}
+            preserved_meta = dict(self.agent_meta)
             self.simulation = simulation
+            # Keep the configured LLM seats across loads; a save must not silently
+            # downgrade a model-controlled country to the heuristic controller.
+            simulation.scheduler = AgentScheduler({
+                country_id: agent
+                for country_id, agent in preserved_agents.items()
+                if country_id in simulation.state.countries
+            })
+            simulation.engine.planner = simulation.scheduler
             self.scheduler = simulation.scheduler
             self.agent_meta = {
-                country_id: {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+                country_id: preserved_meta.get(
+                    country_id,
+                    {"mode": "mock", "provider": None, "model": None, "api_key_env": None},
+                )
                 for country_id in simulation.state.countries
             }
             restored_player = meta.get("player_country")
@@ -327,6 +340,27 @@ class LiveSession:
                 "countries": countries,
                 "budget": self.budget.summary(),
                 "player_country": self.player_country,
+            }
+
+    def diary_payload(self, country_id: str | None = None, limit: int = 80) -> dict:
+        with self.lock:
+            entries = [
+                deepcopy(event)
+                for event in self.simulation.state.event_log
+                if event["type"] == "llm_diary"
+                and (country_id is None or event.get("country_id") == country_id)
+            ][-limit:]
+            return {
+                "entries": entries,
+                "countries": {
+                    key: {
+                        "name": value.name,
+                        "mode": self.agent_meta.get(key, {}).get("mode", "mock"),
+                        "provider": self.agent_meta.get(key, {}).get("provider"),
+                        "model": self.agent_meta.get(key, {}).get("model"),
+                    }
+                    for key, value in self.simulation.state.countries.items()
+                },
             }
 
     def configure_agent(self, country_id: str, settings: dict) -> dict:
@@ -527,6 +561,14 @@ class Handler(BaseHTTPRequestHandler):
                 "saves": self.session.list_saves(),
                 "current": self.session.current_save_id,
             })
+        elif path == "/api/diary":
+            params = parse_qs(urlparse(self.path).query)
+            country_id = params.get("country", [None])[0]
+            try:
+                limit = min(200, max(1, int(params.get("limit", ["80"])[0])))
+            except ValueError:
+                limit = 80
+            self._json(self.session.diary_payload(country_id, limit))
         elif path == "/favicon.ico":
             self._send(204, b"", "image/x-icon")
         elif path.startswith("/assets/"):

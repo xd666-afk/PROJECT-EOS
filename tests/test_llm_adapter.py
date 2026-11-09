@@ -204,3 +204,43 @@ def test_scheduler_llm_failure_falls_back_without_crashing(provider, monkeypatch
         entry for entry in simulation.state.action_log if entry["result"]["actor"] == "ELAR"
     ]
     assert elar_actions[0]["result"]["action_type"] == "NO_OP"
+
+
+def test_scheduler_records_llm_diary_only_for_model_country(provider, monkeypatch):
+    url, handler = provider
+    monkeypatch.setenv("EOS_TEST_API_KEY", "dummy")
+    simulation = Simulation.new()
+    observation = build_observation(simulation.state, "ELAR")
+    decision = {
+        "country_id": observation["country_id"],
+        "world_day": observation["world_day"],
+        "actions": [{"type": "SET_TAX", "rate": 0.12}],
+        "reason": "需要增加国库收入",
+        "diary": {
+            "title": "先稳住国库",
+            "mood": "谨慎",
+            "text": "今年的粮食还算充足，但国库太薄。我把税率稍微提高，暂缓扩张，等财政稳定后再考虑新的前哨。",
+        },
+    }
+    handler.responses = [(200, {
+        "choices": [{"message": {"content": json.dumps(decision, ensure_ascii=False)}}],
+        "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+    })]
+    budget = CallBudget(max_calls=1, max_cost_usd=0.01)
+    llm = OpenAICompatibleAgent("ELAR", settings(url), budget)
+    simulation.engine.planner = AgentScheduler({"ELAR": llm})
+    simulation.run(1)
+    diaries = [e for e in simulation.state.event_log if e["type"] == "llm_diary"]
+    assert len(diaries) == 1
+    entry = diaries[0]
+    assert entry["country_id"] == "ELAR"
+    assert entry["title"] == "先稳住国库"
+    assert entry["mood"] == "谨慎"
+    assert "税率" in entry["text"]
+    assert entry["synthetic"] is False
+    assert entry["actions"][0]["type"] == "SET_TAX"
+    assert "dummy" not in json.dumps(entry, ensure_ascii=False)
+    assert not any(
+        e["type"] == "llm_diary" and e["country_id"] != "ELAR"
+        for e in simulation.state.event_log
+    )

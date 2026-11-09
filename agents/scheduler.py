@@ -260,5 +260,26 @@ class AgentScheduler:
             elif agent.__class__.__name__ == "OpenAICompatibleAgent":
                 # Preserve the actual model action response, never the API key or request headers.
                 engine.state.record("llm_decision", country_id=country_id, decision=decision)
+                if (
+                    decision.get("country_id") == country_id
+                    and decision.get("world_day") == engine.state.day_index
+                ):
+                    raw_diary = decision.get("diary")
+                    diary = raw_diary if isinstance(raw_diary, dict) else {}
+                    text = str(diary.get("text") or decision.get("reason") or "").strip()
+                    if text:
+                        settings = getattr(agent, "settings", None)
+                        engine.state.record(
+                            "llm_diary",
+                            country_id=country_id,
+                            title=str(diary.get("title") or "决策记录")[:40],
+                            mood=str(diary.get("mood") or "未说明")[:16],
+                            text=text[:1600],
+                            reason=str(decision.get("reason") or "")[:1000],
+                            actions=decision.get("actions", [])[:4],
+                            provider=getattr(settings, "provider", None),
+                            model=getattr(settings, "model", None),
+                            synthetic=not bool(raw_diary),
+                        )
             results[country_id] = engine.apply_decision(country_id, decision)
         return results
