@@ -1221,6 +1221,7 @@ function formatEvent(e){
     case 'llm_decision':return[d,`<b>${esc(e.country_id)} · 模型决议</b> ${esc((e.decision?.reason||'').slice(0,100))}`,'action'];
     case 'llm_diary':return[d,`<b>${esc(e.country_id)}</b> 写下统治日记《${esc(e.title||'决策记录')}》`,'meta'];
     case 'llm_call':return e.status==='success'?[d,`<b>DeepSeek</b> 调用完成 · ${e.usage?.total_tokens||'?'} Token`,'meta']:[d,`<b>DeepSeek</b> 调用失败，规则回退`,'hazard'];
+    case 'agent_test':return[d,`<b>${esc(e.country_id)}</b> 模型连接测试${e.ok?'成功':'失败'}${e.latency_ms?` · ${e.latency_ms}ms`:''}`,'meta'];
     case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
     case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
@@ -1690,6 +1691,17 @@ $('generateWorldBtn').onclick=async()=>{
     showToast(`新世界已创建 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
   }catch(err){button.disabled=false;$('setupStatus').textContent=`生成失败：${err.message}`;}
 };
+function agentStatusText(a){
+  if((a.mode||'mock')==='mock')return '规则 AI（无模型调用）';
+  if(a.last_test){
+    if(a.last_test.ok)return `连接成功 · ${a.last_test.latency_ms??'?'}ms · ${a.last_test.model||a.model||''}`;
+    return `连接失败${a.last_test.status_code?' · HTTP '+a.last_test.status_code:''} · ${a.last_test.error||'未知错误'}`;
+  }
+  if(a.last_call&&a.last_call.status==='error'){
+    return `最近规划调用失败${a.last_call.http_status?' · HTTP '+a.last_call.http_status:''} · ${a.last_call.error_type||''}`;
+  }
+  return a.key_configured?'密钥已配置，尚未测试连接':'未配置密钥';
+}
 async function openAgents(){
   try{
     const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
@@ -1701,18 +1713,23 @@ async function openAgents(){
       const currentProvider=a.provider_id||providers.find(p=>p.label===a.provider)?.id||providers[0]?.id||'deepseek';
       const providerOptions=providers.map(p=>`<option value="${esc(p.id)}" ${p.id===currentProvider?'selected':''}>${esc(p.label)}</option>`).join('');
       const provider=providers.find(p=>p.id===currentProvider)||providers[0]||{label:'DeepSeek',model:'deepseek-chat',docs_url:'https://api-docs.deepseek.com/zh-cn/'};
+      const statusText=agentStatusText(a);
+      const statusColor=mode==='mock'?'var(--muted)':(a.last_test?(a.last_test.ok?'#9fc873':'#e18a7c'):(a.last_call?.status==='error'?'#e18a7c':'var(--muted)'));
       return `<div class="ai-country" data-country="${cid}" data-key-configured="${a.key_configured?'1':'0'}">
         <div class="ai-country-head"><b>${esc(cid)} · ${esc(countryMeta(cid)?.name||cid)}</b>
           <span style="display:flex;gap:6px;align-items:center"><span class="pill">${mode==='mock'?'规则 AI':'LLM'}</span>
           <span class="key-state ${keyClass}">${a.key_configured?'密钥已配置':'未配置密钥'}</span></span></div>
+        <div class="key-state" style="margin:0 0 7px;color:${statusColor}">当前：${mode==='mock'?'规则 AI':esc(a.provider||'LLM')+' · '+esc(a.model||'')}${mode==='mock'?'':' · '+esc(statusText)}</div>
         <div class="ai-simple">
           <div class="ai-fields">
             <label>厂商<select data-simple-provider>${providerOptions}</select></label>
             <label class="wide">API Key<input type="password" data-simple-key autocomplete="off" placeholder="${a.key_configured?'留空沿用当前进程密钥':'粘贴 API Key'}"></label>
           </div>
-          <div class="ai-simple-note" data-simple-note>默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。</div>
+          <div class="ai-simple-note" data-simple-note>默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。</div>
+          <div class="ai-simple-note" data-test-status style="color:${statusColor}">${esc(statusText)}</div>
           <div class="ai-actions-row">
             <button class="primary" data-save-simple>保存并启用</button>
+            <button data-test-agent ${mode==='mock'?'disabled':''} title="会发起一次最小 API 请求">测试连接</button>
             <button data-save-mock>使用规则 AI</button>
           </div>
         </div>
@@ -1734,6 +1751,7 @@ async function openAgents(){
     }).join('');
     for(const select of document.querySelectorAll('[data-simple-provider]'))select.onchange=()=>updateSimpleProviderHint(select.closest('.ai-country'),providers);
     for(const btn of document.querySelectorAll('[data-save-simple]'))btn.onclick=()=>saveSimpleAgent(btn.closest('.ai-country'));
+    for(const btn of document.querySelectorAll('[data-test-agent]'))btn.onclick=()=>testAgent(btn.closest('.ai-country'));
     for(const btn of document.querySelectorAll('[data-save-mock]'))btn.onclick=()=>saveMockAgent(btn.closest('.ai-country'));
     for(const btn of document.querySelectorAll('[data-save-agent]'))btn.onclick=()=>saveAgent(btn.closest('.ai-country'));
     $('agentsModal').hidden=false;
@@ -1759,7 +1777,23 @@ function saveSimpleAgent(row){
   const providerId=row.querySelector('[data-simple-provider]').value;
   const key=row.querySelector('[data-simple-key]').value.trim();
   if(!key&&row.dataset.keyConfigured!=='1'){showToast('请粘贴 API Key',true);return;}
-  postAgentSettings(cid,{mode:'openai_compatible',provider_id:providerId,api_key:key},`${cid} 已启用简单模式`);
+  postAgentSettings(cid,{mode:'openai_compatible',provider_id:providerId,api_key:key},`${cid} 配置已保存；点击“测试连接”确认可用`);
+}
+async function testAgent(row){
+  const cid=row.dataset.country;
+  const status=row.querySelector('[data-test-status]');
+  if(status){status.textContent='测试中…';status.style.color='var(--warn)';}
+  try{
+    const r=await fetch('/api/agents/test',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({country_id:cid})});
+    const data=await r.json();
+    if(data.ok)showToast(`连接成功 · ${data.latency_ms}ms · ${data.model}`);
+    else showToast(`连接失败：${data.error||'未知错误'}`,true);
+    await openAgents();await poll(true);
+  }catch(err){
+    showToast(`连接测试请求失败：${err.message}`,true);
+    if(status){status.textContent='测试请求失败';status.style.color='#e18a7c';}
+  }
 }
 function saveMockAgent(row){
   postAgentSettings(row.dataset.country,{mode:'mock'},`${row.dataset.country} 已切回规则 AI`);

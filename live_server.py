@@ -11,11 +11,18 @@ import re
 import threading
 import time
 from datetime import datetime, timezone
+from urllib import error, request
 from urllib.parse import parse_qs, urlparse
 import webbrowser
 
 from agents.heuristic import HeuristicAgent
-from agents.llm_adapter import CallBudget, LLMSettings, OpenAICompatibleAgent, load_agents
+from agents.llm_adapter import (
+    BudgetExceeded,
+    CallBudget,
+    LLMSettings,
+    OpenAICompatibleAgent,
+    load_agents,
+)
 from agents.providers import provider_payload, resolve_simple_settings
 from agents.scheduler import AgentScheduler
 from core.simulation import Simulation
@@ -342,11 +349,30 @@ class LiveSession:
                     configured = bool(
                         os.environ.get(env_name) or os.environ.get("EOS_API_KEY")
                     )
+                last_call = next(
+                    (
+                        event
+                        for event in reversed(self.simulation.state.event_log)
+                        if event["type"] == "llm_call"
+                        and event.get("country_id") == country_id
+                    ),
+                    None,
+                )
                 countries[country_id] = {
                     **meta,
                     "api_key_env": env_name,
                     "key_configured": (
                         meta.get("mode") == "openai_compatible" and configured
+                    ),
+                    "last_call": (
+                        {
+                            "status": last_call.get("status"),
+                            "error_type": last_call.get("error_type"),
+                            "http_status": last_call.get("http_status"),
+                            "day": last_call.get("day"),
+                            "date": last_call.get("date"),
+                        }
+                        if last_call else None
                     ),
                 }
             return {
@@ -384,7 +410,7 @@ class LiveSession:
             mode = settings.get("mode")
             if mode == "mock":
                 agent = HeuristicAgent(country_id)
-                meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+                meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None, "last_test": None}
             elif mode == "openai_compatible":
                 provider_id = str(settings.get("provider_id") or "").strip()
                 resolved = dict(settings)
@@ -432,6 +458,7 @@ class LiveSession:
                     "model": llm_settings.model,
                     "base_url": llm_settings.base_url,
                     "api_key_env": llm_settings.api_key_env,
+                    "last_test": None,
                 }
             else:
                 return {"ok": False, "error": "mode must be mock or openai_compatible"}
@@ -445,6 +472,106 @@ class LiveSession:
                 model=meta["model"],
             )
             return {"ok": True, "country_id": country_id, **self.agent_payload()["countries"][country_id]}
+
+    def test_agent(self, country_id: str) -> dict:
+        """Make one tiny chat call to verify the key/model/endpoint."""
+        with self.lock:
+            agent = self.scheduler.agents.get(country_id)
+            if agent is None or not isinstance(agent, OpenAICompatibleAgent):
+                return {"ok": False, "error": "当前席位不是 LLM，请先保存模型配置"}
+            settings = agent.settings
+            api_key = os.environ.get(settings.api_key_env) or os.environ.get("EOS_API_KEY")
+            if not api_key:
+                return {"ok": False, "error": "没有可用的 API Key"}
+            configured_budget = (
+                self.budget.max_calls is not None
+                and self.budget.max_cost_usd is not None
+            )
+            probe_budget = self.budget if configured_budget else CallBudget(1, 0.10)
+            try:
+                probe_budget.reserve()
+            except BudgetExceeded as exc:
+                return {"ok": False, "error": str(exc), "budget": probe_budget.summary()}
+            payload = {
+                "model": settings.model,
+                "messages": [{"role": "user", "content": "Reply with OK only."}],
+                "max_tokens": 8,
+                "temperature": 0,
+                "stream": False,
+            }
+            req = request.Request(
+                settings.endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                method="POST",
+            )
+            started = time.perf_counter()
+            result: dict = {
+                "ok": False,
+                "provider": settings.provider,
+                "model": settings.model,
+                "base_url": settings.base_url,
+                "tested_day": self.simulation.state.day_index,
+                "tested_date": self.simulation.state.date["label"],
+            }
+            try:
+                with request.urlopen(req, timeout=min(settings.timeout_seconds, 30)) as response:
+                    status_code = int(response.status)
+                    body = response.read().decode("utf-8", errors="replace")
+                data = json.loads(body)
+                if not isinstance(data, dict) or not data.get("choices"):
+                    raise ValueError("响应缺少 choices")
+                usage = data.get("usage") if isinstance(data.get("usage"), dict) else None
+                cost = probe_budget.record(
+                    usage, settings.input_price_per_million_usd,
+                    settings.output_price_per_million_usd,
+                )
+                result.update({
+                    "ok": True,
+                    "status_code": status_code,
+                    "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "usage": usage if usage is not None else "unknown",
+                    "estimated_cost_usd": cost if cost is not None else "unknown",
+                    "message": "连接成功，Key、模型与端点可用",
+                })
+            except error.HTTPError as exc:
+                raw = exc.read().decode("utf-8", errors="replace")
+                message = raw[:240] if raw else str(exc.reason)
+                result.update({
+                    "ok": False,
+                    "status_code": int(exc.code),
+                    "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "error": f"HTTP {exc.code}: {message}",
+                })
+            except (error.URLError, TimeoutError, OSError) as exc:
+                reason = getattr(exc, "reason", exc)
+                result.update({
+                    "ok": False,
+                    "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "error": f"网络错误: {str(reason)[:240]}",
+                })
+            except (ValueError, json.JSONDecodeError) as exc:
+                result.update({
+                    "ok": False,
+                    "latency_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "error": f"响应解析失败: {str(exc)[:240]}",
+                })
+            meta = self.agent_meta.setdefault(country_id, {})
+            meta["last_test"] = result
+            self.simulation.state.record(
+                "agent_test",
+                country_id=country_id,
+                ok=result["ok"],
+                status_code=result.get("status_code"),
+                latency_ms=result.get("latency_ms"),
+                provider=settings.provider,
+                model=settings.model,
+                error=result.get("error"),
+            )
+            return result
 
     def player_action(self, actor: str, action: object) -> dict:
         with self.lock:
@@ -636,13 +763,18 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"error": "not found"}, 404)
 
     def do_POST(self) -> None:
-        if self.path not in {"/api/control", "/api/action", "/api/agents", "/api/new_game", "/api/saves"}:
+        if self.path not in {
+            "/api/control", "/api/action", "/api/agents", "/api/agents/test",
+            "/api/new_game", "/api/saves",
+        }:
             self._json({"error": "not found"}, 404)
             return
         length = int(self.headers.get("Content-Length", "0"))
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/api/agents":
+            if self.path == "/api/agents/test":
+                result = self.session.test_agent(str(payload.get("country_id", "")))
+            elif self.path == "/api/agents":
                 result = self.session.configure_agent(
                     str(payload.get("country_id", "")), payload.get("settings", {})
                 )

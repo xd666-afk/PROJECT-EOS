@@ -17,6 +17,7 @@ from agents.scheduler import AgentScheduler, build_observation
 from core.rules import RuleEngine
 from core.simulation import Simulation
 from core.state import GameState
+from live_server import LiveSession
 
 
 class ProviderHandler(BaseHTTPRequestHandler):
@@ -244,3 +245,38 @@ def test_scheduler_records_llm_diary_only_for_model_country(provider, monkeypatc
         e["type"] == "llm_diary" and e["country_id"] != "ELAR"
         for e in simulation.state.event_log
     )
+
+
+def test_live_session_connection_test(provider, monkeypatch):
+    import os
+    url, handler = provider
+    handler.responses = [(200, {"choices": [{"message": {"content": "OK"}}]})]
+    monkeypatch.setenv("EOS_TEST_API_KEY", "dummy")
+    session = LiveSession(speed=1.0, maximum_day=1, paused=True)
+    try:
+        result = session.configure_agent("ELAR", {
+            "mode": "openai_compatible",
+            "provider": "local-test",
+            "model": "mock-cheap-model",
+            "base_url": url,
+            "api_key_env": "EOS_TEST_API_KEY",
+            "timeout_seconds": 2,
+            "retries": 0,
+            "max_output_tokens": 8,
+        })
+        assert result["ok"]
+        tested = session.test_agent("ELAR")
+        assert tested["ok"]
+        assert tested["model"] == "mock-cheap-model"
+        assert tested["latency_ms"] >= 0
+        payload = session.agent_payload()["countries"]["ELAR"]
+        assert payload["last_test"]["ok"] is True
+        assert "dummy" not in json.dumps(payload)
+        handler.responses = [(401, {"error": {"message": "invalid key"}})]
+        failed = session.test_agent("ELAR")
+        assert failed["ok"] is False
+        assert failed["status_code"] == 401
+    finally:
+        session._stop.set()
+        session.thread.join(timeout=2)
+        monkeypatch.delenv("EOS_TEST_API_KEY", raising=False)
