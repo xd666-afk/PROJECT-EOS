@@ -280,3 +280,46 @@ def test_live_session_connection_test(provider, monkeypatch):
         session._stop.set()
         session.thread.join(timeout=2)
         monkeypatch.delenv("EOS_TEST_API_KEY", raising=False)
+
+
+def test_live_session_llm_planning_uses_auto_budget(provider, monkeypatch):
+    url, handler = provider
+    monkeypatch.setenv("EOS_TEST_API_KEY", "dummy")
+    session = LiveSession(speed=1.0, maximum_day=1, paused=True)
+    try:
+        decision = {
+            "country_id": "ELAR",
+            "world_day": session.simulation.state.day_index,
+            "actions": [{"type": "SET_TAX", "rate": 0.12}],
+            "reason": "测试规划",
+            "diary": {"title": "先稳国库", "mood": "谨慎", "text": "我需要先增加一点收入。"},
+        }
+        handler.responses = [(200, {
+            "choices": [{"message": {"content": json.dumps(decision, ensure_ascii=False)}}],
+            "usage": {"prompt_tokens": 100, "completion_tokens": 50},
+        })]
+        configured = session.configure_agent("ELAR", {
+            "mode": "openai_compatible",
+            "provider": "local-test",
+            "model": "mock-cheap-model",
+            "base_url": url,
+            "api_key_env": "EOS_TEST_API_KEY",
+            "timeout_seconds": 2,
+            "retries": 0,
+            "max_output_tokens": 200,
+        })
+        assert configured["ok"]
+        assert session.budget.max_calls == 40
+        assert session.simulation.run(1, force=True) == 1
+        assert session.simulation.state.countries["ELAR"].tax_rate == 0.12
+        assert not any(e["type"] == "agent_fallback" for e in session.simulation.state.event_log)
+        assert any(e["type"] == "llm_diary" for e in session.simulation.state.event_log)
+        assert any(
+            e["type"] == "llm_call" and e["status"] == "success"
+            for e in session.simulation.state.event_log
+        )
+        assert session.budget.calls >= 1
+    finally:
+        session._stop.set()
+        session.thread.join(timeout=2)
+        monkeypatch.delenv("EOS_TEST_API_KEY", raising=False)
