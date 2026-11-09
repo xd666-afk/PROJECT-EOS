@@ -42,14 +42,22 @@ class CityManager:
                 health_pressed = city.health < self.state.config["city_services"][
                     "low_threshold"
                 ]
-                desired_focus = "growth" if food_pressed else national_focus
+                personality = getattr(country, "personality", "neutral")
+                if food_pressed:
+                    desired_focus = "growth"
+                elif personality == "aggressive":
+                    desired_focus = "industry"
+                elif personality == "conservative":
+                    desired_focus = "growth"
+                else:
+                    desired_focus = national_focus
                 if desired_focus != "balanced" and city.focus != desired_focus:
                     engine.apply_action(country.country_id, {
                         "type": "SET_CITY_FOCUS",
                         "city_id": city.city_id,
                         "focus": desired_focus,
                     })
-                desired_budget = self._desired_budget(country, city)
+                desired_budget = self._desired_budget(country, city, personality)
                 if city.budget != desired_budget:
                     engine.apply_action(country.country_id, {
                         "type": "SET_CITY_BUDGET",
@@ -96,12 +104,24 @@ class CityManager:
                     "zone": desired_zone,
                 })
 
-    def _desired_budget(self, country, city) -> str:
-        if country.treasury < 10 and city.local_net < 0:
-            return "austerity"
+    def _desired_budget(self, country, city, personality: str = "neutral") -> str:
         low_service = min(city.security, city.health) < self.state.config[
             "city_services"
         ]["low_threshold"]
+        if personality == "aggressive":
+            if low_service and country.treasury >= 10:
+                return "investment"
+            if city.livability < 58 and country.treasury >= 15:
+                return "investment"
+            return "balanced" if country.treasury >= 8 else "austerity"
+        if personality == "conservative":
+            if country.treasury < 45 and city.local_net < 0:
+                return "austerity"
+            if low_service and country.treasury >= 30:
+                return "investment"
+            return "balanced"
+        if country.treasury < 10 and city.local_net < 0:
+            return "austerity"
         if low_service and country.treasury >= 15:
             return "investment"
         if city.livability < 55 and country.treasury >= 25:

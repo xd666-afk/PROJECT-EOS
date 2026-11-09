@@ -13,6 +13,7 @@ from urllib import error, request
 
 from agents.base import CountryAgent
 from agents.heuristic import HeuristicAgent
+from agents.personality import personality_definition
 
 
 class LLMError(RuntimeError):
@@ -158,7 +159,13 @@ class OpenAICompatibleAgent(CountryAgent):
         return await asyncio.to_thread(self._decide_with_retries, observation)
 
     def _decision_request(self, observation: dict[str, Any]) -> dict[str, Any]:
+        personality = personality_definition(
+            (observation.get("country") or {}).get("personality")
+        )
         system = (
+            f"当前国家性格：{personality['label']}（{personality['tagline']}）。"
+            f"{personality['llm']}"
+            "性格只影响取舍和风险偏好，不改变 JSON 结构或动作协议。"
             "Output one json object only. 你是国家策略控制器。只返回一个 JSON 对象，不要 Markdown。"
             "结构为 country_id, world_day, actions, reason, diary。country_id 与 world_day 必须复制观察值。"
             "diary 必须是对象：{title: 不超过20字, mood: 2-6字, text: 120-260字第一人称统治日记}。"

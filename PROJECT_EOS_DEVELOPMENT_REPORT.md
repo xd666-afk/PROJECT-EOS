@@ -2,7 +2,7 @@
 
 > 报告日期：2026-11-09  
 > 当前代码版本：v0.29 系列  
-> 测试状态：**86 passed**  
+> 测试状态：**92 passed**  
 > 仓库：<https://github.com/xd666-afk/PROJECT-EOS>  
 > 说明：本报告汇总从地图底座恢复、策略模拟器、城市系统、AI 接入到多国架构的完整演进，包含设计思路、最终落地效果、验证数据和遗留问题。
 
@@ -145,6 +145,7 @@ AgentScheduler ── deepcopy(observation) ──> HeuristicAgent / OpenAICompa
 | v0.28 城市建设 | 建城条件逐项展示、双击进城市、城内地块建造、AI/手动/LLM 三治理 | 城市从“看板”变成可直接规划的一级玩法 |
 | v0.29 分层 UI | 一级导航 + 二级标签、全屏功能页、通知气泡、卫星领土、透明图标 | 主界面减负，国家/城市/科技/外交/AI 各自成页 |
 | v0.30 河流道路 | 连续弯曲水系、河岸/水体/高光、卫星道路、修复寻路 | 河流可读且自然，道路重新可见 |
+| v0.31 AI 性格 | 激进/中立/保守，Mock 与 LLM 共用，写入存档与席位 UI | 同一模型/规则在不同性格下有不同取舍 |
 
 ---
 
@@ -257,6 +258,16 @@ AgentScheduler ── deepcopy(observation) ──> HeuristicAgent / OpenAICompa
 ---
 
 ## 5. AI 系统
+
+### 5.0 AI 性格
+
+- 每国拥有 `personality`：`aggressive` 激进、`neutral` 中立、`conservative` 保守，默认中立并写入存档。
+- Mock 规则 AI 在军备、扩张、赠礼、协定、宣战、贸易、建筑、劳动力上读取性格参数；城市市长读取性格决定方针与预算。
+- LLM 系统提示在动作协议之前注入性格说明，要求同一 JSON 协议下体现不同风险偏好。
+- AI 席位页逐国切换性格，不需要重填 API Key；国家列表、国家详情同步显示。
+- 性格只影响决策偏好，不改变规则审核、资源结算或胜负条件。
+
+![AI 性格预设](docs/report_assets/ui_v031_ai_personalities.png)
 
 ### 5.1 Mock 规则 AI
 

@@ -201,6 +201,7 @@ class CountryState:
     at_war_with: list[str] = field(default_factory=list)
     war_exhaustion: float = 0.0
     cities: list[CityState] = field(default_factory=list)
+    personality: str = "neutral"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -229,6 +230,7 @@ class CountryState:
             "at_war_with": self.at_war_with,
             "war_exhaustion": self.war_exhaustion,
             "cities": [city.to_dict() for city in self.cities],
+            "personality": self.personality,
         }
 
     @classmethod
@@ -259,6 +261,7 @@ class CountryState:
             at_war_with=list(data.get("at_war_with", [])),
             war_exhaustion=float(data.get("war_exhaustion", 0.0)),
             cities=[CityState.from_dict(city) for city in data.get("cities", [])],
+            personality=str(data.get("personality", "neutral")),
         )
         for project in restored.projects:
             project["tile"] = tuple(project["tile"])
@@ -345,6 +348,7 @@ class GameState:
                 workers=deepcopy(config["workers_baseline"]),
                 research_progress={field: 0.0 for field in config["research_fields"]},
                 stability=float(config["stability"]["initial"]),
+                personality=str(polity.get("personality", "neutral")),
                 army_position=(
                     int(polity["capital"]["col"]), int(polity["capital"]["row"])
                 ),
@@ -550,6 +554,7 @@ class GameState:
                     "army_position": list(country.army_position) if country.army_position else None,
                     "at_war_with": country.at_war_with,
                     "war_exhaustion": round(country.war_exhaustion, 2),
+                    "personality": country.personality,
                     "military_upkeep": round(country.army_strength * self.config["military"]["upkeep_per_strength_per_day"], 3),
                     "housing": housing_capacity(country, self.config),
                     "food_capacity": food_capacity(country, self.config),

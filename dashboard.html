@@ -416,6 +416,13 @@ body.right-panel-open .notice-stack{right:354px}
 .diary-actions{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0 4px}
 .diary-action{font-size:9px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
 .diary-meta{color:var(--faint);font-size:8.5px}
+.personality-pick{border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#0a1c24;margin-bottom:7px}
+.personality-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.personality-head span{font-size:9px;color:var(--accent);letter-spacing:.5px}
+.personality-head small{font-size:8.5px;color:var(--muted)}
+.personality-options{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.personality-options button{min-height:29px;font-size:9.5px;background:#0b2029}
+.personality-options button.on{border-color:var(--accent);color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,#0b2029)}
 .ai-simple{border:1px solid var(--line);border-radius:8px;padding:8px;background:#0a1c24;margin-bottom:7px}
 .ai-simple .ai-fields{gap:6px}
 .ai-simple-note{font-size:9px;color:var(--muted);line-height:1.5;margin:5px 0}
@@ -771,7 +778,7 @@ body.right-panel-open .notice-stack{right:354px}
 <div class="modal" id="agentsModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><div class="deck-crumb">指挥台 / AI</div><h2>国家 AI 席位</h2><p>逐国选择 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
+      <div><div class="deck-crumb">指挥台 / AI</div><h2>国家 AI 席位</h2><p>逐国选择激进/中立/保守性格，以及 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
       <div class="deck-head-actions"><button id="agentsClose">返回世界</button></div>
     </div>
     <div class="deck-tabs" id="aiTabs">
@@ -857,6 +864,8 @@ const COUNTRY_COLORS={ELAR:'#e7b45f',MARIS:'#63b1c9',VAYR:'#d97f75',SAHAR:'#b98b
 const POLICY_LABELS={BALANCED:'均衡施政',AGRICULTURE:'农业优先',INDUSTRY:'工业优先',
   RESEARCH:'学术优先',TRADE:'贸易优先',AUSTERITY:'紧缩政策'};
 const RESEARCH_LABELS={bronze_metallurgy:'科技',writing:'政治',agriculture:'经济'};
+const PERSONALITY_LABELS={aggressive:'激进',neutral:'中立',conservative:'保守'};
+const PERSONALITY_DESC={aggressive:'扩张、军备与威慑优先',neutral:'粮食、财政、军备与外交均衡',conservative:'粮食、稳定、防御与外交优先'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
 let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='country';
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
@@ -1363,7 +1372,7 @@ function renderCountries(){
     const controlled=STATE.player_country===p.id,llm=agent.mode==='openai_compatible';
     const tag=controlled?'<span class="tag player">玩家</span>':(llm?'<span class="tag llm">AI</span>':'<span class="tag">AI</span>');
     return `<button class="country ${p.id===selectedCountry?'selected':''}" data-country="${p.id}" style="--c:${countryColor(p.id)}">
-      <span><b>${esc(p.name)}</b><small>粮 ${fmtNum(c.food,0)} · 财 ${fmtNum(c.treasury,0)} · 设施 ${Object.keys(c.buildings).length}</small></span>${tag}
+      <span><b>${esc(p.name)}</b><small>粮 ${fmtNum(c.food,0)} · 财 ${fmtNum(c.treasury,0)} · ${esc(PERSONALITY_LABELS[c.personality]||'中立')} · 设施 ${Object.keys(c.buildings).length}</small></span>${tag}
     </button>`;
   }).join('');
   for(const b of document.querySelectorAll('#countries .country'))b.onclick=()=>selectCountry(b.dataset.country);
@@ -1386,7 +1395,7 @@ function renderRight(){
   const decision=llmEvents[0]?.decision;
   const source=agent.mode==='openai_compatible'?`${(agent.provider||'').toUpperCase()} · ${agent.model||''}`:'规则 AI';
   $('panel-country').innerHTML=`
-    <div class="heading"><div><h2>${esc(meta?.name||selectedCountry)}</h2><small>${esc(c.city_tier||'聚落')} · ${esc(c.specialization||'综合聚落')} · ${esc(POLICY_LABELS[c.policy]||c.policy)} · ${esc(source)}</small></div>
+    <div class="heading"><div><h2>${esc(meta?.name||selectedCountry)}</h2><small>${esc(c.city_tier||'聚落')} · ${esc(c.specialization||'综合聚落')} · ${esc(PERSONALITY_LABELS[c.personality]||'中立')}性格 · ${esc(POLICY_LABELS[c.policy]||c.policy)} · ${esc(source)}</small></div>
     <span class="pill">${STATE.player_country===selectedCountry?'玩家治理':(agent.mode==='openai_compatible'?'LLM 控制':'AI 控制')}</span></div>
     <div class="stats">
       <div class="stat"><small>存粮</small><b>${fmtNum(c.food)}</b></div>
@@ -2293,6 +2302,10 @@ async function openAgents(){
           <span style="display:flex;gap:6px;align-items:center"><span class="pill">${mode==='mock'?'规则 AI':'LLM'}</span>
           <span class="key-state ${keyClass}">${a.key_configured?'密钥已配置':'未配置密钥'}</span></span></div>
         <div class="key-state" style="margin:0 0 7px;color:${statusColor}">当前：${mode==='mock'?'规则 AI':esc(a.provider||'LLM')+' · '+esc(a.model||'')}${mode==='mock'?'':' · '+esc(statusText)}</div>
+        <div class="personality-pick">
+          <div class="personality-head"><span>国家性格</span><small>${esc((PERSONALITY_DESC[a.personality]||PERSONALITY_DESC.neutral))}</small></div>
+          <div class="personality-options">${Object.entries(PERSONALITY_LABELS).map(([key,label])=>`<button data-personality-choice="${key}" data-country="${cid}" class="${(a.personality||'neutral')===key?'on':''}">${label}</button>`).join('')}</div>
+        </div>
         <div class="ai-simple">
           <div class="ai-fields">
             <label>厂商<select data-simple-provider>${providerOptions}</select></label>
@@ -2328,8 +2341,19 @@ async function openAgents(){
     for(const btn of document.querySelectorAll('[data-test-agent]'))btn.onclick=()=>testAgent(btn.closest('.ai-country'));
     for(const btn of document.querySelectorAll('[data-save-mock]'))btn.onclick=()=>saveMockAgent(btn.closest('.ai-country'));
     for(const btn of document.querySelectorAll('[data-save-agent]'))btn.onclick=()=>saveAgent(btn.closest('.ai-country'));
+    for(const btn of document.querySelectorAll('[data-personality-choice]'))btn.onclick=()=>setCountryPersonality(btn.dataset.country,btn.dataset.personalityChoice);
     $('agentsModal').hidden=false;
   }catch(err){showToast('无法读取 AI 席位配置',true);}
+}
+async function setCountryPersonality(cid,personality){
+  try{
+    const r=await fetch('/api/agents/personality',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({country_id:cid,personality})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'切换失败');
+    showToast(`${cid} 已切换为「${PERSONALITY_LABELS[personality]||personality}」性格`);
+    await openAgents();await poll(true);
+  }catch(err){showToast(`性格切换失败：${err.message}`,true);}
 }
 function updateSimpleProviderHint(row,providers){
   const provider=providers.find(p=>p.id===row.querySelector('[data-simple-provider]').value)||providers[0];

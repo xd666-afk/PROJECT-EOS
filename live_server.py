@@ -23,6 +23,7 @@ from agents.llm_adapter import (
     OpenAICompatibleAgent,
     load_agents,
 )
+from agents.personality import normalize_personality, personality_definition, personality_label
 from agents.providers import provider_payload, resolve_simple_settings
 from agents.scheduler import AgentScheduler
 from core.messages import compose_ruler_messages, record_ruler_messages
@@ -80,6 +81,7 @@ class LiveSession:
         self.current_save_id: str | None = None
         self.current_save_name: str | None = None
         self.simulation = self._new_simulation()
+        self._sync_personality_meta()
         self._message_cursor = len(self.simulation.state.event_log)
         self._last_message_days: dict[str, int] = {}
         self.speed = speed
@@ -228,6 +230,7 @@ class LiveSession:
                 )
                 for country_id in simulation.state.countries
             }
+            self._sync_personality_meta()
             restored_player = meta.get("player_country")
             self.player_country = (
                 restored_player
@@ -332,7 +335,13 @@ class LiveSession:
             self._last_message_days = {}
             self.scheduler = simulation.scheduler
             self.agent_meta = {
-                country_id: {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
+                country_id: {
+                    "mode": "mock", "provider": None, "model": None,
+                    "api_key_env": None,
+                    "personality": normalize_personality(
+                        simulation.state.countries[country_id].personality
+                    ),
+                }
                 for country_id in (p["id"] for p in world["polities"])
             }
             self.scheduler.set_player_country(None)
@@ -362,6 +371,17 @@ class LiveSession:
                 "start_era": start_era,
             }
 
+    def _sync_personality_meta(self) -> None:
+        for country_id, country in self.simulation.state.countries.items():
+            meta = self.agent_meta.setdefault(
+                country_id,
+                {"mode": "mock", "provider": None, "model": None, "api_key_env": None},
+            )
+            meta["personality"] = normalize_personality(
+                getattr(country, "personality", meta.get("personality"))
+            )
+            country.personality = meta["personality"]
+
     def agent_payload(self) -> dict:
         with self.lock:
             countries = {}
@@ -386,6 +406,8 @@ class LiveSession:
                 )
                 countries[country_id] = {
                     **meta,
+                    "personality": normalize_personality(getattr(self.simulation.state.countries[country_id], "personality", meta.get("personality"))),
+                    "personality_label": personality_label(getattr(self.simulation.state.countries[country_id], "personality", "neutral")),
                     "api_key_env": env_name,
                     "key_configured": (
                         meta.get("mode") == "openai_compatible" and configured
@@ -433,10 +455,13 @@ class LiveSession:
         with self.lock:
             if country_id not in self.simulation.state.countries:
                 return {"ok": False, "error": "unknown country"}
+            country = self.simulation.state.countries[country_id]
+            raw_personality = settings.get("personality", getattr(country, "personality", "neutral"))
+            requested_personality = normalize_personality(raw_personality)
             mode = settings.get("mode")
             if mode == "mock":
                 agent = HeuristicAgent(country_id)
-                meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None, "last_test": None}
+                meta = {"mode": "mock", "provider": None, "model": None, "api_key_env": None, "last_test": None, "personality": requested_personality}
             elif mode == "openai_compatible":
                 provider_id = str(settings.get("provider_id") or "").strip()
                 resolved = dict(settings)
@@ -493,9 +518,11 @@ class LiveSession:
                     "base_url": llm_settings.base_url,
                     "api_key_env": llm_settings.api_key_env,
                     "last_test": None,
+                    "personality": requested_personality,
                 }
             else:
                 return {"ok": False, "error": "mode must be mock or openai_compatible"}
+            country.personality = requested_personality
             if mode == "openai_compatible":
                 self._ensure_call_budget()
             self.scheduler.set_agent(country_id, agent)
@@ -507,8 +534,37 @@ class LiveSession:
                 mode=meta["mode"],
                 provider=meta["provider"],
                 model=meta["model"],
+                personality=requested_personality,
             )
             return {"ok": True, "country_id": country_id, **self.agent_payload()["countries"][country_id]}
+
+    def set_personality(self, country_id: str, personality: object) -> dict:
+        with self.lock:
+            country = self.simulation.state.countries.get(country_id)
+            if country is None:
+                return {"ok": False, "error": "unknown country"}
+            requested = str(personality or "").strip().lower()
+            if requested not in {"aggressive", "neutral", "conservative"}:
+                return {"ok": False, "error": "personality must be aggressive, neutral or conservative"}
+            country.personality = requested
+            meta = self.agent_meta.setdefault(
+                country_id,
+                {"mode": "mock", "provider": None, "model": None, "api_key_env": None},
+            )
+            meta["personality"] = requested
+            self.simulation.state.record(
+                "agent_personality_changed",
+                country_id=country_id,
+                personality=requested,
+                label=personality_label(requested),
+            )
+            return {
+                "ok": True,
+                "country_id": country_id,
+                "personality": requested,
+                "personality_label": personality_label(requested),
+                "tagline": personality_definition(requested)["tagline"],
+            }
 
     def _ensure_call_budget(self) -> None:
         """A UI-configured LLM seat needs a real planning budget too.
@@ -852,7 +908,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path not in {
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
-            "/api/agents/budget", "/api/new_game", "/api/saves",
+            "/api/agents/budget", "/api/agents/personality", "/api/new_game", "/api/saves",
         }:
             self._json({"error": "not found"}, 404)
             return
@@ -864,6 +920,10 @@ class Handler(BaseHTTPRequestHandler):
             elif self.path == "/api/agents/budget":
                 result = self.session.configure_budget(
                     payload.get("max_calls"), payload.get("max_cost_usd")
+                )
+            elif self.path == "/api/agents/personality":
+                result = self.session.set_personality(
+                    str(payload.get("country_id", "")), payload.get("personality")
                 )
             elif self.path == "/api/agents":
                 result = self.session.configure_agent(

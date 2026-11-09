@@ -148,6 +148,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "last_economy": country.last_economy,
             "shortage_days_total": country.shortage_days_total,
             "stability": round(country.stability, 2),
+            "personality": country.personality,
             "housing": housing,
             "food_capacity": food_room,
             "city_tier": tier,

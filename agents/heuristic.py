@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from agents.base import CountryAgent
+from agents.personality import personality_definition
 
 PREFERENCES = {
     "ELAR": {"policy": "AGRICULTURE", "research": "agriculture", "building": "FARM"},
@@ -34,6 +35,8 @@ class HeuristicAgent(CountryAgent):
     async def decide(self, observation: dict[str, Any]) -> dict[str, Any]:
         country = observation["country"]
         rules = observation["rules"]
+        personality = personality_definition(country.get("personality"))
+        profile = personality["mock"]
         actions: list[dict[str, Any]] = []
 
         incoming_pacts = observation.get("diplomacy", {}).get("incoming_pacts", [])
@@ -47,7 +50,7 @@ class HeuristicAgent(CountryAgent):
         wars = country.get("at_war_with", [])
         campaigns = observation.get("campaign_options", {})
         if wars:
-            if country.get("war_exhaustion", 0) >= 9:
+            if country.get("war_exhaustion", 0) >= profile["peace_exhaustion"]:
                 actions.append({
                     "type": "DIPLOMACY", "operation": "PROPOSE_PEACE", "target": wars[0],
                 })
@@ -55,19 +58,12 @@ class HeuristicAgent(CountryAgent):
                 actions.append({
                     "type": "MILITARY", "operation": "ATTACK", "target": wars[0],
                 })
-        elif (
-            observation["world_day"] >= 180
-            and country["treasury"] > 150
-            and country.get("army_strength", 0) == 0
-            and country["food"] > 80
-        ):
-            actions.append({"type": "MILITARY", "operation": "RECRUIT", "strength": 2})
-        elif (
-            observation["world_day"] >= 180
-            and country.get("army_strength", 0) < 4
-            and country["treasury"] > 220
-        ):
-            actions.append({"type": "MILITARY", "operation": "RECRUIT", "strength": 1})
+        elif observation["world_day"] >= profile["recruit_day"]:
+            army = country.get("army_strength", 0)
+            if army == 0 and country["treasury"] > profile["recruit_first"] and country["food"] > 80:
+                actions.append({"type": "MILITARY", "operation": "RECRUIT", "strength": 2})
+            elif army < profile["army_target"] and country["treasury"] > profile["recruit_extra"]:
+                actions.append({"type": "MILITARY", "operation": "RECRUIT", "strength": 1})
 
         incoming = sorted(
             observation["pending_incoming_trades"],
@@ -97,9 +93,10 @@ class HeuristicAgent(CountryAgent):
 
         expansion = rules["expansion"]
         if (
-            len(actions) < 3
+            len(actions) < profile["expand_actions"]
             and country["outposts"] < expansion["max_outposts"]
-            and country["treasury"] >= expansion["treasury_cost"] + 25
+            and country["treasury"] >= expansion["treasury_cost"] + profile["expand_reserve"]
+            and country["food"] >= profile["expand_food"]
             and observation["frontier_candidates"]
         ):
             candidates = observation["frontier_candidates"]
@@ -158,35 +155,35 @@ class HeuristicAgent(CountryAgent):
                 proposal["sender"] == self.country_id and proposal["target"] == partner
                 for proposal in observation.get("diplomacy", {}).get("outgoing_pacts", [])
             )
-            if relation >= 15 and partner not in active_partners and not has_pending:
+            if relation >= profile["pact_relation"] and partner not in active_partners and not has_pending:
                 actions.append({
                     "type": "DIPLOMACY", "operation": "PROPOSE_PACT",
                     "target": partner, "pact": "TRADE",
                 })
-            elif relation < 30 and country["treasury"] > 80:
+            elif relation < profile["gift_relation"] and country["treasury"] > profile["gift_treasury"]:
                 actions.append({
                     "type": "DIPLOMACY", "operation": "GIFT",
-                    "target": partner, "amount": min(8.0, round(country["treasury"] * 0.06, 2)),
+                    "target": partner, "amount": min(profile["gift_max"], round(country["treasury"] * 0.06, 2)),
                 })
 
         if (
-            not wars and country.get("army_strength", 0) >= 3
-            and observation["world_day"] >= 180 and len(actions) < 4
+            not wars and country.get("army_strength", 0) >= profile["war_min_army"]
+            and observation["world_day"] >= profile["recruit_day"] and len(actions) < 4
         ):
             foreign = observation.get("foreign_military", {})
             rivals = [
                 partner for partner, relation in relations.items()
-                if relation <= 25 and foreign.get(partner, 0) < country["army_strength"]
+                if relation <= profile["war_relation"] and foreign.get(partner, 0) < country["army_strength"]
                 and campaigns.get(partner, {}).get("reachable")
             ]
-            if rivals and ((observation["world_day"] // 90 + len(self.country_id)) % 5 == 0):
+            if rivals and ((observation["world_day"] // 90 + len(self.country_id)) % profile["war_roll"] == 0):
                 actions.append({
                     "type": "DIPLOMACY", "operation": "DECLARE_WAR",
                     "target": sorted(rivals)[0],
                 })
 
         outgoing = observation["pending_outgoing_trades"]
-        if country["food"] > 220 and not outgoing and len(actions) < 4:
+        if country["food"] > profile["trade_food"] and not outgoing and len(actions) < 4:
             partners = sorted(set(observation["known_countries"]) - {self.country_id})
             if partners:
                 # Deterministic rotation without relying on model output or hidden state.
@@ -202,12 +199,17 @@ class HeuristicAgent(CountryAgent):
             "country_id": self.country_id,
             "world_day": observation["world_day"],
             "actions": actions[: rules["max_actions_per_decision"]],
-            "reason": self._reason(country),
+            "reason": self._reason(country, personality),
         }
 
     def _workers(self, country: dict[str, Any]) -> dict[str, float]:
         if country["food"] < 60 or country["last_economy"].get("food_shortage", 0) > 0:
             return {"agriculture": 0.7, "mining": 0.1, "construction": 0.2}
+        profile = personality_definition(country.get("personality"))["mock"]
+        if profile.get("workers"):
+            if country.get("personality") == "conservative" and country["food"] < 150:
+                return {"agriculture": 0.75, "mining": 0.05, "construction": 0.2}
+            return dict(profile["workers"])
         if self.preference["policy"] == "INDUSTRY":
             return {"agriculture": 0.45, "mining": 0.35, "construction": 0.2}
         if self.preference["policy"] in {"TRADE", "RESEARCH"}:
@@ -240,11 +242,16 @@ class HeuristicAgent(CountryAgent):
             counts[building] = counts.get(building, 0) + 1
         for project in country["projects"]:
             counts[project["building"]] = counts.get(project["building"], 0) + 1
+        personality = country.get("personality", "neutral")
         wonders = (
             ("GREAT_GRANARY", "agriculture", 3, 220),
             ("GREAT_FORGE", "bronze_metallurgy", 3, 260),
             ("GREAT_LIBRARY", "writing", 3, 300),
         )
+        if personality == "aggressive":
+            wonders = (wonders[1], wonders[0], wonders[2])
+        elif personality == "conservative":
+            wonders = (wonders[0], wonders[2], wonders[1])
         for name, field, level, cost in wonders:
             if technology.get(field, 0) >= level and not counts.get(name) and country["treasury"] >= cost:
                 return name
@@ -276,6 +283,16 @@ class HeuristicAgent(CountryAgent):
             if counts.get("ROAD", 0) < 3:
                 return "ROAD"
             return "MINE"
+        if personality == "aggressive":
+            if technology.get("bronze_metallurgy", 0) >= 2 and counts.get("WORKSHOP", 0) < 2 and country["treasury"] > 40:
+                return "WORKSHOP"
+            if counts.get("MINE", 0) < 3 and country["food"] > 90:
+                return "MINE"
+        elif personality == "conservative":
+            if technology.get("writing", 0) >= 1 and counts.get("TEMPLE", 0) < 1 and country["treasury"] > 25:
+                return "TEMPLE"
+            if technology.get("writing", 0) >= 1 and counts.get("LIBRARY", 0) < 1 and country["treasury"] > 28:
+                return "LIBRARY"
         preferred = self.preference["building"]
         preferred_count = counts.get(preferred, 0) + sum(
             project["building"] == preferred for project in country["projects"]
@@ -303,9 +320,10 @@ class HeuristicAgent(CountryAgent):
             return value, -tile["row"], -tile["col"]
         return max(candidates, key=score)
 
-    def _reason(self, country: dict[str, Any]) -> str:
+    def _reason(self, country: dict[str, Any], personality: dict[str, Any]) -> str:
         return (
-            f"{self.country_id} 规则策略：优先 {self.preference['building']}、"
-            f"{self.preference['research']} 研究与 {self.preference['policy']} 政策；"
-            f"当前粮食 {country['food']:.1f}，财政 {country['treasury']:.1f}。"
+            f"{self.country_id} · {personality['label']}性格（{personality['tagline']}）："
+            f"优先 {self.preference['building']}、{self.preference['research']} 研究与 "
+            f"{self.preference['policy']} 政策；当前粮食 {country['food']:.1f}，"
+            f"财政 {country['treasury']:.1f}。"
         )
