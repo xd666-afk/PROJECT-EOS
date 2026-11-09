@@ -14,3 +14,5 @@ output/*
 !output/first_year_weather.json
 !output/sha256_manifest.json
 !output/viewer.html
+
+assets/raw/transparent/

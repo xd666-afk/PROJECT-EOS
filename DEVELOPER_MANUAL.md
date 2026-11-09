@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-09，对应当前代码与 82 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-10，对应当前代码与 85 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、82 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、85 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -296,7 +296,7 @@ AI：
 | `agents/heuristic.py` | 多国规则 AI 基线 | AI |
 | `agents/llm_adapter.py` | OpenAI 兼容适配、预算、Token 记录、失败回退 | AI |
 | `live_server.py` | 本地 HTTP、LiveSession、存档槽、API | 后端/UI |
-| `dashboard.html` | 单页 UI：菜单、地图、弹窗、城市视图 | 前端 |
+| `dashboard.html` | 分层 UI：一级导航、二级标签、地图、城市视图、通知 | 前端 |
 | `config/rules.json` | 所有数值与内容定义 | 平衡/策划 |
 | `worldgen.py` | 原始世界生成、气候、水文、灾害、天气函数 | 地图 |
 | `mapgen.py` | 公平随机世界、自定义 2–12 国 | 地图 |
@@ -584,7 +584,7 @@ budget, local_revenue, local_upkeep, local_net
 - 建城条件同时校验：目标为陆地且无归属、与本国现有领土直接相邻、新建城市数 < `expansion.max_outposts`、人口 ≥ `expansion.minimum_population`、财政 ≥ `expansion.treasury_cost`。地块面板会逐项显示“已满足 / 未满足”，全部满足后“建城”按钮才可用。
 - AI 边疆办公室每 120 日检查一次：新城数 <4、人口 ≥10,000、财政 ≥ 开拓费+20 时，选择相邻无主陆地执行 `SETTLE`；玩家接管国家不自动开拓。
 - 玩家点击己方领土相邻的无主地块，在右侧“建立新城”；国家侧栏显示可开拓边疆格数和已建新城数量。
-- 双击大地图上的城市标记，会直接打开该城市的二级规划地图；也可从“城市”弹窗进入。
+- 双击大地图上的城市标记，会直接打开该城市的二级规划地图；也可从一级“城市”页进入。
 - 城市人口独立，但全国人口始终等于城市人口之和。
 
 ### 8.2 城市方针
@@ -1006,44 +1006,75 @@ POST /api/agents/budget
 
 单文件 HTML + CSS + 原生 JS，无构建步骤。
 
-主要界面：
+### 12.1 分层结构
 
-- 主菜单：继续、载入、新建世界、AI 席位。
-- 游戏壳：顶部资源条、左侧国家/建设队列、中间六边形地图、右侧国家/地块/动态/排名标签。
-- 弹窗：科技树、外交、军事、城市、AI 统治档案、AI 席位、新世界、Esc 暂停、结算。
+一级导航是 `#primaryRail`，固定在最左侧，所有功能页从这里进入：
+
+| 一级 | 二级标签 / 内容 |
+| --- | --- |
+| 世界 | 全幅地图；浮动侧栏：列国、详情（国家/地块/排名） |
+| 国家 | 概览与政策、城市、世界排名 |
+| 城市 | 城市列表、城市规划（局部六边形地图、粮食、预算、服务、分区、建造） |
+| 科技 | 总览、科技线、政治线、经济线 |
+| 外交 | 邦交关系、待回应提案 |
+| 军事 | 军队、战争 |
+| AI | 席位配置、统治档案 |
+| 系统 | 暂停菜单：继续、保存、载入、AI 席位、AI 日记、返回主菜单 |
+
+- 每个功能页都是全屏 deck，使用统一 `.modal` 页面样式，不再是叠在消息台上的浮窗；`modal-head` 带面包屑和“返回世界”。
+- 一级切换统一走 `openDeck(name)`；每个 deck 的关闭函数会恢复进入前的暂停状态，并回到世界页。
+- 世界页的列国/详情侧栏可收起，工具栏“列国 / 详情”按钮同步状态；选择国家或地块会自动展开详情。
+- 通知不再常驻世界页：世界事件生成右下角气泡（最多 3 条，7 秒淡出），顶部“动态”显示未读角标，点击进入通知中心（世界动态 / 在建工程）。
+- AI 统治气泡仍锚定首都，与普通世界事件气泡分开。
 - AI 席位默认显示简单配置（厂商 + API Key），高级配置折叠在下方。
-- LLM 决策还会以地图思考气泡出现：首都锚定、最多 2 个、高亮/常亮/淡出、悬停救回、点击展开、关闭归档。
-- 城市详情：局部六边形地图、粮食账本、地方预算、分区编辑。
+- 城市详情：局部六边形地图、粮食账本、地方预算、分区编辑、城内地块建造。
 
 ### 12.2 状态流
 
 - `STATE` 保存 `/api/state` 快照，`WORLD` 保存 `/api/world`。
-- `poll(force)` 每 500ms 拉取一次；`renderIfChanged()` 用关键字段避免重复重绘。
+- `poll(force)` 每 500ms 拉取一次；`renderIfChanged()` 用关键字段避免重复重绘；`syncDiaryBubbles()` 与 `syncNoticeBubbles()` 分别处理 AI 气泡和世界通知。
 - 所有玩家操作调用 `submitPlayerAction()` → `/api/action` → 再 `poll(true)`。
 - `showOnlyScreen(name)` 切换主菜单/载入/新世界/游戏壳。
-- URL 参数便于调试：`?play=latest`、`?tech=1`、`?diplo=1`、`?mil=1`、`?city=1`、`?citymap=1`、`?layer=political`。
+- URL 参数便于调试：`?play=latest`、`?play=<save_id>`、`?tech=1`、`?diplo=1`、`?mil=1`、`?city=1`、`?citymap=1`、`?layer=political`。
 
 ### 12.3 地图
 
 - Canvas 绘制六边形，支持拖动、缩放、选中地块。
 - 图层：卫星、政治、海拔、降水、资源、交通。
+- 卫星图层叠加所有国家的领土色与边界；政治图层显示更强的国家染色。
 - 国家颜色来自世界 polities；城市、设施图标、道路、施工进度环叠加。
-- 设施图标通过 `BUILD_ICON` 映射到 `/assets/icons/*.png`。
+- 设施图标通过 `BUILD_ICON` 映射到 `/assets/icons/*.png`；图标为透明背景 320×320。
+- 道路在卫星/政治/交通图上始终画成连续线稿，不使用设施图片。
 
 ### 12.4 城市视图
 
 - 城市卡片：人口、住房、预算、粮食自给、余缺、宜居度。
 - 点击进入局部地图，点击地块查看分区/邻接，手动城市可改分区。
 - 右侧粮食账本、地方预算、AI 市长说明。
-- AI 托管城市只读；玩家需先“收回手动治理”。
+- AI/LLM 托管城市只读；玩家需先“收回手动治理”。
 
-### 12.5 前端改动规范
+### 12.5 美术资源
+
+`tools/generate_transparent_icons.py` 读取本机 GPT Image Studio 的 `settings.json`（必要时从其 `keySource` 的 `api_providers.json` 取 OfoxAI key），调用 `gpt-image-2.5-flare` 生成 1024×1024、low quality 的单体图标：
+
+```bash
+.venv/Scripts/python tools/generate_transparent_icons.py --only farm --force
+.venv/Scripts/python tools/generate_transparent_icons.py --force
+```
+
+- 请求使用 `background: transparent`；若供应商返回白底，脚本会从边缘泛洪去背、羽化 alpha、按可见像素裁切并居中到 320×320。
+- 原始图保存到 `assets/raw/transparent/`，成品保存到 `assets/icons/`。
+- 密钥只存在于脚本进程内存，不打印、不写入仓库。
+- 道路例外：`road.png` 不参与地图和建造入口，统一使用 CSS 线稿/Canvas 道路。
+
+### 12.6 前端改动规范
 
 1. 不要在前端计算权威资源；只显示服务端字段。
 2. 提交动作必须走 `submitPlayerAction`，不要直接改 `STATE`。
 3. 新字段先加进 `summary()`/`city_static_metrics()`，再在 UI 读取。
-4. 文本使用中文，保持现有视觉密度；图标沿用 `assets/icons`。
-5. 大改后至少做一次浏览器冒烟：主菜单 → 进游戏 → 各弹窗 → 城市视图 → Esc → 回菜单。
+4. 文本使用中文，保持现有视觉密度；图标沿用透明 `assets/icons`。
+5. 大改后至少做一次浏览器冒烟：主菜单 → 进游戏 → 八个一级页 → 各二级标签 → 城市视图 → Esc → 回菜单。
+6. 新增一级页时，同时补 `rail` 按钮、`openDeck()` 分支、关闭函数和 `setRail()` 状态。
 
 ---
 
@@ -1156,7 +1187,7 @@ POST /api/agents/budget
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**82 passed**。
+当前：**85 passed**。
 
 ### 15.2 测试原则
 
@@ -1455,7 +1486,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：82 项。
+- 测试：85 项。
 - 实时服务默认端口：8765。
 
 ---

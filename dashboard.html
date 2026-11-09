@@ -7,12 +7,14 @@
 <style>
 :root{
   color-scheme:dark;
+  --rail:76px; --top:74px;
   --bg:#071319; --shell:#0a1921; --panel:#0e222b; --panel-2:#132b35; --panel-3:#17333e;
   --line:#29434d; --line-2:#3d5b66; --ink:#edf2ee; --muted:#91a8ae; --faint:#6f8990;
   --accent:#d6aa5d; --good:#82bd91; --warn:#dda665; --bad:#db867c; --blue:#6bacc1;
   --shadow:0 18px 52px #0008;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:radial-gradient(circle at 48% 24%,#163542,#071319 58%,#050f14);
   color:var(--ink);font:13px/1.45 system-ui,"Microsoft YaHei",sans-serif}
@@ -23,7 +25,23 @@ button:disabled{opacity:.38;cursor:not-allowed}
 button.primary{background:linear-gradient(180deg,#d7ab60,#b7863d);border-color:#efd295;
   color:#22180a;font-weight:650}
 button.primary:hover{filter:brightness(1.08)}
-.app{height:100%;display:flex;flex-direction:column}
+.app{height:100%;display:flex;flex-direction:column;padding-left:var(--rail)}
+.rail{position:fixed;left:0;top:0;bottom:0;width:var(--rail);z-index:60;display:flex;flex-direction:column;
+  align-items:stretch;gap:3px;padding:10px 8px;background:linear-gradient(180deg,#0a1b23,#061117);
+  border-right:1px solid var(--line);box-shadow:8px 0 30px #02080c88}
+.rail-brand{width:40px;height:40px;margin:2px auto 12px;border:1px solid var(--accent);border-radius:11px;
+  display:grid;place-items:center;color:var(--accent);font:700 18px Georgia,serif;transform:rotate(45deg);
+  background:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+.rail-brand span{transform:rotate(-45deg)}
+.rail button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:52px;padding:5px 2px;border:1px solid transparent;border-radius:9px;background:transparent;
+  color:var(--muted);font-size:8.5px;letter-spacing:.3px}
+.rail button b{font:600 15px/1 system-ui;color:#b9cbd0}
+.rail button:hover{background:#102832;border-color:var(--line)}
+.rail button.on{background:color-mix(in srgb,var(--accent) 14%,#0b2029);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent)}
+.rail button.on b{color:var(--accent)}
+.rail .rail-gap{flex:1}
+.rail-note{writing-mode:vertical-rl;text-orientation:mixed;align-self:center;color:#506b74;font-size:8px;letter-spacing:2px;margin:8px 0}
 .screen{height:100%;min-height:100%;display:flex;flex-direction:column}
 .screen[hidden],.app[hidden]{display:none}
 .menu{position:relative;overflow:hidden;background:
@@ -75,6 +93,7 @@ button.primary:hover{filter:brightness(1.08)}
 .rank-score{font-size:18px;font-weight:500;color:var(--accent);font-variant-numeric:tabular-nums}
 .end-actions{display:flex;justify-content:flex-end;gap:7px;margin-top:18px}
 .tech-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:4px}
+.tech-grid.single{grid-template-columns:minmax(0,720px)}
 .tech-branch{position:relative;border:1px solid var(--line);border-radius:9px;padding:11px 9px 12px;
   background:linear-gradient(180deg,#0c232d,#081920)}
 .tech-branch h3{margin:0 0 3px;font-size:12px;font-weight:600;color:var(--tc)}
@@ -136,7 +155,10 @@ button.primary:hover{filter:brightness(1.08)}
 .city-focus{display:flex;gap:5px;align-items:center;margin-top:7px}
 .city-focus select{flex:1;min-height:30px;font-size:9px}
 .city-focus button{min-height:30px;font-size:9px}
-.city-detail{display:grid;grid-template-columns:minmax(280px,1.2fr) 260px;gap:10px;margin-top:4px}
+.city-detail{display:grid;grid-template-columns:minmax(280px,1.2fr) 280px;gap:12px;margin-top:4px}
+.city-detail-head{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:0 0 8px;margin:0 0 10px;border-bottom:1px solid var(--line)}
+.city-detail-meta{display:flex;gap:8px;align-items:center}
+.city-detail-meta select{min-height:30px;font-size:9.5px}
 #cityCanvas{width:100%;height:380px;background:#091b23;border:1px solid var(--line);border-radius:8px;display:block;cursor:pointer}
 .city-side{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0b2029}
 .city-side h4{font-size:11px;margin:0 0 7px;font-weight:600}
@@ -145,8 +167,8 @@ button.primary:hover{filter:brightness(1.08)}
 .zone-btn i{width:10px;height:10px;border-radius:3px;background:var(--zc);flex:none}
 .zone-btn.on{border-color:var(--accent);background:#26302a}
 .city-coord{color:var(--muted);font-size:9px;margin-bottom:7px}
-@media(max-width:760px){.tech-grid{grid-template-columns:1fr}.modal-card{max-height:92vh}.diplo-row{grid-template-columns:6px 1fr}.diplo-row .relation-track,.diplo-actions{grid-column:1/-1}.mil-grid,.city-grid,.city-detail{grid-template-columns:1fr}#cityCanvas{height:300px}}
-.pause-menu{position:fixed;inset:0;z-index:40;background:
+@media(max-width:760px){.tech-grid,.tech-grid.single{grid-template-columns:1fr}.diplo-row{grid-template-columns:6px 1fr}.diplo-row .relation-track,.diplo-actions{grid-column:1/-1}.mil-grid,.city-grid,.city-detail{grid-template-columns:1fr}#cityCanvas{height:300px}}
+.pause-menu{position:fixed;left:var(--rail);right:0;top:0;bottom:0;z-index:40;background:
   linear-gradient(90deg,#030c11f2 0,#06151de8 38%,#06151da8 62%,#06151d55),
   radial-gradient(circle at 76% 40%,transparent,#02090d99);backdrop-filter:blur(7px);
   display:flex;align-items:center;padding:7vw}
@@ -185,10 +207,44 @@ button.primary:hover{filter:brightness(1.08)}
 .modebar{display:flex;align-items:center;gap:4px;padding:3px;border:1px solid var(--line);border-radius:8px;background:#091b23}
 .modebar button{min-height:29px;padding:3px 8px;border:0;background:transparent;color:var(--muted);font-size:10px}
 .modebar button.on{background:var(--accent);color:#241a0a;font-weight:650}
-.workspace{min-height:0;flex:1;display:grid;grid-template-columns:228px minmax(340px,1fr) 330px}
-.left,.right{min-height:0;background:var(--shell);display:flex;flex-direction:column}
-.left{border-right:1px solid var(--line)}
-.right{border-left:1px solid var(--line)}
+.hud-actions{display:flex;gap:4px;align-items:center}
+.hud-actions button{min-height:29px;padding:3px 8px;font-size:9.5px;border:1px solid var(--line);background:#0b2029}
+.hud-actions .notify{position:relative}
+.notify-badge{position:absolute;right:-5px;top:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;
+  background:var(--bad);color:#fff;font-size:8px;font-weight:700;display:none;place-items:center;line-height:16px;text-align:center}
+.notify-badge.show{display:block}
+.panel-toggle{display:flex;gap:3px;margin-left:6px;padding-left:7px;border-left:1px solid #35525d}
+.panel-toggle button{min-height:28px;font-size:9px;padding:2px 7px;border:0;background:transparent;color:var(--faint)}
+.panel-toggle button.on{color:var(--accent);background:var(--panel-3)}
+.side-reopen{position:absolute;z-index:2;top:58px;display:flex;flex-direction:column;gap:4px;pointer-events:auto}
+.side-reopen.left-open{left:12px}
+.side-reopen.right-open{right:12px}
+.side-reopen button{min-height:30px;padding:2px 8px;font-size:9px;background:#0a202bdc;border:1px solid #3a5864;backdrop-filter:blur(6px)}
+.side-reopen button:hover{color:var(--accent);border-color:var(--accent)}
+.notice-stack{position:absolute;right:14px;bottom:54px;z-index:5;display:flex;flex-direction:column;gap:6px;
+  align-items:flex-end;pointer-events:none;max-width:330px}
+body.right-panel-open .notice-stack{right:354px}
+.notice-bubble{pointer-events:auto;max-width:320px;padding:8px 10px;border:1px solid #3e5d68;border-left:3px solid var(--nc,var(--accent));
+  border-radius:9px;background:#0a202bf0;backdrop-filter:blur(8px);box-shadow:0 10px 26px #02080caa;
+  color:#c3d4d8;font-size:9.5px;line-height:1.5;cursor:pointer;animation:noticeIn .25s ease-out}
+.notice-bubble > b{display:block;color:var(--ink);font-size:10px;font-weight:600;margin-bottom:2px}
+.notice-bubble b{color:var(--ink);font-weight:600}
+.notice-bubble .nd{color:var(--faint);font-size:8px;margin-right:5px}
+.notice-bubble.fading{opacity:0;transform:translateX(10px);transition:.35s}
+@keyframes noticeIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:none}}
+.workspace{position:relative;min-height:0;flex:1;display:block;overflow:hidden}
+.left,.right{position:absolute;z-index:3;min-height:0;background:#0a1921f2;display:flex;flex-direction:column;
+  border:1px solid var(--line);border-radius:11px;box-shadow:0 16px 42px #02080c99;backdrop-filter:blur(10px);
+  transition:transform .2s,opacity .2s;overflow:hidden}
+.left{left:12px;top:58px;bottom:54px;width:224px}
+.right{right:12px;top:58px;bottom:54px;width:328px}
+.left.collapsed{transform:translateX(calc(-100% - 18px));opacity:0;pointer-events:none}
+.right.collapsed{transform:translateX(calc(100% + 18px));opacity:0;pointer-events:none}
+.side-head{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;
+  border-bottom:1px solid var(--line);color:var(--accent);font-size:9px;letter-spacing:.7px;text-transform:uppercase;flex:none}
+.side-head button{min-height:24px;padding:1px 6px;font-size:8.5px;border-radius:5px}
+.side-scroll{min-height:0;flex:1;overflow:auto;scrollbar-width:thin;scrollbar-color:#35525d transparent;padding:9px 10px}
+.left .scroll,.right .scroll{padding:9px 10px}
 .scroll{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#35525d transparent}
 .left .scroll,.right .scroll{padding:9px 10px}
 .sect{display:flex;justify-content:space-between;align-items:center;color:var(--faint);
@@ -217,7 +273,7 @@ button.primary:hover{filter:brightness(1.08)}
 .job-bar i{display:block;height:100%;border-radius:4px;background:var(--c);width:0;transition:width .45s linear}
 .job-sub{display:flex;justify-content:space-between;color:var(--faint);font-size:8.5px;margin-top:3px}
 .nojobs{padding:7px 3px;color:var(--faint);font-size:10px}
-.mapwrap{position:relative;min-width:0;min-height:0;overflow:hidden;background:#0b2732}
+.mapwrap{position:absolute;inset:0;min-width:0;min-height:0;overflow:hidden;background:#0b2732}
 #map{width:100%;height:100%;display:block;cursor:grab;touch-action:none}
 #map.drag{cursor:grabbing}
 .map-toolbar{position:absolute;left:12px;right:12px;top:11px;display:flex;justify-content:space-between;
@@ -227,7 +283,7 @@ button.primary:hover{filter:brightness(1.08)}
 .map-tools{display:flex;flex-wrap:wrap;gap:3px;padding:3px;max-width:calc(100% - 150px)}
 .map-tools button{min-height:28px;border:0;background:transparent;color:var(--muted);font-size:10px;padding:3px 7px}
 .map-tools button.on{background:var(--panel-3);color:var(--accent)}
-.layer-note{padding:7px 9px;color:var(--muted);font-size:9.5px;line-height:1.45;max-width:210px}
+.layer-note{display:none;padding:7px 9px;color:var(--muted);font-size:9.5px;line-height:1.45;max-width:210px}
 .layer-note b{color:var(--ink);font-weight:600}
 .map-legend{position:absolute;left:13px;bottom:10px;display:flex;flex-wrap:wrap;gap:8px;
   padding:5px 8px;border-radius:6px;background:#0a202bcf;color:var(--muted);font-size:9px;
@@ -246,7 +302,7 @@ button.primary:hover{filter:brightness(1.08)}
   font-size:10.5px;opacity:0;pointer-events:none;transition:.2s;z-index:5;max-width:75%;text-align:center}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.bad{border-color:#8b5149;background:#301b1b}
-.tabs{display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid var(--line);flex:none}
+.tabs{display:grid;grid-template-columns:repeat(3,1fr);border-bottom:1px solid var(--line);flex:none}
 .tabs button{min-height:40px;border:0;border-radius:0;background:transparent;color:var(--muted);font-size:10.5px}
 .tabs button.on{color:var(--accent);box-shadow:inset 0 -2px var(--accent)}
 .panel{display:none;flex-direction:column;gap:9px}
@@ -324,14 +380,27 @@ button.primary:hover{filter:brightness(1.08)}
 .observer-note{padding:7px 8px;border:1px solid #35525e;border-radius:7px;background:#0b2029;
   color:var(--muted);font-size:9.5px;line-height:1.5}
 .observer-note b{color:var(--ink)}
-.modal{position:fixed;inset:0;background:#020a0ed9;backdrop-filter:blur(4px);z-index:50;
-  display:grid;place-items:center;padding:18px}
+.modal{position:fixed;left:var(--rail);top:var(--top);right:0;bottom:0;z-index:40;
+  background:radial-gradient(circle at 60% 0%,#12323d 0,#081920 48%,#061118 100%);
+  display:block;overflow:auto;padding:0}
 .modal[hidden]{display:none}
-.modal-card{width:min(820px,96vw);max-height:88vh;overflow:auto;background:var(--shell);
-  border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:16px}
+#app[hidden] ~ .modal{left:0;top:0;display:grid;place-items:center;padding:18px;background:#020a0ed9;backdrop-filter:blur(4px)}
+#app[hidden] ~ .modal .modal-card{width:min(860px,96vw);min-height:0;max-height:88vh;overflow:auto;
+  background:var(--shell);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:16px}
+.modal-card{width:100%;max-width:1320px;min-height:100%;max-height:none;overflow:visible;background:transparent;
+  border:0;border-radius:0;box-shadow:none;padding:22px 30px 48px;margin:0 auto}
 .modal-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
-  border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:10px}
-.modal-head h2{font-size:16px;margin:0}.modal-head p{margin:3px 0 0;color:var(--muted);font-size:10.5px}
+  border-bottom:1px solid var(--line);padding:2px 0 12px;margin-bottom:14px}
+.modal-head h2{font-size:22px;margin:0;font-weight:600;letter-spacing:.4px}
+.modal-head p{margin:4px 0 0;color:var(--muted);font-size:10.5px;max-width:720px;line-height:1.55}
+.deck-crumb{color:var(--accent);font-size:9px;letter-spacing:1.6px;text-transform:uppercase;margin-bottom:5px}
+.deck-head-actions{display:flex;gap:6px;align-items:center}
+.deck-head-actions button{min-height:32px;padding:4px 12px;font-size:10px}
+.deck-tabs{display:flex;gap:4px;flex-wrap:wrap;margin:-4px 0 14px;padding-bottom:10px;border-bottom:1px solid #1c333d}
+.deck-tabs button{min-height:30px;padding:3px 11px;font-size:10px;background:transparent;border-color:transparent;color:var(--muted)}
+.deck-tabs button:hover{background:#102832;border-color:var(--line)}
+.deck-tabs button.on{background:color-mix(in srgb,var(--accent) 14%,#0b2029);border-color:color-mix(in srgb,var(--accent) 55%,transparent);color:var(--accent)}
+.deck-section[hidden]{display:none}
 .diary-toolbar{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap}
 .diary-countries{display:flex;gap:5px;flex-wrap:wrap}
 .diary-country-btn{min-height:30px;padding:4px 9px;font-size:10px;background:#0b2029;border:1px solid var(--line)}
@@ -394,22 +463,36 @@ button.primary:hover{filter:brightness(1.08)}
 .ai-fields .wide{grid-column:1/-1}
 .key-state{font-size:9px;color:var(--muted)}.key-state.ok{color:var(--good)}.key-state.missing{color:var(--warn)}
 .ai-actions-row{display:flex;justify-content:flex-end;margin-top:6px}
+@media(max-width:1280px){
+  .topbar{height:auto;min-height:74px;grid-template-columns:auto 1fr auto;grid-template-rows:auto auto;
+    gap:6px 12px;padding:8px 12px}
+  .brand{grid-column:1;grid-row:1}
+  .brand h1{font-size:13px}
+  .timebox{grid-column:2/4;grid-row:1;justify-self:end}
+  .power{grid-column:1/-1;grid-row:2;justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px}
+  .res{min-width:78px}
+}
 @media(max-width:1120px){
-  .workspace{grid-template-columns:196px minmax(300px,1fr) 300px}
-  .topbar{grid-template-columns:190px minmax(230px,1fr) auto}
-  .res{min-width:64px}
+  .left{width:202px}.right{width:300px}
+  .res{min-width:66px}
 }
 @media(max-width:920px){
-  html,body{overflow:auto}.app{height:auto;min-height:100%}
+  html,body{overflow:hidden}.app{height:100%;min-height:0;padding-left:0;padding-bottom:56px}
+  .rail{top:auto;bottom:0;left:0;right:0;width:auto;height:56px;flex-direction:row;overflow-x:auto;padding:4px 6px;
+    border-right:0;border-top:1px solid var(--line);box-shadow:0 -8px 30px #02080c88}
+  .rail-brand,.rail-note,.rail-gap{display:none}
+  .rail button{min-width:54px;min-height:46px;flex:1;font-size:8px}
+  .rail button b{font-size:13px}
   .topbar{grid-template-columns:1fr auto;height:auto;min-height:74px}
   .power{grid-column:1/-1;justify-content:flex-start;order:3}
-  .workspace{display:flex;flex-direction:column}
-  .left{order:2;border-right:0;border-top:1px solid var(--line)}
-  .left .scroll{max-height:290px}
-  .country-list{display:grid;grid-template-columns:1fr 1fr;gap:4px}
-  .mapwrap{height:58vh;min-height:430px;order:1}
-  .right{order:3;border-left:0;border-top:1px solid var(--line)}
-  .right .scroll{max-height:none}
+  .workspace{display:block}
+  .left{left:8px;top:56px;bottom:auto;width:min(240px,72vw);max-height:46vh}
+  .right{right:8px;top:56px;bottom:auto;width:min(320px,86vw);max-height:62vh}
+  .mapwrap{position:absolute;inset:0}
+  .modal{left:0;top:0;bottom:56px}
+  .pause-menu{left:0;bottom:56px}
+  .modal-card{padding:16px 14px 38px}
+  body.right-panel-open .notice-stack{right:50%;transform:translateX(50%);bottom:58px}
 }
 @media(max-width:560px){
   .topbar{grid-template-columns:1fr}
@@ -417,11 +500,12 @@ button.primary:hover{filter:brightness(1.08)}
   .date{text-align:left}
   .power{display:grid;grid-template-columns:1fr 1fr}
   .res{min-width:0}
-  .mapwrap{height:56vh;min-height:360px}
+  .mapwrap{height:100%;min-height:0}
   .country-list{grid-template-columns:1fr}
   .layer-note{display:none}
   .ticker{display:none}
   .tabs button{font-size:9px}
+  .left,.right{max-height:50vh}
 }
 </style>
 </head>
@@ -446,6 +530,19 @@ button.primary:hover{filter:brightness(1.08)}
   <div class="save-list" id="saveList"></div>
 </div>
 <div class="app" id="app" hidden>
+  <nav class="rail" id="primaryRail" aria-label="一级导航">
+    <div class="rail-brand"><span>E</span></div>
+    <button data-deck="world" class="on" title="世界地图"><b>世</b><span>世界</span></button>
+    <button data-deck="nation" title="国家治理"><b>国</b><span>国家</span></button>
+    <button data-deck="city" title="城市与规划"><b>城</b><span>城市</span></button>
+    <button data-deck="tech" title="科技树"><b>科</b><span>科技</span></button>
+    <button data-deck="diplo" title="外交"><b>外</b><span>外交</span></button>
+    <button data-deck="military" title="军事"><b>军</b><span>军事</span></button>
+    <button data-deck="ai" title="AI 席位与档案"><b>AI</b><span>AI</span></button>
+    <div class="rail-gap"></div>
+    <div class="rail-note">PROJECT EOS</div>
+    <button data-deck="system" title="系统与存档"><b>系</b><span>系统</span></button>
+  </nav>
   <header class="topbar">
     <div class="brand">
       <div class="sigil"><span>E</span></div>
@@ -456,11 +553,9 @@ button.primary:hover{filter:brightness(1.08)}
       <div class="modebar">
         <button id="observeBtn">观战</button>
         <button id="interveneBtn">介入</button>
-        <button id="techBtn">科技</button>
-        <button id="diploBtn">外交</button>
-        <button id="militaryBtn">军事</button>
-        <button id="cityBtn">城市</button>
-        <button id="diaryBtn">AI 日记</button>
+      </div>
+      <div class="hud-actions">
+        <button class="notify" id="notifyBtn" title="通知中心">动态<span class="notify-badge" id="notifyBadge">0</span></button>
         <button id="gameMenuBtn">菜单</button>
       </div>
       <div class="date"><b id="date">正在载入</b><small id="nextPlan">连接本地世界</small></div>
@@ -475,10 +570,10 @@ button.primary:hover{filter:brightness(1.08)}
     </div>
   </header>
   <main class="workspace">
-    <aside class="left">
+    <aside class="left" id="worldLeft">
+      <div class="side-head"><span>世界列国 · 点击选择</span><button id="collapseLeft">收起</button></div>
       <div class="scroll">
         <div class="player-banner" id="playerBanner" hidden></div>
-        <div class="sect"><span>世界列国</span><span>点击选择</span></div>
         <div class="country-list" id="countries"></div>
         <div class="sect" style="margin-top:8px"><span>建设进度</span><span id="jobCount">0 项</span></div>
         <div class="activity" id="activities"></div>
@@ -487,6 +582,9 @@ button.primary:hover{filter:brightness(1.08)}
     <section class="mapwrap">
       <canvas id="map"></canvas>
       <div class="diary-bubbles" id="diaryBubbles"></div>
+      <div class="notice-stack" id="noticeStack"></div>
+      <div class="side-reopen left-open" id="leftReopen" hidden><button id="reopenLeft">列国</button></div>
+      <div class="side-reopen right-open" id="rightReopen" hidden><button id="reopenRight">详情</button></div>
       <div class="map-toolbar">
         <div class="map-tools">
           <button class="on" data-layer="satellite">卫星</button>
@@ -495,6 +593,10 @@ button.primary:hover{filter:brightness(1.08)}
           <button data-layer="rain">降水</button>
           <button data-layer="resources">资源</button>
           <button data-layer="routes">交通</button>
+          <span class="panel-toggle">
+            <button class="on" id="toggleLeft">列国</button>
+            <button class="on" id="toggleRight">详情</button>
+          </span>
         </div>
         <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。<br>双击城市标记进入二级规划地图。</div>
       </div>
@@ -503,17 +605,16 @@ button.primary:hover{filter:brightness(1.08)}
       <div class="hover-card" id="hoverCard"></div>
       <div class="toast" id="toast"></div>
     </section>
-    <aside class="right">
+    <aside class="right" id="worldRight">
+      <div class="side-head"><span>详情检视</span><button id="collapseRight">收起</button></div>
       <div class="tabs">
         <button data-tab="country">国家</button>
         <button data-tab="tile">地块</button>
-        <button class="on" data-tab="activity">动态</button>
         <button data-tab="ranking">排名</button>
       </div>
       <div class="scroll">
         <div class="panel" id="panel-country"></div>
         <div class="panel" id="panel-tile"></div>
-        <div class="panel on" id="panel-activity"></div>
         <div class="panel" id="panel-ranking"></div>
       </div>
     </aside>
@@ -532,49 +633,67 @@ button.primary:hover{filter:brightness(1.08)}
   </div>
 </div>
 <div class="modal" id="techModal" hidden>
-  <div class="modal-card" style="width:min(1120px,96vw)">
+  <div class="modal-card">
     <div class="modal-head">
-      <div><h2>科技树</h2><p id="techSubtitle">三条科技线共同决定时代推进</p></div>
-      <button id="techCloseBtn">关闭</button>
+      <div><div class="deck-crumb">指挥台 / 科技</div><h2>科技与时代</h2><p id="techSubtitle">三条科技线共同决定时代推进</p></div>
+      <div class="deck-head-actions"><button id="techCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="techTabs">
+      <button data-tech-filter="all" class="on">总览</button>
+      <button data-tech-filter="bronze_metallurgy">科技线</button>
+      <button data-tech-filter="writing">政治线</button>
+      <button data-tech-filter="agriculture">经济线</button>
     </div>
     <div class="tech-grid" id="techGrid"></div>
     <div class="hint" id="techHint"></div>
   </div>
 </div>
 <div class="modal" id="diploModal" hidden>
-  <div class="modal-card" style="width:min(900px,96vw)">
+  <div class="modal-card">
     <div class="modal-head">
-      <div><h2>外交</h2><p id="diploSubtitle">关系、贸易协定与双边提案</p></div>
-      <button id="diploCloseBtn">关闭</button>
+      <div><div class="deck-crumb">指挥台 / 外交</div><h2>外交与协定</h2><p id="diploSubtitle">关系、贸易协定与双边提案</p></div>
+      <div class="deck-head-actions"><button id="diploCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="diploTabs">
+      <button data-diplo-filter="relations" class="on">邦交关系</button>
+      <button data-diplo-filter="incoming">待回应提案</button>
     </div>
     <div id="diploBody"></div>
   </div>
 </div>
 <div class="modal" id="militaryModal" hidden>
-  <div class="modal-card" style="width:min(880px,96vw)">
+  <div class="modal-card">
     <div class="modal-head">
-      <div><h2>军事</h2><p id="militarySubtitle">常备军、边境战与战争疲劳</p></div>
-      <button id="militaryCloseBtn">关闭</button>
+      <div><div class="deck-crumb">指挥台 / 军事</div><h2>军事与战争</h2><p id="militarySubtitle">常备军、边境战与战争疲劳</p></div>
+      <div class="deck-head-actions"><button id="militaryCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="militaryTabs">
+      <button data-mil-filter="army" class="on">军队</button>
+      <button data-mil-filter="war">战争</button>
     </div>
     <div id="militaryBody"></div>
   </div>
 </div>
 <div class="modal" id="cityModal" hidden>
-  <div class="modal-card" style="width:min(960px,96vw)">
+  <div class="modal-card">
     <div class="modal-head">
-      <div><h2>城市</h2><p id="citySubtitle">城市人口、城域与独立发展方针</p></div>
-      <button id="cityCloseBtn">关闭</button>
+      <div><div class="deck-crumb">指挥台 / 城市</div><h2>城市与规划</h2><p id="citySubtitle">城市人口、城域与独立发展方针</p></div>
+      <div class="deck-head-actions"><button id="cityCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="cityTabs">
+      <button data-city-tab="list" class="on">城市列表</button>
+      <button data-city-tab="plan">城市规划</button>
     </div>
     <div class="city-grid" id="cityGrid"></div>
     <div id="cityDetail" hidden style="margin-top:10px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">
-        <button id="cityDetailBack">返回城市列表</button>
-        <span class="key-state" id="cityDetailTitle"></span>
+      <div class="city-detail-head">
+        <button id="cityDetailBack">← 返回城市列表</button>
+        <div class="city-detail-meta"><span class="key-state" id="cityDetailTitle"></span>
         <select id="cityGovernanceSelect" hidden title="城市治理模式">
           <option value="ai">规则 AI 托管</option>
           <option value="manual">手动治理</option>
           <option value="llm">LLM 托管</option>
-        </select>
+        </select></div>
       </div>
       <div class="city-detail">
         <canvas id="cityCanvas"></canvas>
@@ -602,8 +721,39 @@ button.primary:hover{filter:brightness(1.08)}
     <div class="hint">城市是独立经营单位：人口按城市住房增长，城域地块和设施决定本地农业/矿业潜力。发展方针直接乘入对应城市地块的产出。前哨会建立新城市，并从母城迁入居民。</div>
   </div>
 </div>
+<div class="modal" id="nationModal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><div class="deck-crumb">指挥台 / 国家</div><h2>国家治理</h2><p id="nationSubtitle">全局资源、政策、城市与排名</p></div>
+      <div class="deck-head-actions"><button id="nationCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="nationTabs">
+      <button data-nation-tab="overview" class="on">概览与政策</button>
+      <button data-nation-tab="cities">城市</button>
+      <button data-nation-tab="ranking">世界排名</button>
+    </div>
+    <div class="deck-section" id="nationOverview"></div>
+    <div class="deck-section" id="nationCities" hidden></div>
+    <div class="deck-section" id="nationRanking" hidden></div>
+  </div>
+</div>
+<div class="modal" id="notifyModal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><div class="deck-crumb">指挥台 / 动态</div><h2>通知中心</h2><p>世界事件与在建工程。重要变化会同时以地图气泡提示，不需要常驻占用主界面。</p></div>
+      <div class="deck-head-actions"><button id="notifyCloseBtn">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="notifyTabs">
+      <button data-notify-tab="events" class="on">世界动态</button>
+      <button data-notify-tab="projects">在建工程</button>
+    </div>
+    <div class="deck-section" id="notifyEvents"><div class="panel on" id="panel-activity"></div></div>
+    <div class="deck-section" id="notifyProjects" hidden></div>
+  </div>
+</div>
 <div class="pause-menu" id="pauseMenu" hidden>
   <div class="pause-card">
+    <div class="deck-crumb">指挥台 / 系统</div>
     <div class="menu-kicker">PROJECT EOS</div>
     <h2>游戏暂停</h2>
     <div class="pause-sub" id="pauseStatus">时间已冻结</div>
@@ -621,8 +771,12 @@ button.primary:hover{filter:brightness(1.08)}
 <div class="modal" id="agentsModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><h2>国家 AI 席位</h2><p>逐国选择 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
-      <button id="agentsClose">关闭</button>
+      <div><div class="deck-crumb">指挥台 / AI</div><h2>国家 AI 席位</h2><p>逐国选择 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
+      <div class="deck-head-actions"><button id="agentsClose">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="aiTabs">
+      <button data-ai-tab="seats" class="on">席位配置</button>
+      <button data-ai-tab="diary">统治档案</button>
     </div>
     <div class="observer-note" id="agentsBudget" style="margin-bottom:10px"></div>
     <div class="ai-fields" style="margin-bottom:10px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#0a1c24">
@@ -634,10 +788,14 @@ button.primary:hover{filter:brightness(1.08)}
   </div>
 </div>
 <div class="modal" id="diaryModal" hidden>
-  <div class="modal-card" style="width:min(920px,96vw)">
+  <div class="modal-card">
     <div class="modal-head">
-      <div><h2>AI 统治档案</h2><p>决策会先以地图气泡出现；这里保留已经淡出或关闭的 LLM 日记，随时回看它看到了什么、为什么这样做、下一步准备做什么。</p></div>
-      <button id="diaryClose">关闭</button>
+      <div><div class="deck-crumb">指挥台 / AI / 统治档案</div><h2>AI 统治档案</h2><p>决策会先以地图气泡出现；这里保留已经淡出或关闭的 LLM 日记，随时回看它看到了什么、为什么这样做、下一步准备做什么。</p></div>
+      <div class="deck-head-actions"><button id="diaryClose">返回世界</button></div>
+    </div>
+    <div class="deck-tabs" id="diaryTabs">
+      <button data-ai-tab="seats">席位配置</button>
+      <button data-ai-tab="diary" class="on">统治档案</button>
     </div>
     <div class="diary-toolbar">
       <div class="diary-countries" id="diaryCountries"></div>
@@ -700,7 +858,7 @@ const POLICY_LABELS={BALANCED:'均衡施政',AGRICULTURE:'农业优先',INDUSTRY
   RESEARCH:'学术优先',TRADE:'贸易优先',AUSTERITY:'紧缩政策'};
 const RESEARCH_LABELS={bronze_metallurgy:'科技',writing:'政治',agriculture:'经济'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
-let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='activity';
+let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='country';
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
 let hoveredTile=null;
 const $=id=>document.getElementById(id);
@@ -958,6 +1116,10 @@ function render(force=false){
     const x=cx(t),y=cy(t);hexPath(x,y);
     if(mapMode==='satellite'){
       ctx.fillStyle=satelliteColor(t);ctx.fill();ctx.strokeStyle='rgba(6,20,26,.08)';ctx.stroke();
+      if(owner){
+        ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.23;ctx.fill();ctx.globalAlpha=1;
+        ctx.strokeStyle=countryColor(owner)+'dd';ctx.lineWidth=Math.max(.06,.2/scale);ctx.stroke();
+      }
     }else if(mapMode==='political'){
       ctx.fillStyle=BIOME_COLORS[t[3]]||'#71857b';ctx.fill();
       if(owner){ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.33;ctx.fill();ctx.globalAlpha=1;
@@ -1049,7 +1211,7 @@ function render(force=false){
 }
 function updateMapLegend(){
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346']],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
     rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],
@@ -1241,8 +1403,7 @@ function renderRight(){
   }
 
   const events=STATE.recent_events.map(formatEvent).filter(Boolean).slice(-70).reverse();
-  $('panel-activity').innerHTML=`<div class="heading"><div><h2>世界动态</h2><small>AI 动作、施工与外交记录</small></div><span class="pill">${events.length} 条</span></div>
-    <div class="observer-note"><b>观战记录</b> 这里展示 AI 正在做什么。左侧进度条随施工推进，完工后地图设施点会点亮。</div>
+  $('panel-activity').innerHTML=`<div class="sect"><span>按时间倒序 · AI 动作 / 施工 / 外交</span><span>${events.length} 条</span></div>
     <div class="event-list">${events.map(e=>`<div class="event ${e[2]}"><span class="ed">日 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">尚未产生事件</div>'}</div>`;
   const ranking=STATE.ranking||[];
   $('panel-ranking').innerHTML=`<div class="heading"><div><h2>世界排名</h2><small>繁荣、知识、疆域与安定的综合竞争</small></div><span class="pill">${esc(STATE.leader||'')} 领先</span></div>
@@ -1317,13 +1478,14 @@ function formatEvent(e){
   }
 }
 function selectTab(name){
+  if(!['country','tile','ranking'].includes(name))name='country';
   rightTab=name;
-  for(const b of document.querySelectorAll('.tabs button'))b.classList.toggle('on',b.dataset.tab===name);
-  for(const p of document.querySelectorAll('.panel'))p.classList.toggle('on',p.id==='panel-'+name);
+  for(const b of document.querySelectorAll('#worldRight .tabs button'))b.classList.toggle('on',b.dataset.tab===name);
+  for(const p of document.querySelectorAll('#worldRight .panel'))p.classList.toggle('on',p.id==='panel-'+name);
 }
-function showDetailTab(){selectTab('tile');}
+function showDetailTab(){setSidePanel('right',true);selectTab('tile');}
 function selectCountry(cid){
-  selectedCountry=cid;selectedTile=null;
+  selectedCountry=cid;selectedTile=null;setSidePanel('right',true);
   if(STATE?.mode==='player'&&STATE.player_country!==cid)showToast(`当前治理 ${STATE.player_country}；切换到 ${cid} 需要重新介入。`);
   renderTop();renderCountries();renderRight();render(true);
 }
@@ -1334,7 +1496,7 @@ async function control(action,value){
     if(!data.ok)showToast(data.error||'操作失败',true);
     await poll(true);
     if(action==='take_control'){selectTab('country');showToast(`已接管 ${value}，AI 已停止替该国决策`);}
-    if(action==='observe'){selectTab('activity');showToast('已返回观战模式');}
+    if(action==='observe'){selectTab('country');showToast('已返回观战模式');}
   }catch(err){showToast('本地模拟服务连接中断',true);}
 }
 async function submitPlayerAction(action,successText){
@@ -1359,7 +1521,9 @@ async function poll(force=false){
   try{
     const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw new Error('state');
     STATE=await r.json();
-    syncDiaryBubbles();
+    syncDiaryBubbles();syncNoticeBubbles();
+    if(!$('notifyModal').hidden)renderNotifyProjects();
+    if(!$('nationModal').hidden){renderNationCities();renderNationRanking();}
     if(force===true){
       lastStateKey='';renderTop();renderCountries();renderRight();render(true);
       if(STATE.finished&&!endShown)showEndScreen();
@@ -1467,7 +1631,7 @@ canvas.addEventListener('wheel',e=>{
   zoom=Math.max(.7,Math.min(8,zoom*Math.exp(-e.deltaY*.0013)));const k=zoom/old;
   panX=mx-(mx-(baseOffX+panX))*k-baseOffX;panY=my-(my-(baseOffY+panY))*k-baseOffY;render(true);
 },{passive:false});
-for(const b of document.querySelectorAll('.tabs button'))b.onclick=()=>selectTab(b.dataset.tab);
+for(const b of document.querySelectorAll('#worldRight .tabs button'))b.onclick=()=>selectTab(b.dataset.tab);
 for(const b of document.querySelectorAll('.map-tools button'))b.onclick=()=>{
   mapMode=b.dataset.layer;for(const x of document.querySelectorAll('.map-tools button'))x.classList.toggle('on',x===b);updateMapLegend();render(true);
 };
@@ -1490,6 +1654,8 @@ $('applyBudget').onclick=async()=>{
 $('agentsModal').onclick=e=>{if(e.target===$('agentsModal'))$('agentsModal').hidden=true;};
 let diaryCountry=null;
 async function openDiary(){
+  setRail('ai');$('agentsModal').hidden=true;$('diaryModal').hidden=false;
+  for(const b of document.querySelectorAll('#diaryTabs [data-ai-tab]'))b.classList.toggle('on',b.dataset.aiTab==='diary');
   if(!STATE){showToast('请先进入一个世界',true);return;}
   diaryCountry=diaryCountry||selectedCountry||STATE.leader||Object.keys(STATE.countries)[0];
   $('diaryModal').hidden=false;
@@ -1661,24 +1827,219 @@ function syncDiaryBubbles(){
     diarySeen.add(key);queueDiaryBubble(event);
   }
 }
-$('diaryBtn').onclick=openDiary;
-$('pauseDiaryBtn').onclick=()=>{$('pauseMenu').hidden=true;openDiary();};
-$('diaryClose').onclick=()=>$('diaryModal').hidden=true;
+$('pauseDiaryBtn').onclick=openDiary;
+$('diaryClose').onclick=()=>{closeDeck('diary');};
 $('diaryRefresh').onclick=loadDiary;
-$('diaryModal').onclick=e=>{if(e.target===$('diaryModal'))$('diaryModal').hidden=true;};
+$('diaryModal').onclick=e=>{if(e.target===$('diaryModal'))closeDeck('diary');};
 $('newWorldClose').onclick=()=>$('newWorldModal').hidden=true;
-$('techBtn').onclick=openTechTree;
-$('techCloseBtn').onclick=closeTechTree;
-$('techModal').onclick=e=>{if(e.target===$('techModal'))closeTechTree();};
-$('diploBtn').onclick=openDiplomacy;
-$('diploCloseBtn').onclick=closeDiplomacy;
-$('diploModal').onclick=e=>{if(e.target===$('diploModal'))closeDiplomacy();};
-$('militaryBtn').onclick=openMilitary;
-$('militaryCloseBtn').onclick=closeMilitary;
-$('militaryModal').onclick=e=>{if(e.target===$('militaryModal'))closeMilitary();};
-$('cityBtn').onclick=openCities;
-$('cityCloseBtn').onclick=closeCities;
-$('cityModal').onclick=e=>{if(e.target===$('cityModal'))closeCities();};
+$('techCloseBtn').onclick=()=>closeDeck('tech');
+$('techModal').onclick=e=>{if(e.target===$('techModal'))closeDeck('tech');};
+$('diploCloseBtn').onclick=()=>closeDeck('diplo');
+$('diploModal').onclick=e=>{if(e.target===$('diploModal'))closeDeck('diplo');};
+$('militaryCloseBtn').onclick=()=>closeDeck('military');
+$('militaryModal').onclick=e=>{if(e.target===$('militaryModal'))closeDeck('military');};
+$('cityCloseBtn').onclick=()=>closeDeck('city');
+$('cityModal').onclick=e=>{if(e.target===$('cityModal'))closeDeck('city');};
+$('agentsClose').onclick=()=>closeDeck('ai');
+$('nationCloseBtn').onclick=()=>closeDeck('nation');
+$('notifyCloseBtn').onclick=()=>closeDeck('notify');
+for(const b of document.querySelectorAll('#primaryRail [data-deck]'))b.onclick=()=>openDeck(b.dataset.deck);
+
+let activeDeck='world';
+function setRail(name){
+  activeDeck=name;
+  for(const b of document.querySelectorAll('#primaryRail [data-deck]'))b.classList.toggle('on',b.dataset.deck===name);
+}
+async function closeDeck(name){
+  if(name==='tech'&&!$('techModal').hidden)await closeTechTree();
+  else if(name==='diplo'&&!$('diploModal').hidden)await closeDiplomacy();
+  else if(name==='military'&&!$('militaryModal').hidden)await closeMilitary();
+  else if(name==='city'&&!$('cityModal').hidden)await closeCities();
+  else if(name==='nation'&&!$('nationModal').hidden)closeNationDeck();
+  else if(name==='notify')$('notifyModal').hidden=true;
+  else if(name==='ai'){$('agentsModal').hidden=true;$('diaryModal').hidden=true;if(!$('pauseMenu').hidden){setRail('system');return;}}
+  else if(name==='system'&&pauseOpen)await closePauseMenu();
+  setRail('world');
+}
+async function closeAllDecks(){
+  if(!$('techModal').hidden)await closeTechTree();
+  if(!$('diploModal').hidden)await closeDiplomacy();
+  if(!$('militaryModal').hidden)await closeMilitary();
+  if(!$('cityModal').hidden)await closeCities();
+  if(!$('nationModal').hidden)closeNationDeck();
+  if(pauseOpen)await closePauseMenu();
+  $('agentsModal').hidden=true;$('diaryModal').hidden=true;$('notifyModal').hidden=true;
+}
+async function openDeck(name){
+  if(name==='world'){await closeAllDecks();setRail('world');return;}
+  if(!STATE){showToast('请先进入一个世界',true);return;}
+  await closeAllDecks();
+  setRail(name);
+  if(name==='nation')openNationDeck();
+  else if(name==='city')await openCities();
+  else if(name==='tech')await openTechTree();
+  else if(name==='diplo')await openDiplomacy();
+  else if(name==='military')await openMilitary();
+  else if(name==='ai')await openAgents();
+  else if(name==='system')await openPauseMenu();
+}
+
+let nationTab='overview',diploFilter='relations',militaryFilter='army',techFilter='all';
+function openNationDeck(){
+  if(!STATE)return;
+  const panel=$('panel-country'),host=$('nationOverview');
+  if(panel.parentElement!==host)host.appendChild(panel);
+  panel.classList.add('on');
+  $('nationSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${STATE.countries[selectedCountry].era?.name||''} · 全局治理`;
+  renderNationCities();renderNationRanking();setNationTab(nationTab);
+  setRail('nation');$('nationModal').hidden=false;
+}
+function closeNationDeck(){
+  const panel=$('panel-country'),scroll=document.querySelector('#worldRight .scroll');
+  if(panel.parentElement!==scroll)scroll.insertBefore(panel,scroll.firstChild);
+  selectTab(rightTab);
+  $('nationModal').hidden=true;setRail('world');
+}
+function setNationTab(name){
+  nationTab=name;
+  for(const b of document.querySelectorAll('#nationTabs [data-nation-tab]'))b.classList.toggle('on',b.dataset.nationTab===name);
+  $('nationOverview').hidden=name!=='overview';
+  $('nationCities').hidden=name!=='cities';
+  $('nationRanking').hidden=name!=='ranking';
+}
+function renderNationCities(){
+  if(!STATE)return;
+  const c=STATE.countries[selectedCountry];
+  $('nationCities').innerHTML=`<div class="sect"><span>${esc(countryMeta(selectedCountry)?.name||selectedCountry)} 城市</span><span>${c.cities.length} 座 · 点击进入规划</span></div>
+    <div class="city-grid">${c.cities.map(city=>`<div class="city-card">
+      <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(city.focus_label)} · ${city.managed_by==='ai'?'规则AI托管':city.managed_by==='llm'?'LLM托管':'手动治理'}</small></div>
+        <span class="pill">宜居 ${fmtNum(city.livability,0)}</span></div>
+      <div class="city-stats">
+        <div class="city-stat"><small>人口</small><b>${fmtInt(city.population)}</b></div>
+        <div class="city-stat"><small>粮食自给</small><b>${city.food_need>0?fmtSelfSuff(city.food_self_sufficiency):'—'}</b></div>
+        <div class="city-stat"><small>地方结余</small><b>${city.local_net>=0?'+':''}${fmtNum(city.local_net,2)}</b></div>
+      </div>
+      <div class="city-focus"><button data-nation-city="${city.city_id}">进入城市规划</button></div>
+    </div>`).join('')}</div>`;
+  for(const b of document.querySelectorAll('[data-nation-city]'))b.onclick=async()=>{
+    closeNationDeck();await openCities();openCityDetail(b.dataset.nationCity);
+  };
+}
+function renderNationRanking(){
+  if(!STATE)return;
+  const ranking=STATE.ranking||[];
+  $('nationRanking').innerHTML=`<div class="sect"><span>世界排名</span><span>${esc(STATE.leader||'')} 领先</span></div>
+    <div class="rank-list">${ranking.map((entry,index)=>`<div class="rank-row">
+      <span class="rank-no">${index+1}</span>
+      <div class="rank-name"><b style="color:${countryColor(entry.country_id)}">${esc(countryMeta(entry.country_id)?.name||entry.country_id)}</b><small>${esc(entry.victory_label)}路线</small></div>
+      <div class="rank-path">繁荣 ${fmtNum(entry.breakdown.prosperity,0)} · 知识 ${fmtNum(entry.breakdown.knowledge,0)}<br>疆域 ${fmtNum(entry.breakdown.dominion,0)} · 安定 ${fmtNum(entry.breakdown.harmony,0)}</div>
+      <span class="rank-score">${fmtNum(entry.total,1)}</span></div>`).join('')}</div>
+    <div class="hint">排名每 90 日规划阶段更新。四条胜利路线分别奖励人口仓容、科技书库、领土新城、稳定宜居。</div>`;
+}
+
+let unreadNotices=0,lastNoticeSeq=null;
+function updateNotifyBadge(){
+  const badge=$('notifyBadge');if(!badge)return;
+  badge.textContent=unreadNotices>99?'99+':String(unreadNotices);
+  badge.classList.toggle('show',unreadNotices>0);
+}
+async function openNotifications(){
+  await closeAllDecks();setRail('world');unreadNotices=0;updateNotifyBadge();
+  renderNotifyProjects();setNotifyTab('events');$('notifyModal').hidden=false;
+}
+function setNotifyTab(name){
+  for(const b of document.querySelectorAll('#notifyTabs [data-notify-tab]'))b.classList.toggle('on',b.dataset.notifyTab===name);
+  $('notifyEvents').hidden=name!=='events';
+  $('notifyProjects').hidden=name!=='projects';
+}
+function renderNotifyProjects(){
+  if(!STATE)return;
+  const rows=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
+  $('notifyProjects').innerHTML=`<div class="sect"><span>在建工程</span><span>${rows.length} 项</span></div>
+    ${rows.length?rows.map(([col,row,building,cid,remaining,progress])=>{
+      const pct=Math.max(0,Math.min(100,progress*100));
+      return `<div class="job" style="--c:${countryColor(cid)}">
+        <div class="job-head"><b>${esc(countryMeta(cid)?.name||cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
+        <div class="job-bar"><i style="width:${pct}%"></i></div>
+        <div class="job-sub"><span>地块 ${col},${row}</span><span>${pct.toFixed(0)}%</span></div></div>`;
+    }).join(''):'<div class="mini-empty">当前没有在建工程</div>'}`;
+}
+function noticeEventKey(event){
+  return `${event.sequence||0}:${event.type}:${event.country_id||event.actor||''}`;
+}
+function showNoticeBubble(event){
+  const row=formatEvent(event);if(!row||!$('noticeStack'))return;
+  if(event.type==='ruler_message')return;
+  const el=document.createElement('div');
+  el.className=`notice-bubble ${row[2]||''}`;
+  el.style.setProperty('--nc',event.type==='war_declared'||event.type==='battle'||event.type==='hazard_impact'?'#db867c':event.type.includes('construction')||event.type.includes('city')?'#d6aa5d':'#6bacc1');
+  el.innerHTML=`<b><span class="nd">日 ${row[0]}</span> ${row[1]}</b><span>点击查看通知中心</span>`;
+  el.onclick=openNotifications;
+  $('noticeStack').appendChild(el);
+  if($('noticeStack').children.length>3)$('noticeStack').firstElementChild.remove();
+  setTimeout(()=>{el.classList.add('fading');setTimeout(()=>el.remove(),420);},7000);
+}
+function syncNoticeBubbles(){
+  if(!STATE)return;
+  const events=(STATE.recent_events||[]).filter(e=>!['economy_daily','action_result','llm_call','agent_test','ruler_message'].includes(e.type));
+  const seq=events.reduce((m,e)=>Math.max(m,e.sequence||0),0);
+  if(lastNoticeSeq===null){lastNoticeSeq=seq;return;}
+  if(seq<=lastNoticeSeq)return;
+  const fresh=events.filter(e=>(e.sequence||0)>lastNoticeSeq).slice(-3);
+  lastNoticeSeq=seq;
+  if(!fresh.length)return;
+  for(const event of fresh)showNoticeBubble(event);
+  unreadNotices+=fresh.length;updateNotifyBadge();
+}
+
+function setSidePanel(side,open){
+  const panel=side==='left'?$('worldLeft'):$('worldRight');
+  const reopen=side==='left'?$('leftReopen'):$('rightReopen');
+  const toggle=side==='left'?$('toggleLeft'):$('toggleRight');
+  panel.classList.toggle('collapsed',!open);
+  if(side==='right')document.body.classList.toggle('right-panel-open',open);
+  reopen.hidden=open;toggle.classList.toggle('on',open);
+}
+for(const [id,side] of [['collapseLeft','left'],['collapseRight','right'],['toggleLeft','left'],['toggleRight','right']]){
+  const btn=$(id);if(btn)btn.onclick=()=>{
+    const panel=side==='left'?$('worldLeft'):$('worldRight');
+    setSidePanel(side,panel.classList.contains('collapsed'));
+  };
+}
+$('reopenLeft').onclick=()=>setSidePanel('left',true);
+$('reopenRight').onclick=()=>setSidePanel('right',true);
+
+for(const b of document.querySelectorAll('#techTabs [data-tech-filter]'))b.onclick=()=>{
+  const field=b.dataset.techFilter;techFilter=field;
+  for(const x of document.querySelectorAll('#techTabs button'))x.classList.toggle('on',x===b);
+  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))branch.style.display=field==='all'||branch.dataset.techField===field?'':'none';
+  $('techGrid').classList.toggle('single',field!=='all');
+};
+for(const b of document.querySelectorAll('#diploTabs [data-diplo-filter]'))b.onclick=()=>{
+  const name=b.dataset.diploFilter;diploFilter=name;
+  for(const x of document.querySelectorAll('#diploTabs button'))x.classList.toggle('on',x===b);
+  for(const sec of document.querySelectorAll('#diploBody [data-diplo-section]'))sec.hidden=sec.dataset.diploSection!==name;
+};
+for(const b of document.querySelectorAll('#militaryTabs [data-mil-filter]'))b.onclick=()=>{
+  const name=b.dataset.milFilter;militaryFilter=name;
+  for(const x of document.querySelectorAll('#militaryTabs button'))x.classList.toggle('on',x===b);
+  for(const card of document.querySelectorAll('#militaryBody [data-mil-sect]'))card.style.display=card.dataset.milSect===name?'':'none';
+};
+for(const b of document.querySelectorAll('#cityTabs [data-city-tab]'))b.onclick=()=>{
+  if(b.dataset.cityTab==='plan'){
+    if(currentCity())openCityDetail(selectedCityId);
+    else if(STATE?.countries[selectedCountry]?.cities?.length)openCityDetail(STATE.countries[selectedCountry].cities[0].city_id);
+  }else{
+    selectedCityId=null;selectedCityTile=null;$('cityDetail').hidden=true;$('cityGrid').hidden=false;renderCities();
+  }
+  for(const x of document.querySelectorAll('#cityTabs button'))x.classList.toggle('on',x===b);
+};
+for(const b of document.querySelectorAll('#aiTabs [data-ai-tab], #diaryTabs [data-ai-tab]'))b.onclick=()=>{
+  if(b.dataset.aiTab==='seats')openAgents();else openDiary();
+};
+for(const b of document.querySelectorAll('#notifyTabs [data-notify-tab]'))b.onclick=()=>setNotifyTab(b.dataset.notifyTab);
+$('notifyBtn').onclick=openNotifications;
+for(const b of document.querySelectorAll('#nationTabs [data-nation-tab]'))b.onclick=()=>setNationTab(b.dataset.nationTab);
 $('cityGovernanceSelect').onchange=()=>{
   const city=currentCity();if(!city)return;
   const mode=$('cityGovernanceSelect').value;
@@ -1800,6 +2161,8 @@ function agentStatusText(a){
   return a.key_configured?'密钥已配置，尚未测试连接':'未配置密钥';
 }
 async function openAgents(){
+  setRail('ai');$('diaryModal').hidden=true;$('agentsModal').hidden=false;
+  for(const b of document.querySelectorAll('#aiTabs [data-ai-tab]'))b.classList.toggle('on',b.dataset.aiTab==='seats');
   try{
     const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
     $('budgetCalls').value=data.budget.max_calls??40;
@@ -1960,9 +2323,10 @@ async function startSession(){
     for(const b of document.querySelectorAll('.map-tools button'))b.classList.toggle('on',b.dataset.layer===wantedLayer);
   }
   showOnlyScreen('game');gameLoaded=true;
-  resetDiaryBubbles();
+  resetDiaryBubbles();lastNoticeSeq=null;if($('noticeStack'))$('noticeStack').innerHTML='';unreadNotices=0;updateNotifyBadge();
   await nextFrame();resize();fitMap();await poll(true);
-  renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('activity');
+  renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('country');
+  setSidePanel('right',window.innerWidth>=1100);
   if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
   await refreshSaves();
   if(bootParams.get('tech')==='1')await openTechTree();
@@ -2002,6 +2366,7 @@ async function saveNow(){
 }
 async function openPauseMenu(){
   if(!gameLoaded||pauseOpen)return;
+  setRail('system');
   pauseOpen=true;resumeAfterPause=!STATE?.paused;
   if(resumeAfterPause)await control('pause');
   $('pauseStatus').textContent=`${STATE?.current_save_name||'当前时间线'} · ${STATE?.date||''} · 游戏日 ${STATE?.day??''}`;
@@ -2012,6 +2377,7 @@ async function closePauseMenu(){
   pauseOpen=false;$('pauseMenu').hidden=true;
   if(resumeAfterPause&&STATE?.paused)await control('resume');
   resumeAfterPause=false;
+  if(activeDeck==='system')setRail('world');
 }
 async function returnToMenu(){
   if(gameLoaded){
@@ -2035,7 +2401,7 @@ $('loadBackBtn').onclick=()=>{
 };
 $('newWorldMenuBtn').onclick=openNewWorld;
 $('menuAgentsBtn').onclick=()=>{if(gameLoaded)openAgents();};
-$('gameMenuBtn').onclick=openPauseMenu;
+$('gameMenuBtn').onclick=()=>openDeck('system');
 $('resumeGameBtn').onclick=closePauseMenu;
 $('pauseSaveBtn').onclick=saveNow;
 $('pauseLoadBtn').onclick=async()=>{loadOrigin='pause';$('pauseMenu').hidden=true;await refreshSaves();showOnlyScreen('load');};
@@ -2045,17 +2411,19 @@ $('pauseMainBtn').onclick=async()=>{
 };
 async function openCities(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
+  setRail('city');
   cityResume=!STATE.paused;
   if(cityResume)await control('pause');
   selectedCityId=null;selectedCityTile=null;
   $('cityGrid').hidden=false;$('cityDetail').hidden=true;
+  for(const b of document.querySelectorAll('#cityTabs [data-city-tab]'))b.classList.toggle('on',b.dataset.cityTab==='list');
   renderCities();$('cityModal').hidden=false;
 }
 async function closeCities(){
   $('cityModal').hidden=true;$('cityDetail').hidden=true;$('cityGrid').hidden=false;
   selectedCityId=null;selectedCityTile=null;
   if(cityResume)await control('resume');
-  cityResume=false;
+  cityResume=false;setRail('world');
 }
 $('cityDetailBack').onclick=()=>{
   selectedCityId=null;selectedCityTile=null;
@@ -2115,6 +2483,7 @@ function openCityDetail(cityId){
   if(!city)return;
   selectedCityTile=city.center;
   $('cityGrid').hidden=true;$('cityDetail').hidden=false;
+  for(const b of document.querySelectorAll('#cityTabs [data-city-tab]'))b.classList.toggle('on',b.dataset.cityTab==='plan');
   $('cityDetailTitle').textContent=`${city.name} · ${city.population_share*100}% 全国人口 · 宜居 ${fmtNum(city.livability,0)}`;
   $('cityGovernanceSelect').hidden=STATE.player_country!==selectedCountry;
   renderCityDetail();
@@ -2247,6 +2616,7 @@ function renderCityDetail(){
 }
 async function openMilitary(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
+  setRail('military');
   militaryResume=!STATE.paused;
   if(militaryResume)await control('pause');
   renderMilitary();$('militaryModal').hidden=false;
@@ -2254,7 +2624,7 @@ async function openMilitary(){
 async function closeMilitary(){
   $('militaryModal').hidden=true;
   if(militaryResume)await control('resume');
-  militaryResume=false;
+  militaryResume=false;setRail('world');
 }
 function renderMilitary(){
   if(!STATE)return;
@@ -2268,7 +2638,7 @@ function renderMilitary(){
   const warRows=wars.length?wars.map(id=>`<div class="war-row"><span>与 <b>${esc(countryMeta(id)?.name||id)}</b> 交战中</span>
     ${isPlayer?`<span><button data-attack="${id}">边境进攻</button><button data-peace="${id}">请求和平</button></span>`:''}</div>`).join(''):'<div class="hint">当前没有战争。</div>';
   $('militaryBody').innerHTML=`<div class="mil-grid">
-    <div class="mil-card"><h3>王国军势</h3>
+    <div class="mil-card" data-mil-sect="army"><h3>王国军势</h3>
       <div class="mil-stat"><span>军队规模</span><b>${c.army_strength}</b></div>
       <div class="mil-stat"><span>驻扎地块</span><b>${position}</b></div>
       <div class="mil-stat"><span>每日维护</span><b>${fmtNum(c.military_upkeep,3)}</b></div>
@@ -2277,7 +2647,7 @@ function renderMilitary(){
       ${isPlayer?`<div class="mil-buttons"><button data-recruit="1">招募 1</button><button data-recruit="2">招募 2</button>
         <button data-march="1" ${selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
     </div>
-    <div class="mil-card"><h3>战争状态</h3>${warRows}
+    <div class="mil-card" data-mil-sect="war"><h3>战争状态</h3>${warRows}
       ${isPlayer&&warTargets.length?`<div class="mil-buttons"><select id="warTarget">${warTargets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button data-declare-war>宣战</button></div>`:''}
       <div class="hint">战斗是战略级边境结算：进攻需要双方领土接壤。胜利可占领一块边境领土；军事维护费是后期财政出口。</div>
     </div>
@@ -2290,9 +2660,11 @@ function renderMilitary(){
   if(declare)declare.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:$('warTarget').value},'战争状态已建立').then(renderMilitary);
   const march=document.querySelector('[data-march]');
   if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]}},'军队已行军').then(renderMilitary);
+  for(const card of document.querySelectorAll('#militaryBody [data-mil-sect]'))card.style.display=card.dataset.milSect===militaryFilter?'':'none';
 }
 async function openDiplomacy(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
+  setRail('diplo');
   diploResume=!STATE.paused;
   if(diploResume)await control('pause');
   renderDiplomacy();$('diploModal').hidden=false;
@@ -2300,7 +2672,7 @@ async function openDiplomacy(){
 async function closeDiplomacy(){
   $('diploModal').hidden=true;
   if(diploResume)await control('resume');
-  diploResume=false;
+  diploResume=false;setRail('world');
 }
 function renderDiplomacy(){
   if(!STATE)return;
@@ -2332,10 +2704,15 @@ function renderDiplomacy(){
     ${isPlayer?`<span><button data-pact-accept="${proposal.proposal_id}">接受</button>
       <button data-pact-reject="${proposal.proposal_id}">拒绝</button></span>`:'<span class="key-state">等待回应</span>'}
   </div>`).join('');
-  $('diploBody').innerHTML=`<div class="diplo-list">${rows}</div>
-    <div class="sect" style="margin-top:10px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>
-    ${incoming||'<div class="hint">没有待回应的协定提案。</div>'}
-    <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。有效贸易协定为国家税收提供 +5%。</div>`;
+  $('diploBody').innerHTML=`<div class="diplo-section" data-diplo-section="relations">
+      <div class="diplo-list">${rows}</div>
+      <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。有效贸易协定为国家税收提供 +5%。</div>
+    </div>
+    <div class="diplo-section" data-diplo-section="incoming" hidden>
+      <div class="sect" style="margin-top:2px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>
+      ${incoming||'<div class="hint">没有待回应的协定提案。</div>'}
+    </div>`;
+  for(const sec of document.querySelectorAll('#diploBody [data-diplo-section]'))sec.hidden=sec.dataset.diploSection!==diploFilter;
   for(const btn of document.querySelectorAll('[data-gift]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'GIFT',target:btn.dataset.gift,amount:5},'赠礼已完成').then(renderDiplomacy);
   for(const btn of document.querySelectorAll('[data-pact]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PACT',target:btn.dataset.pact,pact:'TRADE'},'贸易协定提案已发送').then(renderDiplomacy);
   for(const btn of document.querySelectorAll('[data-pact-accept]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'ACCEPT_PACT',proposal_id:btn.dataset.pactAccept},'贸易协定已生效').then(renderDiplomacy);
@@ -2343,6 +2720,7 @@ function renderDiplomacy(){
 }
 async function openTechTree(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
+  setRail('tech');
   techResume=!STATE.paused;
   if(techResume)await control('pause');
   renderTechTree();$('techModal').hidden=false;
@@ -2350,7 +2728,7 @@ async function openTechTree(){
 async function closeTechTree(){
   $('techModal').hidden=true;
   if(techResume)await control('resume');
-  techResume=false;
+  techResume=false;setRail('world');
 }
 function renderTechTree(){
   if(!STATE)return;
@@ -2372,12 +2750,14 @@ function renderTechTree(){
         ${node.unlocks?.length?`<div class="unlocks">${node.unlocks.map(u=>`<i>${esc(u)}</i>`).join('')}</div>`:''}
         <span class="tech-state">${status}</span></div>`;
     }).join('');
-    return `<section class="tech-branch" style="--tc:${definition.color}">
+    return `<section class="tech-branch" data-tech-field="${field}" style="--tc:${definition.color}">
       <h3>${esc(definition.label)}线</h3>
       <div class="tech-progress">${country.research_field===field?`当前研究 ${pct.toFixed(0)}% · ${progress.toFixed(1)}/${threshold}`:'未在研究中'}${country.research_field===field?`<div class="bar"><i style="width:${pct}%;background:${definition.color}"></i></div>`:''}</div>
       ${nodes}</section>`;
   }).join('');
   $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">三条科技线全部达到下一等级时，时代自动推进。点击金色节点可以切换当前研究领域；观察模式只能查看。</div>';
+  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))branch.style.display=techFilter==='all'||branch.dataset.techField===techFilter?'':'none';
+  $('techGrid').classList.toggle('single',techFilter!=='all');
   for(const node of document.querySelectorAll('[data-tech-field]'))node.onclick=()=>{
     if(!STATE.player_country)return showToast('观战模式只能查看科技树；介入国家后可选择研究',true);
     if(STATE.player_country!==selectedCountry)return showToast('请先接管当前选中的国家',true);
@@ -2391,7 +2771,10 @@ document.addEventListener('keydown',async e=>{
   if(!$('militaryModal').hidden){await closeMilitary();return;}
   if(!$('diploModal').hidden){await closeDiplomacy();return;}
   if(!$('techModal').hidden){await closeTechTree();return;}
-  if(!$('agentsModal').hidden){$('agentsModal').hidden=true;return;}
+  if(!$('nationModal').hidden){closeNationDeck();return;}
+  if(!$('notifyModal').hidden){$('notifyModal').hidden=true;setRail('world');return;}
+  if(!$('diaryModal').hidden){await closeDeck('diary');return;}
+  if(!$('agentsModal').hidden){await closeDeck('ai');return;}
   if(!$('newWorldModal').hidden){$('newWorldModal').hidden=true;return;}
   if(!$('loadScreen').hidden){$('loadBackBtn').click();return;}
   if(pauseOpen)await closePauseMenu();

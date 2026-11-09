@@ -1,0 +1,43 @@
+from pathlib import Path
+
+from PIL import Image
+
+ROOT = Path(__file__).resolve().parents[1]
+DASHBOARD = (ROOT / "dashboard.html").read_text(encoding="utf-8")
+
+ICONS = [
+    "farm", "mine", "granary", "irrigation", "workshop", "library",
+    "market", "temple", "great_granary", "great_forge", "great_library",
+]
+
+
+def test_dashboard_has_primary_and_secondary_navigation():
+    for deck in (
+        "world", "nation", "city", "tech", "diplo", "military", "ai", "system",
+    ):
+        assert f'data-deck="{deck}"' in DASHBOARD
+    assert 'id="primaryRail"' in DASHBOARD
+    assert 'id="nationTabs"' in DASHBOARD
+    assert 'id="techTabs"' in DASHBOARD
+    assert 'id="cityTabs"' in DASHBOARD
+    assert 'id="notifyModal"' in DASHBOARD
+    assert 'id="noticeStack"' in DASHBOARD
+
+
+def test_icons_are_trimmed_transparent_assets():
+    for key in ICONS:
+        path = ROOT / "assets" / "icons" / f"{key}.png"
+        assert path.is_file(), key
+        image = Image.open(path)
+        assert image.mode == "RGBA"
+        assert image.size == (320, 320)
+        alpha = image.getchannel("A")
+        assert alpha.getextrema()[0] == 0
+        # Corners must be fully transparent, not baked into a rounded card.
+        for point in ((0, 0), (319, 0), (0, 319), (319, 319)):
+            assert alpha.getpixel(point) == 0
+
+
+def test_satellite_layer_draws_owned_territory():
+    assert "mapMode==='satellite'" in DASHBOARD
+    assert "countryColor(owner)" in DASHBOARD
