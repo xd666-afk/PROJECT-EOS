@@ -4,6 +4,8 @@
 
 > 共同开发请先读 [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md)：环境、架构、动作协议、API、存档/回放、测试与协作规范。
 >
+> 阶段汇总报告：[`PROJECT_EOS_DEVELOPMENT_REPORT.md`](PROJECT_EOS_DEVELOPMENT_REPORT.md)（设计思路、版本演进、最终效果、验证数据与遗留问题）。
+>
 > GitHub 仓库：<https://github.com/xd666-afk/PROJECT-EOS>（默认分支 `main`）
 
 ## 项目目标
