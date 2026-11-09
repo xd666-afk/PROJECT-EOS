@@ -25,6 +25,7 @@ from agents.llm_adapter import (
 )
 from agents.providers import provider_payload, resolve_simple_settings
 from agents.scheduler import AgentScheduler
+from core.messages import compose_ruler_messages, record_ruler_messages
 from core.simulation import Simulation
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -79,6 +80,8 @@ class LiveSession:
         self.current_save_id: str | None = None
         self.current_save_name: str | None = None
         self.simulation = self._new_simulation()
+        self._message_cursor = len(self.simulation.state.event_log)
+        self._last_message_days: dict[str, int] = {}
         self.speed = speed
         self.maximum_day = maximum_day
         self.paused = paused
@@ -98,12 +101,27 @@ class LiveSession:
         self.scheduler.set_player_country(self.player_country)
         return simulation
 
+    def _emit_ruler_messages(self) -> None:
+        state = self.simulation.state
+        start = self._message_cursor
+        self._message_cursor = len(state.event_log)
+        if start >= len(state.event_log):
+            return
+        messages = compose_ruler_messages(
+            state,
+            state.event_log[start:],
+            self._last_message_days,
+            self.player_country,
+        )
+        record_ruler_messages(state, messages)
+
     def _run_loop(self) -> None:
         while not self._stop.is_set():
             should_save = False
             with self.lock:
                 if not self.paused and self.simulation.state.day_index < self.maximum_day:
                     self.simulation.run(1, force=True)
+                    self._emit_ruler_messages()
                     day = self.simulation.state.day_index
                     if not self.simulation.state.victory_announced():
                         victory = self.simulation.state.victory_status()
@@ -181,7 +199,6 @@ class LiveSession:
         return saves
 
     def load_game(self, slot_id: str) -> dict:
-        from core.simulation import Simulation
         with self.lock:
             meta_path = self._save_meta_path(slot_id)
             if not meta_path.exists():
@@ -248,6 +265,7 @@ class LiveSession:
                 self.paused = False
             elif action == "step":
                 self.simulation.step(1)
+                self._emit_ruler_messages()
                 if self.simulation.state.day_index >= self.maximum_day:
                     self.finished = True
                     self.paused = True
@@ -281,6 +299,8 @@ class LiveSession:
             elif action == "reset":
                 paused = self.paused
                 self.simulation = self._new_simulation()
+                self._message_cursor = len(self.simulation.state.event_log)
+                self._last_message_days = {}
                 self.paused = paused
                 self.finished = False
             else:
@@ -304,10 +324,11 @@ class LiveSession:
         with self.lock:
             normalized = normalize_countries(countries)
             world, path = generate_fair_world(normalized, base_seed=base_seed)
-            from core.simulation import Simulation
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
             self.simulation = simulation
+            self._message_cursor = len(simulation.state.event_log)
+            self._last_message_days = {}
             self.scheduler = simulation.scheduler
             self.agent_meta = {
                 country_id: {"mode": "mock", "provider": None, "model": None, "api_key_env": None}
@@ -318,6 +339,8 @@ class LiveSession:
             self.paused = True
             self.finished = False
             self.maximum_day = 365
+            self._message_cursor = len(simulation.state.event_log)
+            self._last_message_days = {}
             self.current_save_id = None
             self.current_save_name = None
             simulation.state.record(
@@ -389,7 +412,7 @@ class LiveSession:
             entries = [
                 deepcopy(event)
                 for event in self.simulation.state.event_log
-                if event["type"] == "llm_diary"
+                if event["type"] in {"llm_diary", "ruler_message"}
                 and (country_id is None or event.get("country_id") == country_id)
             ][-limit:]
             return {

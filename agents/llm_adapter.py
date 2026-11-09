@@ -163,6 +163,7 @@ class OpenAICompatibleAgent(CountryAgent):
             "结构为 country_id, world_day, actions, reason, diary。country_id 与 world_day 必须复制观察值。"
             "diary 必须是对象：{title: 不超过20字, mood: 2-6字, text: 120-260字第一人称统治日记}。"
             "text 要写清当前最关心的局势、为什么采取这些动作、放弃了什么、下一步计划；"
+            "必须使用现代白话文，像正常人说话，绝对不要文言文、骈文、四字排比或古风腔；"
             "写公开的决策叙事，不要逐步推理链，不要编造观察中不存在的数字。"
             "actions 最多4项，只允许 BUILD(tile,building), SETTLE(tile) 用于开拓相邻无主地块, "
             "ALLOCATE_WORKERS(agriculture,mining,construction), SET_TAX(rate), "

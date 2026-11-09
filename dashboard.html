@@ -1574,7 +1574,7 @@ function positionDiaryBubbles(){
 }
 function syncDiaryBubbles(){
   if(!STATE||!WORLD)return;
-  const events=(STATE.recent_events||[]).filter(e=>e.type==='llm_diary');
+  const events=(STATE.recent_events||[]).filter(e=>e.type==='ruler_message');
   if(!diaryInitialized){
     for(const event of events)diarySeen.add(diaryEventKey(event));
     diaryInitialized=true;positionDiaryBubbles();return;
