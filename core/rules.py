@@ -22,11 +22,13 @@ class RuleEngine:
         clock: GameClock | None = None,
         planner: Any | None = None,
         enable_city_manager: bool = True,
+        enable_frontier_ai: bool = True,
     ) -> None:
         self.state = state
         self.clock = clock or GameClock()
         self.planner = planner
         self.enable_city_manager = enable_city_manager
+        self.enable_frontier_ai = enable_frontier_ai
         self.economy = Economy(state)
         self.construction = Construction(state)
         self.diplomacy = Diplomacy(state)
@@ -376,6 +378,8 @@ class RuleEngine:
                 self.planner.plan(self)
             if self.enable_city_manager:
                 self.city_manager.plan(self)
+        if self.enable_frontier_ai:
+            self._expand_frontiers()
         current_weather = self.state.weather.sample(self.state.day_index)
         self.state.weather.observe_day(
             current_weather["rain"], current_weather["temperature"]
@@ -397,6 +401,34 @@ class RuleEngine:
             self.economy.apply_social_events()
         self.state.day_index += 1
         return True
+
+    def _expand_frontiers(self) -> None:
+        """AI frontier office: expand only when the country has waited long enough."""
+        from core.frontier import choose_frontier, frontier_ready
+
+        expansion = self.state.config["expansion"]
+        interval = int(expansion.get("ai_interval_days", 120))
+        reserve = float(expansion.get("ai_treasury_reserve", 20.0))
+        player_countries = getattr(self.planner, "controlled_by_player", set()) or set()
+        for country in self.state.countries.values():
+            if country.country_id in player_countries:
+                continue
+            if not frontier_ready(self.state, country, interval, reserve):
+                continue
+            target = choose_frontier(self.state, country)
+            if target is None:
+                continue
+            result = self.apply_action(
+                country.country_id,
+                {"type": "SETTLE", "tile": {"col": target[0], "row": target[1]}},
+            )
+            if result.accepted:
+                self.state.record(
+                    "ai_frontier_expansion",
+                    country_id=country.country_id,
+                    tile={"col": target[0], "row": target[1]},
+                    outposts=len(country.outposts),
+                )
 
     def _apply_hazards(self, monthly: dict[str, Any]) -> None:
         weather_config = self.state.config["weather"]

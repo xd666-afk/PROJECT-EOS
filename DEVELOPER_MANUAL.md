@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-09，对应当前代码与 78 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-09，对应当前代码与 79 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、78 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、79 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -285,6 +285,7 @@ AI：
 | `core/society.py` | 城市指标、分区邻接、宜居度、评分、时代、胜利条件 | 城市/平衡 |
 | `core/city_governance.py` | AI 市长：方针、分区、预算 | 城市/AI |
 | `core/messages.py` | 事件驱动白话短讯、优先级与冷却 | AI/UI |
+| `core/frontier.py` | AI 边疆选址与扩张条件 | 城市/AI |
 | `core/construction.py` | 建设队列与劳动力/政策进度 | 经济 |
 | `core/diplomacy.py` | 关系、赠礼、贸易托管、协定、战争/和平 | 外交 |
 | `core/military.py` | 招募、行军、战斗、占领、维护、疲劳 | 军事 |
@@ -571,6 +572,8 @@ budget, local_revenue, local_upkeep, local_net
 - 每国初始一座都城；`SETTLE` 建立新城（默认 5 格连通城域，受地形限制）。
 - 新城从来源城市迁入人口，默认分区由 `default_zone` 生成。
 - 新城继承来源城市的托管状态；AI 国家的新城默认 AI 托管。
+- AI 边疆办公室每 120 日检查一次：前哨 <4、人口 ≥10,000、财政 ≥ 开拓费+20 时，选择相邻无主陆地执行 `SETTLE`；玩家接管国家不自动开拓。
+- 玩家点击己方领土相邻的无主地块，在右侧“建立前哨”；国家侧栏显示可开拓边疆格数和前哨数量。
 - 城市人口独立，但全国人口始终等于城市人口之和。
 
 ### 8.2 城市方针
@@ -1032,7 +1035,7 @@ POST /api/agents/budget
 | `rules_version` | 规则版本标识 |
 | `planning_interval_days` | AI 规划间隔 |
 | `max_actions_per_decision` | 单次 AI 动作上限 |
-| `expansion` | 前哨上限、费用、人口门槛、新城格数 |
+| `expansion` | 前哨上限、费用、人口门槛、新城格数、AI 扩张间隔/财政储备 |
 | `food_per_1000_people_per_day` | 人均粮食消耗 |
 | `biome_food_yield` | 各生态粮食潜力 |
 | `base_food_per_tile` / `farm_food_bonus` | 农业产出 |
@@ -1106,6 +1109,7 @@ POST /api/agents/budget
 - `mapgen.py`：公平随机地图与自定义 2–12 国；各国核心各 16 格连通；搜索公平度达标种子；保存到 `runs/worlds/`。
 - 新建世界使用 A/B/C/D… 的通用 ID；固定基线仍使用 ELAR/MARIS/VAYR/SAHAR；颜色、公平度、AI 偏好和 UI 均按国家列表动态生成。
 - 新世界通过 UI（可增减国家）或 `POST /api/new_game` 创建。
+- 自动边疆扩张在 `core/frontier.py`，规则参数在 `config.expansion.ai_interval_days`、`ai_treasury_reserve`；回放时关闭自动扩张，只重放动作日志。
 
 ### 14.3 图标
 
@@ -1129,7 +1133,7 @@ POST /api/agents/budget
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**78 passed**。
+当前：**79 passed**。
 
 ### 15.2 测试原则
 
@@ -1428,7 +1432,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：78 项。
+- 测试：79 项。
 - 实时服务默认端口：8765。
 
 ---

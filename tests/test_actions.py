@@ -505,3 +505,28 @@ def test_city_manager_uses_budget_for_livability_and_fiscal_stress(engine):
     city.livability = 60.0
     CityManager(engine.state).plan(engine)
     assert city.budget == "austerity"
+
+
+def test_ai_frontier_expansion_creates_city_and_skips_player(engine):
+    from types import SimpleNamespace
+    state = engine.state
+    state.day_index = 120
+    for country in state.countries.values():
+        country.treasury = max(country.treasury, 100.0)
+        country.population = max(country.population, 12000)
+    engine.planner = SimpleNamespace(controlled_by_player={"ELAR"})
+    before = {cid: (len(c.outposts), len(c.cities)) for cid, c in state.countries.items()}
+    engine.step_day(force=True)
+    assert len(state.countries["ELAR"].outposts) == before["ELAR"][0]
+    assert any(
+        len(country.outposts) > before[cid][0]
+        for cid, country in state.countries.items() if cid != "ELAR"
+    )
+    for cid, country in state.countries.items():
+        if cid != "ELAR" and len(country.outposts) > before[cid][0]:
+            assert len(country.cities[-1].tiles) == engine.state.config["expansion"]["city_tiles"]
+            assert any(
+                e["type"] == "ai_frontier_expansion" and e["country_id"] == cid
+                for e in state.event_log
+            )
+            break

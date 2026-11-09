@@ -7,7 +7,9 @@
     "max_outposts": 4,
     "treasury_cost": 35.0,
     "minimum_population": 10000,
-    "city_tiles": 5
+    "city_tiles": 5,
+    "ai_interval_days": 120,
+    "ai_treasury_reserve": 20.0
   },
   "victory_conditions": {
     "knowledge": {"min_tech_level": 6},

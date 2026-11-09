@@ -100,7 +100,7 @@ def _messages_for_event(state, event: dict[str, Any]) -> list[dict[str, Any]]:
         cid = event.get("country_id")
         return [{
             "country_id": cid, "priority": 68, "title": "建立新城", "mood": "振奋",
-            "text": f"我们在{event.get('name', '新地')}建立了新城。先解决住房和粮食，再谈发展。",
+            "text": f"{event.get('name', '新地')}已经立起来了。先解决住房和粮食，再谈发展。",
         }]
     if kind == "construction_completed":
         cid = event.get("country_id")

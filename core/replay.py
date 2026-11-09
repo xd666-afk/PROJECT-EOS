@@ -14,7 +14,9 @@ def replay_saved_actions(path: str | Path) -> GameState:
     initial = GameState.new(final.world.path, final.config, final.seed)
     if -799 <= final.start_astronomical_year <= 500:
         initial.configure_starting_era(final.start_astronomical_year)
-    engine = RuleEngine(initial, enable_city_manager=False)
+    engine = RuleEngine(
+        initial, enable_city_manager=False, enable_frontier_ai=False
+    )
     by_day: dict[int, list[tuple[str, dict]]] = {}
     for entry in saved["action_log"]:
         by_day.setdefault(entry["result"]["applied_day"], []).append(

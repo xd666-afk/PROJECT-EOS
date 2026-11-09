@@ -809,6 +809,24 @@ function canSettleHere(tile){
   if(country.population<STATE.expansion.minimum_population)return false;
   return (country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
 }
+function frontierTiles(cid){
+  if(!STATE||!STATE.countries[cid])return [];
+  const country=STATE.countries[cid];
+  const owned=new Set();
+  for(const c of Object.values(STATE.countries))for(const [col,row] of (c.tiles||[]))owned.add(col+','+row);
+  const result=[];
+  for(const [col,row] of (country.tiles||[]))for(const [nc,nr] of hexNeighbors(col,row)){
+    const key=nc+','+nr;if(owned.has(key))continue;
+    const tile=getTile(nc,nr);if(tile&&tile[2])result.push([nc,nr]);
+  }
+  return result;
+}
+function hexNeighbors(col,row){
+  const odd=row&1;
+  return odd
+    ?[[col,row-1],[col+1,row-1],[col-1,row],[col+1,row],[col,row+1],[col+1,row+1]]
+    :[[col-1,row-1],[col,row-1],[col-1,row],[col+1,row],[col-1,row+1],[col,row+1]];
+}
 function adjacencyOwner(col,row){
   if(!STATE)return null;
   for(const [cid,c] of Object.entries(STATE.countries))if((c.tiles||[]).some(coord=>hexDistance([col,row],coord)===1))return cid;
@@ -1087,6 +1105,8 @@ function renderRight(){
     <div class="split"><span>日产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
     <div class="split"><span>人口 / 住房容量</span><b>${fmtInt(c.population)} / ${fmtNum(c.housing,0)}k</b></div>
     <div class="split"><span>城市 / 军队 / 战争疲劳</span><b>${c.cities?.length||0} · ${c.army_strength} · ${fmtNum(c.war_exhaustion,1)}${c.at_war_with?.length?' · 交战中':''}</b></div>
+    <div class="split"><span>可开拓边疆</span><b>${frontierTiles(selectedCountry).length} 格 · 前哨 ${(c.outposts||[]).length}/${STATE.expansion?.max_outposts??4}</b></div>
+    <div class="hint">${STATE.player_country===selectedCountry?'点击己方领土相邻的无主地块，可建立前哨和新城。':'AI 国家会按财政、人口和 120 日冷却自动开拓边疆。'}</div>
     ${c.cities?.length?`<div class="split"><span>城市服务（均）</span><b>治安 ${fmtNum(c.cities.reduce((a,x)=>a+(x.security||0),0)/c.cities.length,0)} · 卫生 ${fmtNum(c.cities.reduce((a,x)=>a+(x.health||0),0)/c.cities.length,0)}</b></div>`:''}
     <div class="bar"><i style="width:${Math.min(100,c.population/1000/Math.max(c.housing,1)*100)}%;background:${c.population/1000>=c.housing-1?'var(--warn)':'var(--good)'}"></i></div>
     <div class="split"><span>稳定度 · 产出系数 ${fmtNum(c.stability_factor,2)}</span><b>${c.stability<35?'动荡':(c.stability>65?'安定':'平稳')}</b></div>
