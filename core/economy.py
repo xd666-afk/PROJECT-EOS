@@ -197,6 +197,10 @@ class Economy:
             * (1.0 + trade_pacts * 0.05)
             * city_tax_multiplier
         )
+        tax_income *= 1.0 + (
+            country.technology.get("agriculture", 1)
+            * self.config.get("economy_tax_bonus_per_level", 0.0)
+        )
         if country.cities and population_total:
             security_tax_factor = sum(
                 city.population
@@ -484,6 +488,9 @@ class Economy:
             for building, bonus in settings["building_bonus"].items():
                 target += counts.get(building, 0) * bonus
             target += settings["policy_bonus"].get(country.policy, 0.0)
+            target += country.technology.get("writing", 0) * self.config.get(
+                "politics_stability_per_level", 0.0
+            )
             if country.cities:
                 average_livability = sum(city.livability for city in country.cities) / len(country.cities)
                 target += (average_livability - 60.0) * 0.08

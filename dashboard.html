@@ -526,7 +526,7 @@ button.primary:hover{filter:brightness(1.08)}
 <div class="modal" id="techModal" hidden>
   <div class="modal-card" style="width:min(1120px,96vw)">
     <div class="modal-head">
-      <div><h2>科技树</h2><p id="techSubtitle">三条研究线共同决定时代推进</p></div>
+      <div><h2>科技树</h2><p id="techSubtitle">三条科技线共同决定时代推进</p></div>
       <button id="techCloseBtn">关闭</button>
     </div>
     <div class="tech-grid" id="techGrid"></div>
@@ -645,7 +645,7 @@ button.primary:hover{filter:brightness(1.08)}
       <label>地图种子（留空自动搜索公平地图）<input id="worldSeed" placeholder="自动" inputmode="numeric"></label>
       <label>开局年份<input id="startYearValue" type="number" min="1" max="800" value="800"></label>
       <label>纪年<select id="startYearEra"><option value="BCE">公元前 BCE</option><option value="CE">公元 CE</option></select></label>
-      <div class="wide key-state" id="startEraPreview" style="padding:4px 0">公元前 800 年 → 时代 II · 铁器时代，科技从 2 级起步</div>
+      <div class="wide key-state" id="startEraPreview" style="padding:4px 0">公元前 800 年 → 时代 II · 青铜时代盛期，三条科技线从 2 级起步</div>
     </div>
     <div id="setupCountries"></div>
     <div class="ai-actions-row" style="justify-content:space-between;align-items:center;margin-top:6px">
@@ -683,7 +683,7 @@ for(const name of ['farm','mine','granary','irrigation','workshop',
 const COUNTRY_COLORS={ELAR:'#e7b45f',MARIS:'#63b1c9',VAYR:'#d97f75',SAHAR:'#b98bcb'};
 const POLICY_LABELS={BALANCED:'均衡施政',AGRICULTURE:'农业优先',INDUSTRY:'工业优先',
   RESEARCH:'学术优先',TRADE:'贸易优先',AUSTERITY:'紧缩政策'};
-const RESEARCH_LABELS={agriculture:'农业',bronze_metallurgy:'冶金',writing:'文字'};
+const RESEARCH_LABELS={bronze_metallurgy:'科技',writing:'政治',agriculture:'经济'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
 let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='activity';
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
@@ -1639,10 +1639,10 @@ function updateStartEraPreview(){
   const bce=$('startYearEra').value==='BCE',year=Number($('startYearValue').value||1);
   const astronomical=bce?(1-year):year;
   let era;
-  if(astronomical<=-500)era=['时代 II','铁器时代',2];
-  else if(astronomical<=0)era=['时代 III','古典时代',3];
-  else if(astronomical<=250)era=['时代 IV','帝国时代',4];
-  else era=['时代 V','晚期古典',5];
+  if(astronomical<=-500)era=['时代 II','青铜时代盛期',2];
+  else if(astronomical<=0)era=['时代 III','铁器时代',3];
+  else if(astronomical<=250)era=['时代 IV','古典时代',4];
+  else era=['时代 V','帝国时代',5];
   $('startEraPreview').textContent=`${bce?'公元前':'公元'} ${year} 年 → ${era[0]} · ${era[1]}，三条科技线从 ${era[2]} 级起步`;
 }
 $('newWorldModal').onclick=e=>{if(e.target===$('newWorldModal'))$('newWorldModal').hidden=true;};
@@ -2259,11 +2259,11 @@ function renderTechTree(){
         <span class="tech-state">${status}</span></div>`;
     }).join('');
     return `<section class="tech-branch" style="--tc:${definition.color}">
-      <h3>${esc(definition.label)}研究线</h3>
+      <h3>${esc(definition.label)}线</h3>
       <div class="tech-progress">${country.research_field===field?`当前研究 ${pct.toFixed(0)}% · ${progress.toFixed(1)}/${threshold}`:'未在研究中'}${country.research_field===field?`<div class="bar"><i style="width:${pct}%;background:${definition.color}"></i></div>`:''}</div>
       ${nodes}</section>`;
   }).join('');
-  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">三条研究线全部达到下一等级时，时代自动推进。点击金色节点可以切换当前研究领域；观察模式只能查看。</div>';
+  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">三条科技线全部达到下一等级时，时代自动推进。点击金色节点可以切换当前研究领域；观察模式只能查看。</div>';
   for(const node of document.querySelectorAll('[data-tech-field]'))node.onclick=()=>{
     if(!STATE.player_country)return showToast('观战模式只能查看科技树；介入国家后可选择研究',true);
     if(STATE.player_country!==selectedCountry)return showToast('请先接管当前选中的国家',true);

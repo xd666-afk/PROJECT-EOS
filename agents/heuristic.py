@@ -267,7 +267,7 @@ class HeuristicAgent(CountryAgent):
             return "WORKSHOP"
         if technology.get("writing", 0) >= 1 and not counts.get("LIBRARY") and country["treasury"] > 28:
             return "LIBRARY"
-        if technology.get("writing", 0) >= 2 and not counts.get("MARKET") and country["treasury"] > 40:
+        if technology.get("agriculture", 0) >= 3 and not counts.get("MARKET") and country["treasury"] > 40:
             return "MARKET"
         if technology.get("writing", 0) >= 1 and not counts.get("TEMPLE") and country["stability"] < 72:
             return "TEMPLE"

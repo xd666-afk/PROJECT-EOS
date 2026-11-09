@@ -658,6 +658,11 @@ class GameState:
         # Merge newly introduced rule fields into older saves without discarding saved tuning.
         default_config = json.loads(DEFAULT_RULES.read_text(encoding="utf-8"))
         state.config = _merge_defaults(default_config, data["rules"])
+        # Content/schema updates (tech names, eras, building prerequisites) must come
+        # from the current rules so old saves do not keep a superseded tech tree.
+        for content_key in ("tech_tree", "eras", "research_fields", "buildings"):
+            if content_key in default_config:
+                state.config[content_key] = deepcopy(default_config[content_key])
         state.seed = data["seed"]
         state.start_astronomical_year = int(
             data.get("start_astronomical_year", world.data["metadata"]["astronomical_year"])

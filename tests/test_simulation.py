@@ -82,12 +82,12 @@ def test_start_year_sets_era_and_technology_baseline(tmp_path):
     state = GameState.new()
     era = state.configure_starting_era(-799)  # 800 BCE
     assert state.start_era_index == 2
-    assert era["name"] == "铁器时代"
+    assert era["name"] == "青铜时代盛期"
     assert all(level >= 2 for level in state.countries["ELAR"].technology.values())
     assert state.date["label"].startswith("公元前800年")
 
     late = state.configure_starting_era(300)  # AD 300
-    assert late["name"] == "晚期古典"
+    assert late["name"] == "帝国时代"
     assert all(level >= 5 for level in state.countries["VAYR"].technology.values())
     path = tmp_path / "late.json"
     state.save(path)
@@ -294,3 +294,26 @@ def test_city_unrest_and_epidemic_apply_real_losses(engine, monkeypatch):
     assert country.stability < 50.0
     assert city.population < 10_000
     assert sum(item.population for item in country.cities) == country.population
+
+
+def test_three_tech_lines_use_technology_politics_economy(state):
+    tree = state.config["tech_tree"]
+    assert tree["bronze_metallurgy"]["label"] == "科技"
+    assert tree["writing"]["label"] == "政治"
+    assert tree["agriculture"]["label"] == "经济"
+    assert tree["bronze_metallurgy"]["levels"][1]["name"] == "青铜冶炼"
+    assert "哲学" in tree["writing"]["levels"][1]["name"]
+    assert state.config["research_fields"] == [
+        "bronze_metallurgy", "writing", "agriculture"
+    ]
+    assert state.config["politics_stability_per_level"] > 0
+    assert state.config["economy_tax_bonus_per_level"] > 0
+
+
+def test_old_save_gets_current_tech_content(tmp_path, state):
+    state.config["tech_tree"]["bronze_metallurgy"]["label"] = "旧科技"
+    path = tmp_path / "old_rules.json"
+    state.save(path)
+    restored = GameState.load(path)
+    assert restored.config["tech_tree"]["bronze_metallurgy"]["label"] == "科技"
+    assert restored.config["tech_tree"]["writing"]["label"] == "政治"

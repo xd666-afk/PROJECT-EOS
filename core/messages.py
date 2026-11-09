@@ -4,9 +4,9 @@ from __future__ import annotations
 from typing import Any
 
 RESEARCH_LABELS = {
-    "agriculture": "农业",
-    "bronze_metallurgy": "冶金",
-    "writing": "文字",
+    "bronze_metallurgy": "科技",
+    "writing": "政治",
+    "agriculture": "经济",
 }
 HAZARD_LABELS = {"flood": "洪水", "drought": "干旱"}
 

@@ -12,10 +12,24 @@
     "ai_treasury_reserve": 20.0
   },
   "victory_conditions": {
-    "knowledge": {"min_tech_level": 6},
-    "prosperity": {"population": 45000, "treasury": 600.0, "food_ratio": 0.8},
-    "dominion": {"min_tiles": 26, "lead_ratio": 1.5, "min_cities": 3},
-    "harmony": {"stability": 80.0, "livability": 62.0, "population": 30000}
+    "knowledge": {
+      "min_tech_level": 6
+    },
+    "prosperity": {
+      "population": 45000,
+      "treasury": 600.0,
+      "food_ratio": 0.8
+    },
+    "dominion": {
+      "min_tiles": 26,
+      "lead_ratio": 1.5,
+      "min_cities": 3
+    },
+    "harmony": {
+      "stability": 80.0,
+      "livability": 62.0,
+      "population": 30000
+    }
   },
   "food_per_1000_people_per_day": 0.04,
   "economy_log_interval_days": 7,
@@ -51,35 +65,82 @@
       "cost": 18.0,
       "days": 45.0,
       "label": "农田",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert"]
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert"
+      ]
     },
     "MINE": {
       "cost": 24.0,
       "days": 60.0,
       "label": "矿场",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"],
-      "required_technology": {"field": "bronze_metallurgy", "level": 1}
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 1
+      }
     },
     "ROAD": {
       "cost": 15.0,
       "days": 30.0,
       "label": "道路",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"]
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ]
     },
     "GRANARY": {
       "cost": 22.0,
       "days": 40.0,
       "label": "粮仓",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert"],
-      "required_technology": {"field": "agriculture", "level": 2},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert"
+      ],
+      "required_technology": {
+        "field": "agriculture",
+        "level": 2
+      },
       "max_per_country": 1
     },
     "IRRIGATION": {
       "cost": 26.0,
       "days": 50.0,
       "label": "灌溉渠",
-      "allowed_biomes": ["grassland", "savanna", "steppe", "wetland", "desert"],
-      "required_technology": {"field": "agriculture", "level": 3},
+      "allowed_biomes": [
+        "grassland",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert"
+      ],
+      "required_technology": {
+        "field": "agriculture",
+        "level": 3
+      },
       "requires_river": true,
       "max_per_country": 2
     },
@@ -87,73 +148,221 @@
       "cost": 30.0,
       "days": 60.0,
       "label": "工坊",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"],
-      "required_technology": {"field": "bronze_metallurgy", "level": 2},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 2
+      },
       "max_per_country": 1
     },
     "LIBRARY": {
       "cost": 26.0,
       "days": 55.0,
       "label": "书库",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"],
-      "required_technology": {"field": "writing", "level": 1},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "writing",
+        "level": 1
+      },
       "max_per_country": 1
     },
     "MARKET": {
       "cost": 28.0,
       "days": 50.0,
       "label": "市场",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert"],
-      "required_technology": {"field": "writing", "level": 2},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert"
+      ],
+      "required_technology": {
+        "field": "agriculture",
+        "level": 3
+      },
       "max_per_country": 1
     },
     "TEMPLE": {
       "cost": 22.0,
       "days": 45.0,
       "label": "神庙",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine"],
-      "required_technology": {"field": "writing", "level": 1},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine"
+      ],
+      "required_technology": {
+        "field": "writing",
+        "level": 1
+      },
       "max_per_country": 1
     },
     "GREAT_GRANARY": {
       "cost": 220.0,
       "days": 160.0,
       "label": "大粮仓",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland"],
-      "required_technology": {"field": "agriculture", "level": 3},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland"
+      ],
+      "required_technology": {
+        "field": "agriculture",
+        "level": 3
+      },
       "max_per_country": 1
     },
     "GREAT_FORGE": {
       "cost": 260.0,
       "days": 180.0,
       "label": "大工坊",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"],
-      "required_technology": {"field": "bronze_metallurgy", "level": 3},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 3
+      },
       "max_per_country": 1
     },
     "GREAT_LIBRARY": {
       "cost": 300.0,
       "days": 200.0,
       "label": "大书库",
-      "allowed_biomes": ["grassland", "forest", "savanna", "steppe", "wetland", "desert", "alpine", "tundra"],
-      "required_technology": {"field": "writing", "level": 3},
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "writing",
+        "level": 3
+      },
       "max_per_country": 1
     }
   },
   "city_zones": {
-    "unzoned": {"label": "未规划", "color": "#465b60", "food": 1.0, "mining": 1.0, "housing": 0.0, "tax_bonus": 0.0, "research_bonus": 0.0},
-    "residential": {"label": "住宅区", "color": "#c9a77a", "food": 0.88, "mining": 0.82, "housing": 0.6, "tax_bonus": 0.02, "research_bonus": 0.0},
-    "farm": {"label": "农业区", "color": "#a9b765", "food": 1.3, "mining": 0.85, "housing": 0.0, "tax_bonus": 0.0, "research_bonus": 0.0},
-    "industry": {"label": "工矿区", "color": "#bf8b65", "food": 0.82, "mining": 1.32, "housing": 0.0, "tax_bonus": 0.01, "research_bonus": 0.0},
-    "commerce": {"label": "商贸区", "color": "#d1b05f", "food": 0.92, "mining": 1.0, "housing": 0.1, "tax_bonus": 0.035, "research_bonus": 0.0},
-    "scholar": {"label": "学术区", "color": "#84a9d2", "food": 0.9, "mining": 0.9, "housing": 0.1, "tax_bonus": 0.0, "research_bonus": 0.03}
+    "unzoned": {
+      "label": "未规划",
+      "color": "#465b60",
+      "food": 1.0,
+      "mining": 1.0,
+      "housing": 0.0,
+      "tax_bonus": 0.0,
+      "research_bonus": 0.0
+    },
+    "residential": {
+      "label": "住宅区",
+      "color": "#c9a77a",
+      "food": 0.88,
+      "mining": 0.82,
+      "housing": 0.6,
+      "tax_bonus": 0.02,
+      "research_bonus": 0.0
+    },
+    "farm": {
+      "label": "农业区",
+      "color": "#a9b765",
+      "food": 1.3,
+      "mining": 0.85,
+      "housing": 0.0,
+      "tax_bonus": 0.0,
+      "research_bonus": 0.0
+    },
+    "industry": {
+      "label": "工矿区",
+      "color": "#bf8b65",
+      "food": 0.82,
+      "mining": 1.32,
+      "housing": 0.0,
+      "tax_bonus": 0.01,
+      "research_bonus": 0.0
+    },
+    "commerce": {
+      "label": "商贸区",
+      "color": "#d1b05f",
+      "food": 0.92,
+      "mining": 1.0,
+      "housing": 0.1,
+      "tax_bonus": 0.035,
+      "research_bonus": 0.0
+    },
+    "scholar": {
+      "label": "学术区",
+      "color": "#84a9d2",
+      "food": 0.9,
+      "mining": 0.9,
+      "housing": 0.1,
+      "tax_bonus": 0.0,
+      "research_bonus": 0.03
+    }
   },
   "city_focuses": {
-    "balanced": {"label": "均衡发展", "food": 1.0, "mining": 1.0},
-    "growth": {"label": "人口与农业", "food": 1.15, "mining": 0.9},
-    "industry": {"label": "工矿生产", "food": 0.9, "mining": 1.25},
-    "commerce": {"label": "商贸财政", "food": 0.95, "mining": 1.05, "tax": 1.12},
-    "scholar": {"label": "学术研究", "food": 0.92, "mining": 0.95, "research": 1.1}
+    "balanced": {
+      "label": "均衡发展",
+      "food": 1.0,
+      "mining": 1.0
+    },
+    "growth": {
+      "label": "人口与农业",
+      "food": 1.15,
+      "mining": 0.9
+    },
+    "industry": {
+      "label": "工矿生产",
+      "food": 0.9,
+      "mining": 1.25
+    },
+    "commerce": {
+      "label": "商贸财政",
+      "food": 0.95,
+      "mining": 1.05,
+      "tax": 1.12
+    },
+    "scholar": {
+      "label": "学术研究",
+      "food": 0.92,
+      "mining": 0.95,
+      "research": 1.1
+    }
   },
   "food_storage": {
     "base_capacity": 80.0,
@@ -171,9 +380,27 @@
   },
   "city_service_cost_per_1000": 0.0015,
   "city_budgets": {
-    "austerity": {"label": "紧缩预算", "service_factor": 0.6, "livability": -6.0, "growth": 0.92, "color": "#c98b6b"},
-    "balanced": {"label": "均衡预算", "service_factor": 1.0, "livability": 0.0, "growth": 1.0, "color": "#8fb7c4"},
-    "investment": {"label": "投资预算", "service_factor": 1.5, "livability": 6.0, "growth": 1.08, "color": "#9fc873"}
+    "austerity": {
+      "label": "紧缩预算",
+      "service_factor": 0.6,
+      "livability": -6.0,
+      "growth": 0.92,
+      "color": "#c98b6b"
+    },
+    "balanced": {
+      "label": "均衡预算",
+      "service_factor": 1.0,
+      "livability": 0.0,
+      "growth": 1.0,
+      "color": "#8fb7c4"
+    },
+    "investment": {
+      "label": "投资预算",
+      "service_factor": 1.5,
+      "livability": 6.0,
+      "growth": 1.08,
+      "color": "#9fc873"
+    }
   },
   "city_services": {
     "base": 55.0,
@@ -192,9 +419,17 @@
     "industry_health_penalty": 1.8,
     "crowding_health_penalty": 3.0,
     "food_deficit_health_penalty": 4.0,
-    "budget_security": {"austerity": -5.0, "balanced": 0.0, "investment": 5.0},
-    "budget_health": {"austerity": -5.0, "balanced": 0.0, "investment": 5.0},
-    "unrest_chance": 0.10,
+    "budget_security": {
+      "austerity": -5.0,
+      "balanced": 0.0,
+      "investment": 5.0
+    },
+    "budget_health": {
+      "austerity": -5.0,
+      "balanced": 0.0,
+      "investment": 5.0
+    },
+    "unrest_chance": 0.1,
     "unrest_treasury_loss": 0.04,
     "unrest_stability_loss": 1.5,
     "epidemic_chance": 0.08,
@@ -222,8 +457,21 @@
     "food_security_bonus": 6.0,
     "food_shortage_penalty": 10.0,
     "overcrowding_penalty": 1.5,
-    "policy_bonus": {"BALANCED": 1.0, "AGRICULTURE": 2.0, "INDUSTRY": 0.0, "RESEARCH": 1.0, "TRADE": 2.0, "AUSTERITY": -2.0},
-    "building_bonus": {"TEMPLE": 8.0, "MARKET": 2.0, "GRANARY": 1.0, "IRRIGATION": 1.0, "GREAT_LIBRARY": 4.0},
+    "policy_bonus": {
+      "BALANCED": 1.0,
+      "AGRICULTURE": 2.0,
+      "INDUSTRY": 0.0,
+      "RESEARCH": 1.0,
+      "TRADE": 2.0,
+      "AUSTERITY": -2.0
+    },
+    "building_bonus": {
+      "TEMPLE": 8.0,
+      "MARKET": 2.0,
+      "GRANARY": 1.0,
+      "IRRIGATION": 1.0,
+      "GREAT_LIBRARY": 4.0
+    },
     "convergence": 0.25,
     "minimum_production_factor": 0.72,
     "maximum_production_factor": 1.15,
@@ -257,45 +505,199 @@
     "migration_population_fraction": 0.0005
   },
   "eras": [
-    {"index": 1, "name": "青铜时代", "short": "时代 I", "min_tech_level": 1, "max_astronomical_year": -800, "baseline": 1},
-    {"index": 2, "name": "铁器时代", "short": "时代 II", "min_tech_level": 2, "max_astronomical_year": -500, "baseline": 2},
-    {"index": 3, "name": "古典时代", "short": "时代 III", "min_tech_level": 3, "max_astronomical_year": 0, "baseline": 3},
-    {"index": 4, "name": "帝国时代", "short": "时代 IV", "min_tech_level": 4, "max_astronomical_year": 250, "baseline": 4},
-    {"index": 5, "name": "晚期古典", "short": "时代 V", "min_tech_level": 5, "max_astronomical_year": 500, "baseline": 5},
-    {"index": 6, "name": "中世纪黎明", "short": "时代 VI", "min_tech_level": 6, "max_astronomical_year": null, "baseline": 6}
+    {
+      "index": 1,
+      "name": "青铜时代早期",
+      "short": "时代 I",
+      "min_tech_level": 1,
+      "max_astronomical_year": -800,
+      "baseline": 1
+    },
+    {
+      "index": 2,
+      "name": "青铜时代盛期",
+      "short": "时代 II",
+      "min_tech_level": 2,
+      "max_astronomical_year": -500,
+      "baseline": 2
+    },
+    {
+      "index": 3,
+      "name": "铁器时代",
+      "short": "时代 III",
+      "min_tech_level": 3,
+      "max_astronomical_year": 0,
+      "baseline": 3
+    },
+    {
+      "index": 4,
+      "name": "古典时代",
+      "short": "时代 IV",
+      "min_tech_level": 4,
+      "max_astronomical_year": 250,
+      "baseline": 4
+    },
+    {
+      "index": 5,
+      "name": "帝国时代",
+      "short": "时代 V",
+      "min_tech_level": 5,
+      "max_astronomical_year": 500,
+      "baseline": 5
+    },
+    {
+      "index": 6,
+      "name": "中世纪黎明",
+      "short": "时代 VI",
+      "min_tech_level": 6,
+      "max_astronomical_year": null,
+      "baseline": 6
+    }
   ],
   "tech_tree": {
-    "agriculture": {
-      "label": "农业", "color": "#c9b45d",
-      "levels": [
-        {"level": 1, "name": "原始农耕", "effect": "粮食 +8%", "unlocks": ["农田"]},
-        {"level": 2, "name": "粮仓管理", "effect": "粮食 +16%", "unlocks": ["粮仓"]},
-        {"level": 3, "name": "灌溉农业", "effect": "粮食 +24%", "unlocks": ["灌溉渠", "大粮仓"]},
-        {"level": 4, "name": "轮作制度", "effect": "粮食 +32%", "unlocks": []},
-        {"level": 5, "name": "农学", "effect": "粮食 +40%", "unlocks": []},
-        {"level": 6, "name": "梯田水利", "effect": "粮食 +48%", "unlocks": []}
-      ]
-    },
     "bronze_metallurgy": {
-      "label": "冶金", "color": "#c78b6e",
+      "label": "科技",
+      "color": "#c78b6e",
       "levels": [
-        {"level": 1, "name": "铜石工艺", "effect": "矿业 +8%", "unlocks": ["矿场"]},
-        {"level": 2, "name": "青铜冶炼", "effect": "矿业 +16%", "unlocks": ["工坊"]},
-        {"level": 3, "name": "铸造工坊", "effect": "矿业 +24%", "unlocks": ["大工坊"]},
-        {"level": 4, "name": "合金技术", "effect": "矿业 +32%", "unlocks": []},
-        {"level": 5, "name": "冶金学", "effect": "矿业 +40%", "unlocks": []},
-        {"level": 6, "name": "鼓风炉", "effect": "矿业 +48%", "unlocks": []}
+        {
+          "level": 1,
+          "name": "石器与用火",
+          "effect": "矿业 +8%，军队战力 +4%",
+          "unlocks": [
+            "矿场"
+          ]
+        },
+        {
+          "level": 2,
+          "name": "青铜冶炼",
+          "effect": "矿业 +16%，军队战力 +8%",
+          "unlocks": [
+            "工坊"
+          ]
+        },
+        {
+          "level": 3,
+          "name": "铁器锻造",
+          "effect": "矿业 +24%，军队战力 +12%",
+          "unlocks": [
+            "大工坊"
+          ]
+        },
+        {
+          "level": 4,
+          "name": "工程学",
+          "effect": "矿业 +32%，军队战力 +16%",
+          "unlocks": []
+        },
+        {
+          "level": 5,
+          "name": "机械装置",
+          "effect": "矿业 +40%，军队战力 +20%",
+          "unlocks": []
+        },
+        {
+          "level": 6,
+          "name": "军工体系",
+          "effect": "矿业 +48%，军队战力 +24%",
+          "unlocks": []
+        }
       ]
     },
     "writing": {
-      "label": "文字", "color": "#7fa6cf",
+      "label": "政治",
+      "color": "#7fa6cf",
       "levels": [
-        {"level": 1, "name": "符号记录", "effect": "研究 +6%", "unlocks": ["书库", "神庙"]},
-        {"level": 2, "name": "文字", "effect": "研究 +12%", "unlocks": ["市场"]},
-        {"level": 3, "name": "书吏制度", "effect": "研究 +18%", "unlocks": ["大书库"]},
-        {"level": 4, "name": "货币", "effect": "研究 +24%", "unlocks": []},
-        {"level": 5, "name": "法典", "effect": "研究 +30%", "unlocks": []},
-        {"level": 6, "name": "哲学", "effect": "研究 +36%", "unlocks": []}
+        {
+          "level": 1,
+          "name": "符号与信仰",
+          "effect": "研究 +6%，稳定 +0.6",
+          "unlocks": [
+            "书库",
+            "神庙"
+          ]
+        },
+        {
+          "level": 2,
+          "name": "早期文字与基本哲学",
+          "effect": "研究 +12%，稳定 +1.2",
+          "unlocks": []
+        },
+        {
+          "level": 3,
+          "name": "城邦法典",
+          "effect": "研究 +18%，稳定 +1.8",
+          "unlocks": [
+            "大书库"
+          ]
+        },
+        {
+          "level": 4,
+          "name": "帝国官僚",
+          "effect": "研究 +24%，稳定 +2.4",
+          "unlocks": []
+        },
+        {
+          "level": 5,
+          "name": "政治哲学",
+          "effect": "研究 +30%，稳定 +3.0",
+          "unlocks": []
+        },
+        {
+          "level": 6,
+          "name": "法理与外交学",
+          "effect": "研究 +36%，稳定 +3.6",
+          "unlocks": []
+        }
+      ]
+    },
+    "agriculture": {
+      "label": "经济",
+      "color": "#c9b45d",
+      "levels": [
+        {
+          "level": 1,
+          "name": "定居农业",
+          "effect": "粮食 +8%，税收 +1.5%",
+          "unlocks": [
+            "农田"
+          ]
+        },
+        {
+          "level": 2,
+          "name": "仓储与交换",
+          "effect": "粮食 +16%，税收 +3%",
+          "unlocks": [
+            "粮仓"
+          ]
+        },
+        {
+          "level": 3,
+          "name": "灌溉与市场",
+          "effect": "粮食 +24%，税收 +4.5%",
+          "unlocks": [
+            "灌溉渠",
+            "市场",
+            "大粮仓"
+          ]
+        },
+        {
+          "level": 4,
+          "name": "货币经济",
+          "effect": "粮食 +32%，税收 +6%",
+          "unlocks": []
+        },
+        {
+          "level": 5,
+          "name": "远途贸易",
+          "effect": "粮食 +40%，税收 +7.5%",
+          "unlocks": []
+        },
+        {
+          "level": 6,
+          "name": "财政与信用",
+          "effect": "粮食 +48%，税收 +9%",
+          "unlocks": []
+        }
       ]
     }
   },
@@ -311,14 +713,52 @@
     "ocean": 0.0
   },
   "policies": {
-    "BALANCED": {"food": 1.0, "mining": 1.0, "construction": 1.0, "research": 1.0},
-    "AGRICULTURE": {"food": 1.15, "mining": 0.95, "construction": 1.0, "research": 1.0},
-    "INDUSTRY": {"food": 0.95, "mining": 1.15, "construction": 1.15, "research": 1.0},
-    "RESEARCH": {"food": 0.97, "mining": 0.97, "construction": 1.0, "research": 1.25},
-    "TRADE": {"food": 0.98, "mining": 1.05, "construction": 1.0, "research": 0.98, "tax": 1.2, "stability": 2.0},
-    "AUSTERITY": {"food": 0.95, "mining": 1.05, "construction": 1.05, "research": 0.95, "tax": 1.15, "stability": -2.0}
+    "BALANCED": {
+      "food": 1.0,
+      "mining": 1.0,
+      "construction": 1.0,
+      "research": 1.0
+    },
+    "AGRICULTURE": {
+      "food": 1.15,
+      "mining": 0.95,
+      "construction": 1.0,
+      "research": 1.0
+    },
+    "INDUSTRY": {
+      "food": 0.95,
+      "mining": 1.15,
+      "construction": 1.15,
+      "research": 1.0
+    },
+    "RESEARCH": {
+      "food": 0.97,
+      "mining": 0.97,
+      "construction": 1.0,
+      "research": 1.25
+    },
+    "TRADE": {
+      "food": 0.98,
+      "mining": 1.05,
+      "construction": 1.0,
+      "research": 0.98,
+      "tax": 1.2,
+      "stability": 2.0
+    },
+    "AUSTERITY": {
+      "food": 0.95,
+      "mining": 1.05,
+      "construction": 1.05,
+      "research": 0.95,
+      "tax": 1.15,
+      "stability": -2.0
+    }
   },
-  "research_fields": ["agriculture", "bronze_metallurgy", "writing"],
+  "research_fields": [
+    "bronze_metallurgy",
+    "writing",
+    "agriculture"
+  ],
   "weather": {
     "minimum_rain_factor": 0.65,
     "maximum_rain_factor": 1.2,
@@ -327,5 +767,7 @@
     "flood_monthly_rate": 0.25,
     "drought_monthly_rate": 0.18,
     "maximum_food_loss_fraction": 0.25
-  }
+  },
+  "politics_stability_per_level": 0.6,
+  "economy_tax_bonus_per_level": 0.015
 }
