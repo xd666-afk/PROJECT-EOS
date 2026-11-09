@@ -300,6 +300,16 @@ def test_city_ai_manager_only_changes_delegated_cities(engine):
     }).accepted
     assert city.managed_by == "ai"
 
+    assert engine.apply_action("ELAR", {
+        "type": "SET_CITY_GOVERNANCE", "city_id": city.city_id, "managed_by": "llm",
+    }).accepted
+    assert city.managed_by == "llm"
+    focus = city.focus
+    zones = dict(city.zones)
+    CityManager(engine.state).plan(engine)
+    assert city.focus == focus
+    assert city.zones == zones
+
 
 def test_allocate_workers_success_and_rejection_is_atomic(engine):
     country = engine.state.countries["ELAR"]

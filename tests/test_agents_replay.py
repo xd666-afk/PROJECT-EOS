@@ -17,6 +17,8 @@ def test_observation_is_limited_to_country_and_action_protocol():
         "SET_CITY_GOVERNANCE", "SET_CITY_BUDGET",
     }
     assert len(observation["country"]["cities"]) == 1
+    city = observation["country"]["cities"][0]
+    assert city["city_id"] and "managed_by" in city and city["tiles_detail"]
     assert len(observation) <= 15
 
 

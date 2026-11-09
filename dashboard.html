@@ -300,6 +300,14 @@ button.primary:hover{filter:brightness(1.08)}
 .build-option b{display:block;font-size:10.5px;font-weight:600}
 .build-option small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
 .build-option button{min-height:30px;min-width:48px;font-size:9.5px}
+.settle-conditions{display:flex;flex-direction:column;gap:3px;padding:7px 9px;background:#081b23}
+.settle-check{display:grid;grid-template-columns:8px 1fr auto;gap:6px;align-items:center;font-size:9px;color:#b8cacd}
+.settle-check i{width:6px;height:6px;border-radius:50%;background:#5b7078;box-shadow:0 0 0 2px #0e2731}
+.settle-check.ok i{background:#8fc873;box-shadow:0 0 0 2px #8fc87333}
+.settle-check.bad i{background:#e18a7c;box-shadow:0 0 0 2px #e18a7c33}
+.settle-check span{font-size:8px;color:var(--faint)}
+.settle-check.ok span{color:#9fc873}
+.settle-check.bad span{color:#e18a7c}
 .hint{color:var(--faint);font-size:9.5px;line-height:1.5;padding:2px 0}
 .event-list{display:flex;flex-direction:column;gap:4px}
 .event{display:grid;grid-template-columns:38px 1fr;gap:6px;background:#0b2029;border-left:2px solid #3e5c67;
@@ -488,7 +496,7 @@ button.primary:hover{filter:brightness(1.08)}
           <button data-layer="resources">资源</button>
           <button data-layer="routes">交通</button>
         </div>
-        <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。艺术品可后续替换。</div>
+        <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。<br>双击城市标记进入二级规划地图。</div>
       </div>
       <div class="map-legend" id="mapLegend"></div>
       <div class="ticker" id="ticker"></div>
@@ -562,7 +570,11 @@ button.primary:hover{filter:brightness(1.08)}
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px">
         <button id="cityDetailBack">返回城市列表</button>
         <span class="key-state" id="cityDetailTitle"></span>
-        <button id="cityGovernanceBtn" hidden>切换托管</button>
+        <select id="cityGovernanceSelect" hidden title="城市治理模式">
+          <option value="ai">规则 AI 托管</option>
+          <option value="manual">手动治理</option>
+          <option value="llm">LLM 托管</option>
+        </select>
       </div>
       <div class="city-detail">
         <canvas id="cityCanvas"></canvas>
@@ -581,6 +593,9 @@ button.primary:hover{filter:brightness(1.08)}
           <div class="city-coord" id="cityTileInfo">点击地图选择地块</div>
           <div class="zone-grid" id="cityZonePalette"></div>
           <div class="hint" id="cityZoneHint">住宅提供住房，农业和工矿区提高本地食物/矿业产出，商贸与学术区为全国税收和研究提供加成。</div>
+          <h4>城市建造</h4>
+          <div class="build-card" id="cityBuildPalette"><div class="build-option"><span class="hint">选择地块后查看可建设施</span></div></div>
+          <div class="hint" id="cityBuildHint"></div>
         </div>
       </div>
     </div>
@@ -802,12 +817,28 @@ function drawRoadNetwork(scale,strong=false){
   }
   ctx.lineCap='butt';
 }
-function canSettleHere(tile){
-  if(!tile?.land||tile.owner||!STATE?.player_country)return false;
+function settleConditions(tile){
+  const empty={adjacent:false,ok:false,checks:[]};
+  if(!tile?.land||!STATE?.player_country)return empty;
   const country=STATE.countries[STATE.player_country];
-  if((country.outposts||[]).length>=STATE.expansion.max_outposts)return false;
-  if(country.population<STATE.expansion.minimum_population)return false;
-  return (country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
+  const expansion=STATE.expansion||{};
+  const adjacent=(country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
+  const unowned=!tile.owner;
+  const outpostOk=(country.outposts||[]).length<(expansion.max_outposts??4);
+  const popOk=country.population>=(expansion.minimum_population??10000);
+  const cost=expansion.treasury_cost??35;
+  const moneyOk=country.treasury>=cost;
+  const checks=[
+    {label:'与本国领土相邻',ok:adjacent},
+    {label:'地块无归属',ok:unowned},
+    {label:`新建城市 ${(country.outposts||[]).length} / ${expansion.max_outposts??4}`,ok:outpostOk},
+    {label:`人口 ≥ ${fmtInt(expansion.minimum_population??10000)}`,ok:popOk},
+    {label:`国库 ≥ ${cost}（现有 ${fmtNum(country.treasury,1)}）`,ok:moneyOk},
+  ];
+  return {adjacent,ok:adjacent&&unowned&&outpostOk&&popOk&&moneyOk,checks,cost};
+}
+function canSettleHere(tile){
+  return settleConditions(tile).ok;
 }
 function frontierTiles(cid){
   if(!STATE||!STATE.countries[cid])return [];
@@ -1168,7 +1199,7 @@ function renderRight(){
   }else{
     const player=STATE.player_country?STATE.countries[STATE.player_country]:null;
     const owned=STATE.player_country&&selectedCountry===STATE.player_country&&tile.owner===STATE.player_country;
-    const settling=canSettleHere(tile);
+    const settle=settleConditions(tile);
     const specs=STATE.building_specs||{};
     const buildRows=owned?Object.entries(specs).map(([key,spec])=>{
       const allowed=(spec.allowed_biomes||[]).includes(tile.biome);
@@ -1179,7 +1210,8 @@ function renderRight(){
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
       const moneyOk=player.treasury>=spec.cost;
       const blocked=!!b || !allowed || !techOk || !riverOk || !limitOk || !moneyOk;
-      const why=!allowed?'地形不符':(!techOk?`需要 ${req.field} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
+      const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
+      const why=!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
       const icon=BUILD_ICON[key];
       const thumb=key==='ROAD'
         ?'<span class="build-thumb road-thumb"><i></i></span>'
@@ -1194,15 +1226,18 @@ function renderRight(){
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
       ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
-        (settling?`<div class="sect"><span>边疆开拓</span><span>${STATE.expansion.treasury_cost} 财政</span></div>
-          <div class="build-card"><div class="build-option"><div><b>建立前哨</b><small>将此地纳入领土 · 与己方领土相邻</small></div><button id="settleBtn">开拓</button></div></div>`:
-        `<div class="observer-note"><b>${STATE.player_country?'不可开拓':'观战视角'}</b>${STATE.player_country?'此处要么已有主权，要么不与本国领土相邻。':'只有接管一个国家后，才能开拓或建设。'}</div>`)}
+        (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
+          <div class="build-card">
+            <div class="build-option"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
+            <div class="settle-conditions">${settle.checks.map(check=>`<div class="settle-check ${check.ok?'ok':'bad'}"><i></i>${esc(check.label)}<span>${check.ok?'已满足':'未满足'}</span></div>`).join('')}</div>
+          </div>`:
+        `<div class="observer-note"><b>${STATE.player_country?'不可建城':'观战视角'}</b>${STATE.player_country?'此处已有主权，或不与本国领土相邻。建城地块必须与本国领土直接相邻。':'只有接管一个国家后，才能建城或建设。'}</div>`)}
     `;
     for(const btn of document.querySelectorAll('[data-build]')){
       btn.onclick=()=>submitBuild(tile.col,tile.row,btn.dataset.build);
     }
     const settleBtn=$('settleBtn');
-    if(settleBtn)settleBtn.onclick=()=>submitPlayerAction({type:'SETTLE',tile:{col:tile.col,row:tile.row}},'前哨已建立，国界已扩展');
+    if(settleBtn)settleBtn.onclick=()=>submitPlayerAction({type:'SETTLE',tile:{col:tile.col,row:tile.row}},'新城已建立，城域已划入国界');
   }
 
   const events=STATE.recent_events.map(formatEvent).filter(Boolean).slice(-70).reverse();
@@ -1384,6 +1419,27 @@ function nearestTile(clientX,clientY){
   }
   return best;
 }
+function cityAtScreen(clientX,clientY){
+  if(!STATE)return null;
+  const rect=canvas.getBoundingClientRect(),mx=clientX-rect.left,my=clientY-rect.top;
+  const scale=fitScale*zoom;let best=null,bestDistance=18;
+  for(const [cid,country] of Object.entries(STATE.countries)){
+    for(const city of country.cities||[]){
+      const x=baseOffX+panX+cx(city.center)*scale;
+      const y=baseOffY+panY+cy(city.center)*scale;
+      const distance=Math.hypot(x-mx,y-my);
+      if(distance<bestDistance){bestDistance=distance;best={cid,city};}
+    }
+  }
+  return best;
+}
+canvas.addEventListener('dblclick',async e=>{
+  const hit=cityAtScreen(e.clientX,e.clientY);
+  if(!hit)return;
+  selectedCountry=hit.cid;
+  await openCities();
+  openCityDetail(hit.city.city_id);
+});
 canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
 canvas.addEventListener('pointermove',e=>{
   if(drag){
@@ -1623,10 +1679,16 @@ $('militaryModal').onclick=e=>{if(e.target===$('militaryModal'))closeMilitary();
 $('cityBtn').onclick=openCities;
 $('cityCloseBtn').onclick=closeCities;
 $('cityModal').onclick=e=>{if(e.target===$('cityModal'))closeCities();};
-$('cityGovernanceBtn').onclick=()=>{
+$('cityGovernanceSelect').onchange=()=>{
   const city=currentCity();if(!city)return;
-  const next=city.managed_by==='ai'?'manual':'ai';
-  submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:city.city_id,managed_by:next},next==='ai'?'城市已交给AI托管':'城市已收回手动治理').then(()=>renderCityDetail());
+  const mode=$('cityGovernanceSelect').value;
+  if(mode==='llm'&&STATE.agents?.[selectedCountry]?.mode!=='openai_compatible'){
+    showToast('LLM 托管需要先把该国 AI 设为模型控制',true);
+    $('cityGovernanceSelect').value=city.managed_by;return;
+  }
+  const labels={ai:'城市已交给规则 AI 托管',manual:'城市已收回手动治理',llm:'城市已交给 LLM 托管'};
+  if(mode==='llm'&&STATE.mode==='player')showToast('玩家接管期间 LLM 不会行动；回到观战后生效');
+  submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:city.city_id,managed_by:mode},labels[mode]).then(()=>renderCityDetail());
 };
 $('startYearValue').oninput=updateStartEraPreview;
 $('startYearEra').onchange=()=>{
@@ -1858,6 +1920,14 @@ async function saveAgent(row){
 window.addEventListener('resize',resize);
 let gameLoaded=false,pollTimer=null,latestSaves=[],pauseOpen=false,resumeAfterPause=false,loadOrigin='menu',endShown=false,techResume=false,diploResume=false,militaryResume=false,cityResume=false,selectedCityId=null,selectedCityTile=null;
 const bootParams=new URLSearchParams(location.search);
+function nextFrame(){
+  return new Promise(resolve=>{
+    let done=false;
+    const finish=()=>{if(!done){done=true;resolve();}};
+    requestAnimationFrame(finish);
+    setTimeout(finish,200);
+  });
+}
 function showOnlyScreen(name){
   $('menuScreen').hidden=name!=='menu';
   $('loadScreen').hidden=name!=='load';
@@ -1891,7 +1961,7 @@ async function startSession(){
   }
   showOnlyScreen('game');gameLoaded=true;
   resetDiaryBubbles();
-  await new Promise(requestAnimationFrame);resize();fitMap();await poll(true);
+  await nextFrame();resize();fitMap();await poll(true);
   renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('activity');
   if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
   await refreshSaves();
@@ -1996,7 +2066,7 @@ function renderCities(){
   const country=STATE.countries[selectedCountry],isPlayer=STATE.player_country===selectedCountry;
   $('citySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.cities.length} 座城市 · 全国人口 ${fmtInt(country.population)}`;
   $('cityGrid').innerHTML=country.cities.map(city=>`<div class="city-card">
-    <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(BIOME_NAMES[city.dominant_biome]||city.dominant_biome)} · ${city.managed_by==='ai'?'AI托管':'手动治理'}</small></div>
+    <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(BIOME_NAMES[city.dominant_biome]||city.dominant_biome)} · ${city.managed_by==='ai'?'规则AI托管':city.managed_by==='llm'?'LLM托管':'手动治理'}</small></div>
       <span class="pill">${esc(city.focus_label)}</span></div>
     <div class="city-stats">
       <div class="city-stat"><small>人口</small><b>${fmtInt(city.population)}</b></div>
@@ -2010,13 +2080,23 @@ function renderCities(){
     <div class="hint">治安 ${fmtNum(city.security,0)}（${esc(city.security_status||'—')}） · 卫生 ${fmtNum(city.health,0)}（${esc(city.health_status||'—')}）</div>
     ${isPlayer?`<div class="city-focus">
       <button data-city-open="${city.city_id}">进入城市</button>
-      <button data-city-governance="${city.city_id}" data-next-mode="${city.managed_by==='ai'?'manual':'ai'}">${city.managed_by==='ai'?'收回手动':'交给AI托管'}</button>
+      <select data-city-gov-select="${city.city_id}" title="城市治理模式">
+        <option value="ai" ${city.managed_by==='ai'?'selected':''}>规则AI托管</option>
+        <option value="manual" ${city.managed_by==='manual'?'selected':''}>手动治理</option>
+        <option value="llm" ${city.managed_by==='llm'?'selected':''}>LLM托管</option>
+      </select>
       ${city.managed_by==='manual'?`<select data-city-select="${city.city_id}">${Object.entries(STATE.city_focuses).map(([key,focus])=>`<option value="${key}" ${key===city.focus?'selected':''}>${esc(focus.label)}</option>`).join('')}</select><button data-city-apply="${city.city_id}">应用方针</button>`:''}
     </div>`:`<div class="city-focus"><button data-city-open="${city.city_id}">查看城市</button></div>`}
   </div>`).join('');
   for(const button of document.querySelectorAll('[data-city-open]'))button.onclick=()=>openCityDetail(button.dataset.cityOpen);
-  for(const button of document.querySelectorAll('[data-city-governance]'))button.onclick=()=>{
-    submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:button.dataset.cityGovernance,managed_by:button.dataset.nextMode},'城市托管状态已调整').then(renderCities);
+  for(const select of document.querySelectorAll('[data-city-gov-select]'))select.onchange=()=>{
+    const cityId=select.dataset.cityGovSelect,mode=select.value;
+    const govLabels={ai:'城市已交给规则 AI 托管',manual:'城市已收回手动治理',llm:'城市已交给 LLM 托管'};
+    if(mode==='llm'&&STATE.agents?.[selectedCountry]?.mode!=='openai_compatible'){
+      showToast('LLM 托管需要先把该国 AI 设为模型控制',true);renderCities();return;
+    }
+    if(mode==='llm'&&STATE.mode==='player')showToast('玩家接管期间 LLM 不会行动；回到观战后生效');
+    submitPlayerAction({type:'SET_CITY_GOVERNANCE',city_id:cityId,managed_by:mode},govLabels[mode]).then(renderCities);
   };
   for(const button of document.querySelectorAll('[data-city-apply]')){
     button.onclick=()=>{
@@ -2036,18 +2116,18 @@ function openCityDetail(cityId){
   selectedCityTile=city.center;
   $('cityGrid').hidden=true;$('cityDetail').hidden=false;
   $('cityDetailTitle').textContent=`${city.name} · ${city.population_share*100}% 全国人口 · 宜居 ${fmtNum(city.livability,0)}`;
-  $('cityGovernanceBtn').hidden=STATE.player_country!==selectedCountry;
+  $('cityGovernanceSelect').hidden=STATE.player_country!==selectedCountry;
   renderCityDetail();
 }
 function renderCityDetail(){
   const city=currentCity();if(!city)return;
   const isPlayer=STATE.player_country===selectedCountry;
-  $('cityGovernanceBtn').hidden=!isPlayer;
-  $('cityGovernanceBtn').textContent=city.managed_by==='ai'?'收回手动治理':'交给AI托管';
+  $('cityGovernanceSelect').hidden=!isPlayer;
+  $('cityGovernanceSelect').value=city.managed_by;
   $('cityFoodInfo').innerHTML=city.food_need>0
     ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食由全国储备统一调配，缺口城市优先承受饥荒。`
     :'等待首个结算日。';
-  $('cityGovNote').textContent=city.governance_note||(city.managed_by==='ai'?'AI市长将在每个规划周期评估粮食与分区。':'手动城市：粮食缺口时请扩建农业区或调整方针。');
+  $('cityGovNote').textContent=city.governance_note||(city.managed_by==='llm'?'LLM 托管：模型会在规划周期读取城市粮食、预算与分区，并直接下发规划动作。':city.managed_by==='ai'?'AI市长将在每个规划周期评估粮食与分区。':'手动城市：粮食缺口时请扩建农业区或调整方针。');
   const canEditBudget=isPlayer&&city.managed_by==='manual';
   $('cityBudgetInfo').innerHTML=city.local_revenue>0||city.local_upkeep>0
     ?`本地收入 <b>${fmtNum(city.local_revenue,3)}</b> / 服务与维护 <b>${fmtNum(city.local_upkeep,3)}</b> · 结余 <b style="color:${city.local_net>=0?'#9fc873':'#e18a7c'}">${city.local_net>=0?'+':''}${fmtNum(city.local_net,3)}</b>`
@@ -2055,7 +2135,7 @@ function renderCityDetail(){
   $('cityBudgetPalette').innerHTML=Object.entries(STATE.city_budgets||{}).map(([key,b])=>
     `<button class="zone-btn ${city.budget===key?'on':''}" style="--zc:${b.color}" data-budget="${key}" ${canEditBudget?'':'disabled'}>${esc(b.label)}</button>`
   ).join('');
-  $('cityBudgetHint').textContent=!isPlayer?'观战模式只能查看预算。':city.managed_by==='ai'?'AI 托管城市由市长自动选择预算，收回手动治理后才能调整。':'投资预算提升宜居与增长但增加全国服务支出；紧缩预算相反。';
+  $('cityBudgetHint').textContent=!isPlayer?'观战模式只能查看预算。':city.managed_by==='llm'?'LLM 托管城市由模型在规划周期调整预算；收回手动治理后可在此直接修改。':city.managed_by==='ai'?'AI 托管城市由市长自动选择预算，收回手动治理后才能调整。':'投资预算提升宜居与增长但增加全国服务支出；紧缩预算相反。';
   for(const button of document.querySelectorAll('[data-budget]'))button.onclick=()=>{
     submitPlayerAction({type:'SET_CITY_BUDGET',city_id:city.city_id,budget:button.dataset.budget},'城市预算已调整').then(()=>renderCityDetail());
   };
@@ -2118,7 +2198,41 @@ function renderCityDetail(){
   $('cityZonePalette').innerHTML=Object.entries(STATE.city_zones).map(([key,zone])=>
     `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'?'':'disabled'}><i></i>${esc(zone.label)}</button>`
   ).join('');
-  $('cityZoneHint').textContent=!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
+  $('cityZoneHint').textContent=!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':city.managed_by==='llm'?'这座城市由 LLM 托管；LLM 会在规划周期调整分区与预算。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
+  const player=STATE.countries[STATE.player_country];
+  const canBuild=isPlayer&&city.managed_by==='manual';
+  if(!selected){
+    $('cityBuildPalette').innerHTML='<div class="build-option"><span class="hint">选择地块后查看可建设施</span></div>';
+    $('cityBuildHint').textContent='';
+  }else if(!canBuild){
+    $('cityBuildPalette').innerHTML='<div class="build-option"><span class="hint">这座城市不是手动治理</span></div>';
+    $('cityBuildHint').textContent=isPlayer?'收回手动治理后才能在城市内直接建造。':'观战模式只能查看。';
+  }else{
+    const [col,row]=selected.coord,key=col+','+row;
+    const specs=STATE.building_specs||{};
+    const building=city.building_tiles?.[key];
+    const project=STATE.projects.find(p=>p[0]===col&&p[1]===row&&p[3]===STATE.player_country);
+    const rows=Object.entries(specs).map(([kind,spec])=>{
+      const allowed=(spec.allowed_biomes||[]).includes(selected.biome);
+      const req=spec.required_technology;
+      const techOk=!req||(player.technology?.[req.field]||0)>=req.level;
+      const riverOk=!spec.requires_river||selected.river;
+      const existing=Object.values(player.buildings||{}).filter(x=>x===kind).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===kind).length;
+      const limitOk=!spec.max_per_country||existing<spec.max_per_country;
+      const moneyOk=player.treasury>=spec.cost;
+      const blocked=!!building||!!project||!allowed||!techOk||!riverOk||!limitOk||!moneyOk;
+      const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
+      const why=!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
+      const icon=BUILD_ICON[kind];
+      const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[kind]||kind).slice(0,1))}</span>`;
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
+    });
+    $('cityBuildPalette').innerHTML=rows.join('');
+    $('cityBuildHint').textContent=building?`该地块已有：${BUILD_NAMES[building]||building}`:project?`该地块正在建设：${BUILD_NAMES[project[2]]||project[2]}`:'城市内建造与大地图使用同一套规则和全国上限。';
+    for(const button of document.querySelectorAll('[data-city-build]'))button.onclick=()=>{
+      submitBuild(col,row,button.dataset.cityBuild).then(()=>renderCityDetail());
+    };
+  }
   for(const button of document.querySelectorAll('[data-zone]'))button.onclick=()=>{
     if(!selectedCityTile)return;
     submitPlayerAction({type:'SET_CITY_ZONE',city_id:city.city_id,tile:{col:selectedCityTile[0],row:selectedCityTile[1]},zone:button.dataset.zone},'城市分区已调整').then(()=>renderCityDetail());
@@ -2287,7 +2401,9 @@ async function boot(){
   resize();showOnlyScreen('menu');
   try{
     await refreshSaves();
-    if(bootParams.get('play')==='latest'&&latestSaves.length)await loadSave(latestSaves[0].id);
+    const wanted=bootParams.get('play');
+    if(wanted==='latest'&&latestSaves.length)await loadSave(latestSaves[0].id);
+    else if(wanted&&latestSaves.some(save=>save.id===wanted))await loadSave(wanted);
   }catch(e){showToast('无法读取存档',true);}
 }
 boot();

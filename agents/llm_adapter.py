@@ -173,6 +173,8 @@ class OpenAICompatibleAgent(CountryAgent):
             "MILITARY(RECRUIT/MARCH/ATTACK), "
             "SET_CITY_FOCUS(city_id,focus), SET_CITY_ZONE(city_id,tile,zone), "
             "SET_CITY_BUDGET(city_id,austerity|balanced|investment), NO_OP。"
+            "country.cities 内标记 managed_by=llm 的城市由你直接规划；"
+            "当这些城市粮食不足、服务偏低或宜居下降时，优先用 SET_CITY_FOCUS/SET_CITY_ZONE/SET_CITY_BUDGET 调整。"
             "不得输出代码、密钥或修改规则；无法决定时返回 NO_OP。"
         )
         return {

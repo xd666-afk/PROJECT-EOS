@@ -125,8 +125,8 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
         managed_by = raw.get("managed_by")
         if not isinstance(city_id, str) or not city_id:
             raise ActionRejected("INVALID_PARAMETER", "city_id 必须是非空字符串")
-        if managed_by not in {"ai", "manual"}:
-            raise ActionRejected("INVALID_PARAMETER", "managed_by 只能是 ai 或 manual")
+        if managed_by not in {"ai", "manual", "llm"}:
+            raise ActionRejected("INVALID_PARAMETER", "managed_by 只能是 ai、manual 或 llm")
         return {"type": action_type, "city_id": city_id, "managed_by": managed_by}
     if action_type == "SET_CITY_ZONE":
         _keys(raw, {"type", "city_id", "tile", "zone"})

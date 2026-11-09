@@ -288,7 +288,8 @@ class LiveSession:
             elif action == "observe":
                 if self.player_country:
                     for city in self.simulation.state.countries[self.player_country].cities:
-                        city.managed_by = "ai"
+                        if city.managed_by == "manual":
+                            city.managed_by = "ai"
                 self.player_country = None
                 self.scheduler.set_player_country(None)
                 self.simulation.state.record("control_changed", country_id=None, mode="observer")
