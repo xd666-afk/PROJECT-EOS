@@ -765,7 +765,16 @@ POST /api/agents/test
 }
 ```
 
-失败时返回 HTTP 状态、延迟和截断后的错误信息；不会包含 Key 或请求头。测试结果保存在内存中的 `agent_meta.last_test`，并记录 `agent_test` 事件；Mock 席位忽略历史 LLM 错误。未配置全局预算时测试使用一次性本地预算（最多一次最小请求）；已配置预算时消耗正常调用额度。
+失败时返回 HTTP 状态、延迟和截断后的错误信息；不会包含 Key 或请求头。测试结果保存在内存中的 `agent_meta.last_test`，并记录 `agent_test` 事件；Mock 席位忽略历史 LLM 错误。
+
+**调用预算**：正式 90 日规划也受 `CallBudget` 约束。通过 UI 首次保存 LLM 席位时，如果服务没有 CLI 预算，会自动启用 40 次 / $1.00 的本次运行预算；否则会出现“连接测试成功但规划调用 BudgetExceeded”。AI 席位顶部的预算栏可修改：
+
+```json
+POST /api/agents/budget
+{"max_calls": 40, "max_cost_usd": 1.0}
+```
+
+调用上限不能低于已用次数；修改预算会清除旧调用错误的展示。
 
 ### 9.5 LLM 统治日记
 
@@ -882,6 +891,7 @@ POST /api/agents/test
 | `/api/state` | 实时完整快照：日期、国家、城市、事件、建筑、项目、AI、预算、胜利 |
 | `/api/agents` | 各国控制器、模型、预算、厂商预设、连接测试状态（不含密钥） |
 | `POST /api/agents/test` | 对当前 LLM 席位发起一次最小连接测试 |
+| `POST /api/agents/budget` | 设置本次运行调用次数与费用上限 |
 | `/api/diary` | LLM 国家统治日记；`country`、`limit` 可选 |
 | `/api/setup` | 新建世界的默认国家、文明类型、核心格数 |
 | `/api/saves` | 存档列表与当前存档 ID |

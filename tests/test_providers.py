@@ -55,6 +55,12 @@ def test_simple_provider_key_stays_in_process_memory(monkeypatch):
             },
         )
         assert chosen["ok"] and session.agent_meta["ELAR"]["model"] == "qwen3.8-max"
+        assert session.budget.max_calls is not None
+        budget = session.configure_budget(12, 0.25)
+        assert budget["ok"]
+        assert session.budget.max_calls == 12
+        assert session.budget.max_cost_usd == 0.25
+        assert not session.configure_budget(0, 0.25)["ok"]
         invalid_model = session.configure_agent(
             "ELAR",
             {

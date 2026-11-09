@@ -610,6 +610,11 @@ button.primary:hover{filter:brightness(1.08)}
       <button id="agentsClose">关闭</button>
     </div>
     <div class="observer-note" id="agentsBudget" style="margin-bottom:10px"></div>
+    <div class="ai-fields" style="margin-bottom:10px;padding:8px;border:1px solid var(--line);border-radius:8px;background:#0a1c24">
+      <label>本次运行最大调用次数<input id="budgetCalls" type="number" min="1" step="1" value="40"></label>
+      <label>已知费用上限 USD<input id="budgetCost" type="number" min="0.01" step="0.01" value="1"></label>
+      <div class="wide ai-actions-row" style="justify-content:flex-end"><button id="applyBudget">应用预算</button></div>
+    </div>
     <div id="agentsList"></div>
   </div>
 </div>
@@ -1396,6 +1401,16 @@ for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed'
 $('observeBtn').onclick=()=>{if(STATE?.mode==='player')control('observe');};
 $('interveneBtn').onclick=()=>{if(STATE?.mode!=='player')control('take_control',selectedCountry);};
 $('agentsClose').onclick=()=>$('agentsModal').hidden=true;
+$('applyBudget').onclick=async()=>{
+  try{
+    const r=await fetch('/api/agents/budget',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({max_calls:Number($('budgetCalls').value),max_cost_usd:Number($('budgetCost').value)})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'预算保存失败');
+    showToast('调用预算已更新');
+    await openAgents();await poll(true);
+  }catch(err){showToast(`预算保存失败：${err.message}`,true);}
+};
 $('agentsModal').onclick=e=>{if(e.target===$('agentsModal'))$('agentsModal').hidden=true;};
 let diaryCountry=null;
 async function openDiary(){
@@ -1705,7 +1720,9 @@ function agentStatusText(a){
 async function openAgents(){
   try{
     const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
-    $('agentsBudget').innerHTML=`模型只在每 90 日规划节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。`;
+    $('budgetCalls').value=data.budget.max_calls??40;
+    $('budgetCost').value=data.budget.max_cost_usd??1;
+    $('agentsBudget').innerHTML=`模型只在每 90 日规划节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，上限 $${fmtNum(data.budget.max_cost_usd??0,2)}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。${data.budget.max_calls==null?'<br><b style="color:#d9b56b">当前没有调用预算：正式规划会被拒绝。保存 LLM 席位会自动启用 40 次 / $1.00 的本次运行预算。</b>':''}`;
     const providers=data.providers||[];
     $('agentsList').innerHTML=Object.entries(data.countries).map(([cid,a])=>{
       const mode=a.mode||'mock';

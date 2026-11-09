@@ -472,6 +472,8 @@ class LiveSession:
                 }
             else:
                 return {"ok": False, "error": "mode must be mock or openai_compatible"}
+            if mode == "openai_compatible":
+                self._ensure_call_budget()
             self.scheduler.set_agent(country_id, agent)
             meta["configured_sequence"] = len(self.simulation.state.event_log)
             self.agent_meta[country_id] = meta
@@ -483,6 +485,49 @@ class LiveSession:
                 model=meta["model"],
             )
             return {"ok": True, "country_id": country_id, **self.agent_payload()["countries"][country_id]}
+
+    def _ensure_call_budget(self) -> None:
+        """A UI-configured LLM seat needs a real planning budget too.
+
+        CLI budget flags remain authoritative when set; otherwise enable a
+        conservative per-run budget so the seat does not pass its connection
+        test and then fail every planning call with BudgetExceeded.
+        """
+        changed = False
+        if self.budget.max_calls is None:
+            self.budget.max_calls = 40
+            changed = True
+        if self.budget.max_cost_usd is None:
+            self.budget.max_cost_usd = 1.0
+            changed = True
+        if changed:
+            for meta in self.agent_meta.values():
+                meta["configured_sequence"] = len(self.simulation.state.event_log)
+            self.simulation.state.record(
+                "budget_configured",
+                max_calls=self.budget.max_calls,
+                max_cost_usd=self.budget.max_cost_usd,
+            )
+
+    def configure_budget(self, max_calls: object, max_cost_usd: object) -> dict:
+        with self.lock:
+            try:
+                calls = int(max_calls)
+                cost = float(max_cost_usd)
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "预算必须是数字"}
+            if calls < 1 or calls < self.budget.calls:
+                return {"ok": False, "error": "调用上限不能低于已用次数或 1"}
+            if cost <= 0:
+                return {"ok": False, "error": "费用上限必须大于 0"}
+            self.budget.max_calls = calls
+            self.budget.max_cost_usd = cost
+            for meta in self.agent_meta.values():
+                meta["configured_sequence"] = len(self.simulation.state.event_log)
+            self.simulation.state.record(
+                "budget_configured", max_calls=calls, max_cost_usd=cost
+            )
+            return {"ok": True, "budget": self.budget.summary()}
 
     def test_agent(self, country_id: str) -> dict:
         """Make one tiny chat call to verify the key/model/endpoint."""
@@ -776,7 +821,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if self.path not in {
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
-            "/api/new_game", "/api/saves",
+            "/api/agents/budget", "/api/new_game", "/api/saves",
         }:
             self._json({"error": "not found"}, 404)
             return
@@ -785,6 +830,10 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length) or b"{}")
             if self.path == "/api/agents/test":
                 result = self.session.test_agent(str(payload.get("country_id", "")))
+            elif self.path == "/api/agents/budget":
+                result = self.session.configure_budget(
+                    payload.get("max_calls"), payload.get("max_cost_usd")
+                )
             elif self.path == "/api/agents":
                 result = self.session.configure_agent(
                     str(payload.get("country_id", "")), payload.get("settings", {})
