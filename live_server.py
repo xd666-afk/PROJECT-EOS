@@ -355,6 +355,8 @@ class LiveSession:
                         for event in reversed(self.simulation.state.event_log)
                         if event["type"] == "llm_call"
                         and event.get("country_id") == country_id
+                        and event.get("sequence", 0)
+                        > meta.get("configured_sequence", 0)
                     ),
                     None,
                 )
@@ -435,9 +437,17 @@ class LiveSession:
                         return {"ok": False, "error": "切换厂商请重新填写 API Key"}
                     if not os.environ.get(env_name):
                         return {"ok": False, "error": "请填写 API Key"}
+                    requested_model = str(
+                        settings.get("model") or preset["model"]
+                    ).strip()
+                    allowed_models = {
+                        item["id"] for item in preset.get("models", [])
+                    }
+                    if requested_model not in allowed_models:
+                        return {"ok": False, "error": "该厂商预设不支持这个模型，请从模型列表选择"}
                     resolved = {
                         "provider": preset["label"],
-                        "model": preset["model"],
+                        "model": requested_model,
                         "base_url": preset["base_url"],
                         "api_key_env": env_name,
                         "timeout_seconds": preset["timeout_seconds"],
@@ -463,6 +473,7 @@ class LiveSession:
             else:
                 return {"ok": False, "error": "mode must be mock or openai_compatible"}
             self.scheduler.set_agent(country_id, agent)
+            meta["configured_sequence"] = len(self.simulation.state.event_log)
             self.agent_meta[country_id] = meta
             self.simulation.state.record(
                 "agent_configured",

@@ -26,11 +26,25 @@ def load_provider_presets(path: str | Path | None = None) -> dict[str, dict[str,
         model = str(raw.get("model") or "")
         if not base_url.startswith(("https://", "http://")) or not model:
             raise ValueError(f"provider {provider_id} needs HTTP(S) base_url and model")
+        models: list[dict[str, str]] = []
+        for raw_model in raw.get("models", []):
+            if isinstance(raw_model, str):
+                model_id, model_label = raw_model, raw_model
+            elif isinstance(raw_model, dict):
+                model_id = str(raw_model.get("id") or "").strip()
+                model_label = str(raw_model.get("label") or model_id).strip()
+            else:
+                continue
+            if model_id and all(item["id"] != model_id for item in models):
+                models.append({"id": model_id, "label": model_label or model_id})
+        if not any(item["id"] == model for item in models):
+            models.insert(0, {"id": model, "label": model})
         normalized[provider_id] = {
             "id": provider_id,
             "label": label,
             "base_url": base_url,
             "model": model,
+            "models": models,
             "docs_url": str(raw.get("docs_url") or ""),
             "timeout_seconds": float(raw.get("timeout_seconds", 45)),
             "retries": int(raw.get("retries", 0)),

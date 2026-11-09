@@ -4,6 +4,10 @@
       "label": "DeepSeek",
       "base_url": "https://api.deepseek.com",
       "model": "deepseek-chat",
+      "models": [
+        {"id": "deepseek-chat", "label": "DeepSeek Chat（通用）"},
+        {"id": "deepseek-reasoner", "label": "DeepSeek Reasoner（推理）"}
+      ],
       "docs_url": "https://api-docs.deepseek.com/zh-cn/",
       "timeout_seconds": 45,
       "retries": 0,
@@ -13,6 +17,10 @@
       "label": "字节豆包",
       "base_url": "https://ark.cn-beijing.volces.com/api/v3",
       "model": "doubao-seed-2-1-pro-260915",
+      "models": [
+        {"id": "doubao-seed-2-1-pro-260915", "label": "豆包 Seed 2.1 Pro（旗舰）"},
+        {"id": "doubao-seed-2-1-turbo-260628", "label": "豆包 Seed 2.1 Turbo（快速低成本）"}
+      ],
       "docs_url": "https://www.volcengine.com/docs/82379/1099455",
       "timeout_seconds": 45,
       "retries": 0,
@@ -22,6 +30,12 @@
       "label": "阿里千问",
       "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
       "model": "qwen-plus",
+      "models": [
+        {"id": "qwen-plus", "label": "Qwen Plus（均衡推荐）"},
+        {"id": "qwen3.8-max", "label": "Qwen 3.8 Max（旗舰）"},
+        {"id": "qwen3.8-flash", "label": "Qwen 3.8 Flash（快速低成本）"},
+        {"id": "qwen-turbo", "label": "Qwen Turbo（极速）"}
+      ],
       "docs_url": "https://help.aliyun.com/zh/model-studio/compatibility-of-openai-with-dashscope",
       "timeout_seconds": 45,
       "retries": 0,
@@ -31,6 +45,11 @@
       "label": "月之暗面 Kimi",
       "base_url": "https://api.moonshot.cn/v1",
       "model": "moonshot-v1-auto",
+      "models": [
+        {"id": "moonshot-v1-auto", "label": "Moonshot v1 Auto（稳定通用）"},
+        {"id": "kimi-k3", "label": "Kimi K3（旗舰）"},
+        {"id": "kimi-k2.6", "label": "Kimi K2.6（均衡）"}
+      ],
       "docs_url": "https://platform.moonshot.cn/docs/api/chat",
       "timeout_seconds": 45,
       "retries": 0,
@@ -40,6 +59,11 @@
       "label": "智谱 GLM",
       "base_url": "https://open.bigmodel.cn/api/paas/v4",
       "model": "glm-5.3",
+      "models": [
+        {"id": "glm-5.3", "label": "GLM-5.3（旗舰）"},
+        {"id": "glm-5.3-flash", "label": "GLM-5.3 Flash（快速）"},
+        {"id": "glm-5.3-flashx", "label": "GLM-5.3 FlashX（极速）"}
+      ],
       "docs_url": "https://docs.bigmodel.cn/cn/guide/develop/http/introduction",
       "timeout_seconds": 45,
       "retries": 0,
@@ -49,6 +73,12 @@
       "label": "MiniMax",
       "base_url": "https://api.minimax.cn/v1",
       "model": "MiniMax-M3",
+      "models": [
+        {"id": "MiniMax-M3", "label": "MiniMax M3（旗舰长上下文）"},
+        {"id": "MiniMax-M2.7", "label": "MiniMax M2.7（均衡）"},
+        {"id": "MiniMax-M2.7-highspeed", "label": "MiniMax M2.7 Highspeed（快速）"},
+        {"id": "MiniMax-M2.5", "label": "MiniMax M2.5（性价比）"}
+      ],
       "docs_url": "https://platform.minimaxi.com/docs/api-reference/text-openai-api",
       "timeout_seconds": 45,
       "retries": 0,

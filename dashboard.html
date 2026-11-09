@@ -1715,6 +1715,10 @@ async function openAgents(){
       const provider=providers.find(p=>p.id===currentProvider)||providers[0]||{label:'DeepSeek',model:'deepseek-chat',docs_url:'https://api-docs.deepseek.com/zh-cn/'};
       const statusText=agentStatusText(a);
       const statusColor=mode==='mock'?'var(--muted)':(a.last_test?(a.last_test.ok?'#9fc873':'#e18a7c'):(a.last_call?.status==='error'?'#e18a7c':'var(--muted)'));
+      const models=provider.models||[{id:provider.model,label:provider.model}];
+      const currentModel=a.model||provider.model;
+      const modelOptions=models.map(m=>`<option value="${esc(m.id)}" ${m.id===currentModel?'selected':''}>${esc(m.label||m.id)}</option>`).join('');
+      const customOption=models.some(m=>m.id===currentModel)?'':`<option value="${esc(currentModel)}" selected>${esc(currentModel)}（当前自定义）</option>`;
       return `<div class="ai-country" data-country="${cid}" data-key-configured="${a.key_configured?'1':'0'}">
         <div class="ai-country-head"><b>${esc(cid)} · ${esc(countryMeta(cid)?.name||cid)}</b>
           <span style="display:flex;gap:6px;align-items:center"><span class="pill">${mode==='mock'?'规则 AI':'LLM'}</span>
@@ -1723,9 +1727,10 @@ async function openAgents(){
         <div class="ai-simple">
           <div class="ai-fields">
             <label>厂商<select data-simple-provider>${providerOptions}</select></label>
+            <label>模型<select data-simple-model>${customOption}${modelOptions}</select></label>
             <label class="wide">API Key<input type="password" data-simple-key autocomplete="off" placeholder="${a.key_configured?'留空沿用当前进程密钥':'粘贴 API Key'}"></label>
           </div>
-          <div class="ai-simple-note" data-simple-note>默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。</div>
+          <div class="ai-simple-note" data-simple-note>模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。</div>
           <div class="ai-simple-note" data-test-status style="color:${statusColor}">${esc(statusText)}</div>
           <div class="ai-actions-row">
             <button class="primary" data-save-simple>保存并启用</button>
@@ -1760,7 +1765,10 @@ async function openAgents(){
 function updateSimpleProviderHint(row,providers){
   const provider=providers.find(p=>p.id===row.querySelector('[data-simple-provider]').value)||providers[0];
   const note=row.querySelector('[data-simple-note]');
-  if(note&&provider)note.innerHTML=`默认模型 <b>${esc(provider.model)}</b> · 高级参数自动使用官方默认值 · <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。`;
+  const modelSelect=row.querySelector('[data-simple-model]');
+  const models=provider?.models||[{id:provider?.model||'',label:provider?.model||''}];
+  if(modelSelect)modelSelect.innerHTML=models.map(m=>`<option value="${esc(m.id)}" ${m.id===provider.model?'selected':''}>${esc(m.label||m.id)}</option>`).join('');
+  if(note&&provider)note.innerHTML=`模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。`;
 }
 async function postAgentSettings(cid,settings,successText){
   try{
@@ -1775,9 +1783,10 @@ async function postAgentSettings(cid,settings,successText){
 function saveSimpleAgent(row){
   const cid=row.dataset.country;
   const providerId=row.querySelector('[data-simple-provider]').value;
+  const model=row.querySelector('[data-simple-model]').value;
   const key=row.querySelector('[data-simple-key]').value.trim();
   if(!key&&row.dataset.keyConfigured!=='1'){showToast('请粘贴 API Key',true);return;}
-  postAgentSettings(cid,{mode:'openai_compatible',provider_id:providerId,api_key:key},`${cid} 配置已保存；点击“测试连接”确认可用`);
+  postAgentSettings(cid,{mode:'openai_compatible',provider_id:providerId,model,api_key:key},`${cid} 配置已保存；点击“测试连接”确认可用`);
 }
 async function testAgent(row){
   const cid=row.dataset.country;

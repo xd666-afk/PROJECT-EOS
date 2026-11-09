@@ -721,6 +721,8 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 | `glm` | 智谱 GLM | `https://open.bigmodel.cn/api/paas/v4` | `glm-5.3` |
 | `minimax` | MiniMax | `https://api.minimax.cn/v1` | `MiniMax-M3` |
 
+简单模式同时提供厂商主流模型下拉：DeepSeek Chat/Reasoner；豆包 Seed 2.1 Pro/Turbo；千问 Plus/3.8 Max/3.8 Flash/Turbo；Kimi Moonshot v1 Auto/K3/K2.6；GLM 5.3/5.3 Flash/5.3 FlashX；MiniMax M3/M2.7/M2.7 Highspeed/M2.5。列表来自 `config/llm_providers.json`，简单模式只接受列表内模型；自定义模型走高级模式。
+
 厂商切换但 Key 留空时，服务端拒绝，避免把旧厂商的 Key 发给新厂商。预设模型以各厂商账号实际开通情况为准，可用高级模式覆盖。
 
 **高级模式**：完整自定义：

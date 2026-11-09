@@ -16,6 +16,9 @@ def test_provider_presets_cover_requested_companies():
     public = provider_payload()
     assert all("api_key" not in item for item in public)
     assert all(item["model"] for item in public)
+    assert all(item["models"] for item in public)
+    qwen_models = {m["id"] for m in providers["qwen"]["models"]}
+    assert {"qwen-plus", "qwen3.8-max", "qwen3.8-flash"} <= qwen_models
     preset, env_name = resolve_simple_settings("ELAR", "qwen")
     assert preset["model"] == "qwen-plus"
     assert env_name == "EOS_AGENT_ELAR_API_KEY"
@@ -41,6 +44,26 @@ def test_simple_provider_key_stays_in_process_memory(monkeypatch):
         assert result["ok"]
         assert session.agent_meta["ELAR"]["provider_id"] == "qwen"
         assert session.agent_meta["ELAR"]["provider"] == "阿里千问"
+        assert session.agent_meta["ELAR"]["model"] == "qwen-plus"
+        chosen = session.configure_agent(
+            "ELAR",
+            {
+                "mode": "openai_compatible",
+                "provider_id": "qwen",
+                "model": "qwen3.8-max",
+                "api_key": "unit-test-secret-key",
+            },
+        )
+        assert chosen["ok"] and session.agent_meta["ELAR"]["model"] == "qwen3.8-max"
+        invalid_model = session.configure_agent(
+            "ELAR",
+            {
+                "mode": "openai_compatible",
+                "provider_id": "qwen",
+                "model": "not-a-real-model",
+            },
+        )
+        assert not invalid_model["ok"]
         assert os.environ["EOS_AGENT_ELAR_API_KEY"] == "unit-test-secret-key"
         payload = json.dumps(session.agent_payload(), ensure_ascii=False)
         assert "unit-test-secret-key" not in payload

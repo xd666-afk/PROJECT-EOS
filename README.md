@@ -150,6 +150,14 @@ HTTP 接口：
 
 平衡报告与实测数据见 `V0_3_GAMEPLAY_REPORT.md`，最终五年存档为 `runs/eos_v03_final.json`。
 
+## v0.23 厂商模型选择
+
+- 简单模式在厂商下拉旁新增“模型”下拉，列出该厂商当前主流模型；默认选中推荐项。
+- DeepSeek: Chat / Reasoner；豆包: Seed 2.1 Pro / Turbo；千问: Qwen Plus / 3.8 Max / 3.8 Flash / Turbo；Kimi: Moonshot v1 Auto / K3 / K2.6；GLM: 5.3 / 5.3 Flash / 5.3 FlashX；MiniMax: M3 / M2.7 / M2.7 Highspeed / M2.5。
+- 简单模式只允许选择预设列表中的模型；自定义模型仍走高级模式。
+- 当前控制行显示实际选中的厂商与模型；保存后状态从“已配置/未测试”开始，不会把旧调用错误误挂到新配置上。
+- 模型列表在 `config/llm_providers.json`，以后厂商更新只需改配置。
+
 ## v0.22 API Key 连接测试与状态
 
 - AI 席位现在明确显示当前控制方式：规则 AI，或“厂商 · 模型 · 连接状态”。
