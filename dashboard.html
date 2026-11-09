@@ -906,7 +906,7 @@ function hexDistance(a,b){
 }
 const HEX_DIR_EVEN=[[1,0],[0,-1],[-1,-1],[-1,0],[-1,1],[0,1]];
 const HEX_DIR_ODD=[[1,0],[1,-1],[0,-1],[-1,0],[0,1],[1,1]];
-function hexNeighbors(coord){
+function landNeighbors(coord){
   return (coord[1]&1?HEX_DIR_ODD:HEX_DIR_EVEN)
     .map(([dx,dy])=>[coord[0]+dx,coord[1]+dy])
     .filter(neighbor=>getTile(neighbor[0],neighbor[1])?.[2]);
@@ -919,7 +919,7 @@ function shortestLandPath(start,end){
   let head=0,found=false;
   while(head<queue.length&&!found){
     const current=queue[head++];
-    for(const next of hexNeighbors(current)){
+    for(const next of landNeighbors(current)){
       const id=next.join(',');if(previous.has(id))continue;
       previous.set(id,current);
       if(next[0]===end[0]&&next[1]===end[1]){found=true;break;}
@@ -1093,14 +1093,125 @@ function drawResourcePattern(type,x,y,rad){
   }
   ctx.restore();
 }
-function drawNetwork(scale,owners){
-  const riverTiles=WORLD.tiles.filter(t=>t[5]&&t[6]);
-  ctx.strokeStyle='#5babc7';ctx.globalAlpha=.82;ctx.lineWidth=Math.max(.06,.14/scale);
+let riverCache={world:null,chains:[]};
+function riverKey(t){return t[0]+','+t[1];}
+function riverCoordKey(c){return c[0]+','+c[1];}
+function buildRiverChains(){
+  if(!WORLD)return [];
+  if(riverCache.world===WORLD)return riverCache.chains;
+  const riverTiles=WORLD.tiles.filter(t=>t[5]);
+  const byKey=new Map(riverTiles.map(t=>[riverKey(t),t]));
+  const downstreamKey=t=>t[6]?riverCoordKey(t[6]):null;
+  const targets=new Set(riverTiles.map(downstreamKey).filter(Boolean));
+  const sources=riverTiles.filter(t=>!targets.has(riverKey(t)));
+  const upstream=new Map();
   for(const t of riverTiles){
-    const d=t[6];if(!d)continue;
-    ctx.beginPath();ctx.moveTo(cx(t),cy(t));ctx.lineTo(cx(d),cy(d));ctx.stroke();
+    const dk=downstreamKey(t);if(!dk)continue;
+    const list=upstream.get(dk)||[];list.push(t);upstream.set(dk,list);
   }
-  ctx.globalAlpha=1;
+  const control=new Map();
+  for(const t of riverTiles){
+    const key=riverKey(t),down=t[6]?byKey.get(downstreamKey(t)):null,ups=upstream.get(key)||[];
+    let prevX,prevY;
+    if(ups.length){
+      prevX=ups.reduce((sum,u)=>sum+cx(u),0)/ups.length;
+      prevY=ups.reduce((sum,u)=>sum+cy(u),0)/ups.length;
+    }else if(down){
+      prevX=cx(t)-(cx(down)-cx(t));
+      prevY=cy(t)-(cy(down)-cy(t));
+    }else{prevX=cx(t)-.6;prevY=cy(t);}
+    const dx=(down?cx(down):cx(t)+.6)-prevX,dy=(down?cy(down):cy(t))-prevY;
+    const length=Math.hypot(dx,dy)||1,nx=-dy/length,ny=dx/length;
+    const h=Math.sin(t[0]*12.9898+t[1]*78.233)*43758.5453,f=h-Math.floor(h);
+    const h2=Math.sin(t[0]*39.346+t[1]*11.135)*24634.6345,f2=h2-Math.floor(h2);
+    const lateral=Math.sin((t[0]*.66+t[1]*.52)*1.15)*.17+(f*2-1)*.12;
+    const along=(f2*2-1)*.07;
+    control.set(key,{key,x:cx(t)+nx*lateral+(dx/length)*along,y:cy(t)+ny*lateral+(dy/length)*along});
+  }
+  const full=[];
+  for(const source of sources){
+    const chain=[];let cur=source;const seen=new Set();
+    while(cur){
+      const key=riverKey(cur);if(seen.has(key))break;seen.add(key);
+      const point=control.get(key);if(point)chain.push(point);
+      const downstream=cur[6];
+      if(!downstream)break;
+      const next=byKey.get(riverCoordKey(downstream));
+      if(next){cur=next;continue;}
+      chain.push({key:riverCoordKey(downstream)+':mouth',x:cx(downstream),y:cy(downstream),mouth:true});
+      break;
+    }
+    if(chain.length>=2)full.push(chain);
+  }
+  full.sort((a,b)=>b.length-a.length);
+  const drawn=new Set(),chains=[];
+  for(const chain of full){
+    const prefix=[];
+    for(const point of chain){
+      prefix.push(point);
+      if(drawn.has(point.key))break;
+    }
+    if(prefix.length<2)continue;
+    for(const point of prefix)drawn.add(point.key);
+    chains.push(prefix);
+  }
+  riverCache={world:WORLD,chains};
+  return chains;
+}
+function catmullScalar(a,b,c,d,t){
+  const t2=t*t,t3=t2*t;
+  return .5*((2*b)+(-a+c)*t+(2*a-5*b+4*c-d)*t2+(-a+3*b-3*c+d)*t3);
+}
+function sampleRiver(points,steps=4){
+  if(points.length<2)return points.map(point=>({...point,t:0}));
+  const samples=[],count=points.length;
+  for(let i=0;i<count-1;i++){
+    const p0=points[Math.max(0,i-1)],p1=points[i],p2=points[i+1],p3=points[Math.min(count-1,i+2)];
+    for(let step=0;step<steps;step++){
+      const t=step/steps;
+      samples.push({
+        x:catmullScalar(p0.x,p1.x,p2.x,p3.x,t),
+        y:catmullScalar(p0.y,p1.y,p2.y,p3.y,t),
+        t:(i+t)/(count-1),
+      });
+    }
+  }
+  samples.push({x:points[count-1].x,y:points[count-1].y,t:1});
+  return samples;
+}
+function strokeRibbon(samples,scale,widthAt,style,alpha){
+  ctx.globalAlpha=alpha;ctx.strokeStyle=style;ctx.lineCap='round';ctx.lineJoin='round';
+  for(let i=0;i<samples.length-1;i++){
+    const a=samples[i],b=samples[i+1];
+    ctx.lineWidth=Math.max(.02,widthAt((a.t+b.t)/2)/scale);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  }
+}
+function drawRiverNetwork(scale,strong=false){
+  const chains=buildRiverChains();if(!chains.length)return;
+  const boost=strong?1.16:1;
+  const prepared=chains.map(chain=>{
+    const samples=sampleRiver(chain,4);
+    const importance=Math.min(1,chain.length/30);
+    const waterAt=t=>(1.4+(2.05+importance*1.4-1.4)*t)*boost;
+    const bankAt=t=>waterAt(t)+1.55*boost;
+    const first=samples[0],last=samples[samples.length-1];
+    const water=ctx.createLinearGradient(first.x,first.y,last.x,last.y);
+    water.addColorStop(0,'#73c7dc');water.addColorStop(.55,'#4f9fba');water.addColorStop(1,'#347f9b');
+    return {samples,waterAt,bankAt,water};
+  });
+  ctx.save();
+  for(const item of prepared)strokeRibbon(item.samples,scale,item.bankAt,'#123844',.92);
+  for(const item of prepared)strokeRibbon(item.samples,scale,item.waterAt,item.water,1);
+  for(const item of prepared)strokeRibbon(item.samples,scale,t=>Math.max(.45,item.waterAt(t)*.3),'#c9edf3',.34);
+  for(const item of prepared){
+    const spring=item.samples[0];
+    ctx.beginPath();ctx.arc(spring.x,spring.y,Math.max(.09,item.bankAt(0)*.55/scale),0,Math.PI*2);
+    ctx.fillStyle='#123844';ctx.globalAlpha=.95;ctx.fill();
+    ctx.beginPath();ctx.arc(spring.x,spring.y,Math.max(.05,item.waterAt(0)*.45/scale),0,Math.PI*2);
+    ctx.fillStyle='#73c7dc';ctx.globalAlpha=1;ctx.fill();
+  }
+  ctx.restore();
 }
 function render(force=false){
   const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
@@ -1144,14 +1255,10 @@ function render(force=false){
       if(owner){ctx.strokeStyle=countryColor(owner)+'88';ctx.stroke();}
     }
   }
-  if(mapMode==='routes'){
-    drawNetwork(scale,owners);
-  }else if(mapMode==='satellite'||mapMode==='political'||mapMode==='terrain'){
-    ctx.strokeStyle='#5babc7';ctx.lineWidth=Math.max(.03,.08/scale);ctx.globalAlpha=.5;
-    for(const t of WORLD.tiles){if(!t[5]||!t[6])continue;ctx.beginPath();ctx.moveTo(cx(t),cy(t));ctx.lineTo(cx(t[6]),cy(t[6]));ctx.stroke();}
-    ctx.globalAlpha=1;
+  if(['satellite','political','terrain','routes'].includes(mapMode)){
+    drawRiverNetwork(scale,mapMode==='routes');
   }
-  if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes');
+  if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite');
   if(STATE&&mapMode!=='resources'){
     for(const [col,row,building,cid] of STATE.buildings){
       if(building==='ROAD')continue;
@@ -1211,7 +1318,7 @@ function render(force=false){
 }
 function updateMapLegend(){
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],['河流','#4f9fba'],['道路','#d0aa6d'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
     rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],

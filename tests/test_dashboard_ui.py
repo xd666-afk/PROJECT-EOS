@@ -41,3 +41,12 @@ def test_icons_are_trimmed_transparent_assets():
 def test_satellite_layer_draws_owned_territory():
     assert "mapMode==='satellite'" in DASHBOARD
     assert "countryColor(owner)" in DASHBOARD
+
+
+def test_rivers_are_curved_and_roads_draw_on_satellite():
+    assert "function buildRiverChains()" in DASHBOARD
+    assert "function drawRiverNetwork(" in DASHBOARD
+    assert "function landNeighbors(" in DASHBOARD
+    assert "landNeighbors(current)" in DASHBOARD
+    assert "drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite')" in DASHBOARD
+    assert "riverCache={world:WORLD,chains}" in DASHBOARD
