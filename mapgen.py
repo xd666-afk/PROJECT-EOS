@@ -18,6 +18,11 @@ from worldgen import (
 
 BASE_DIR = Path(__file__).resolve().parent
 COUNTRY_IDS = ["ELAR", "MARIS", "VAYR", "SAHAR"]
+COUNTRY_PALETTE = [
+    "#e7b45f", "#63b1c9", "#d97f75", "#b98bcb",
+    "#8fbf7f", "#d6a36f", "#7f9ed6", "#c98fae",
+    "#9fc9b4", "#c4b56f", "#aa8fd1", "#d68a8a",
+]
 ARCHETYPES = {
     "river_valley": "河谷文明",
     "maritime": "海洋城邦",
@@ -33,18 +38,29 @@ DEFAULT_COUNTRIES = [
 CORE_TILES = 16
 
 
+def country_ids(count: int) -> list[str]:
+    """Stable IDs for the legacy four countries plus generated extras."""
+    if count < 1:
+        raise ValueError("at least one country is required")
+    ids = list(COUNTRY_IDS[:count])
+    for index in range(len(ids), count):
+        ids.append(f"C{index + 1}")
+    return ids
+
+
 def normalize_countries(countries: list[dict[str, Any]] | None) -> list[dict[str, Any]]:
     if countries is None:
         return [dict(item) for item in DEFAULT_COUNTRIES]
-    if len(countries) != 4:
-        raise ValueError("exactly four countries are required")
+    if not 2 <= len(countries) <= 12:
+        raise ValueError("2-12 countries are required")
     normalized = []
     seen_colors = set()
     for index, source in enumerate(countries):
-        name = str(source.get("name", "")).strip()
-        color = str(source.get("color", "")).strip()
-        archetype = source.get("archetype", DEFAULT_COUNTRIES[index]["archetype"])
-        population = int(source.get("population", DEFAULT_COUNTRIES[index]["population"]))
+        base = DEFAULT_COUNTRIES[index % len(DEFAULT_COUNTRIES)]
+        name = str(source.get("name") or f"新国家{index + 1}").strip()
+        color = str(source.get("color") or COUNTRY_PALETTE[index % len(COUNTRY_PALETTE)]).strip()
+        archetype = source.get("archetype", base["archetype"])
+        population = int(source.get("population", base["population"]))
         if not 1 <= len(name) <= 24:
             raise ValueError("country name must contain 1-24 characters")
         if not (len(color) == 7 and color.startswith("#") and all(c in "0123456789abcdefABCDEF" for c in color[1:])):
@@ -120,8 +136,9 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
 def _grow_equal_territories(capitals, land, available):
     ownership = np.full((H, W), "", dtype=object)
     territories = []
+    ids = country_ids(len(capitals))
     for index, capital in enumerate(capitals):
-        country_id = COUNTRY_IDS[index]
+        country_id = ids[index]
         queue = deque([capital])
         seen = {capital}
         cells = []
@@ -157,15 +174,17 @@ def _fairness(countries, territories, elev, p, biome, river, hazards):
         mean = sum(values) / len(values)
         variance = sum((value - mean) ** 2 for value in values) / len(values)
         variations.append(math.sqrt(variance) / max(mean, 1e-9))
+    count = len(rows)
+    ids = country_ids(count)
     score = max(0.0, min(1.0, 1 - sum(variations) / len(variations)))
     return {
         "score": round(score, 4),
         "coefficient_of_variation": {
-            key: round(sum((row[key] - sum(r[key] for r in rows) / 4) ** 2 for row in rows) / 4, 4) ** .5
-            / max(sum(row[key] for row in rows) / 4, 1e-9)
+            key: round(sum((row[key] - sum(r[key] for r in rows) / count) ** 2 for row in rows) / count, 4) ** .5
+            / max(sum(row[key] for row in rows) / count, 1e-9)
             for key in rows[0]
         },
-        "countries": {COUNTRY_IDS[i]: rows[i] for i in range(4)},
+        "countries": {ids[i]: rows[i] for i in range(count)},
         "equal_core_tiles": len({len(cells) for cells in territories}) == 1,
     }
 
@@ -184,10 +203,11 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         raise RuntimeError("map cannot provide equal connected cores")
     fairness = _fairness(countries, territories, elev, p, biome, river, hazards)
     polities = []
+    ids = country_ids(len(countries))
     for index, (country, capital, cells) in enumerate(zip(countries, capitals, territories)):
         x0, y0 = capital
         polities.append({
-            "id": COUNTRY_IDS[index], "name": country["name"], "type": country["archetype"],
+            "id": ids[index], "name": country["name"], "type": country["archetype"],
             "color": country["color"], "government": ARCHETYPES[country["archetype"]],
             "description": f"{ARCHETYPES[country['archetype']]}风格的自定义国家",
             "population": country["population"],

@@ -36,6 +36,11 @@ COUNTRY_NAMES = {
     "VAYR": "维尔山麓诸侯",
     "SAHAR": "萨赫尔河岸王国",
 }
+FALLBACK_PALETTE = [
+    "#e7b45f", "#63b1c9", "#d97f75", "#b98bcb",
+    "#8fbf7f", "#d6a36f", "#7f9ed6", "#c98fae",
+    "#9fc9b4", "#c4b56f", "#aa8fd1", "#d68a8a",
+]
 
 
 def load_key_file(path: Path) -> None:
@@ -47,7 +52,6 @@ def load_key_file(path: Path) -> None:
     if len(keys) != 1:
         raise RuntimeError("API key file must contain exactly one key")
     os.environ.setdefault("EOS_API_KEY", keys[0])
-    os.environ.setdefault("EOS_AGENT_ELAR_API_KEY", keys[0])
 
 
 class LiveSession:
@@ -455,11 +459,15 @@ class LiveSession:
         world = self.simulation.state.world
         metadata = world.data["metadata"]
         polities = []
-        for country_id, polity in world.polities.items():
+        for index, (country_id, polity) in enumerate(world.polities.items()):
             polities.append({
                 "id": country_id,
                 "name": polity["name"],
-                "color": polity.get("color") or COUNTRY_COLORS.get(country_id, "#ffffff"),
+                "color": (
+                    polity.get("color")
+                    or COUNTRY_COLORS.get(country_id)
+                    or FALLBACK_PALETTE[index % len(FALLBACK_PALETTE)]
+                ),
                 "archetype": polity.get("type"),
                 "capital": polity["capital"],
             })

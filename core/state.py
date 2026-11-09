@@ -90,8 +90,8 @@ class WorldStatic:
         if len(tiles) != len(data["tiles"]):
             raise ValueError("duplicate tile coordinates")
         polities = {polity["id"]: polity for polity in data["polities"]}
-        if len(polities) != 4:
-            raise ValueError("v0.2 requires the four restored initial polities")
+        if not polities:
+            raise ValueError("world must contain at least one polity")
         return cls(world_path, file_sha256(world_path), data, tiles, polities)
 
     def tile(self, coord: tuple[int, int]) -> dict[str, Any]:

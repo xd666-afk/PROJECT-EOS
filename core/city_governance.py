@@ -14,6 +14,12 @@ class CityManager:
         "MARIS": "commerce",
         "VAYR": "industry",
     }
+    FOCUS_BY_ARCHETYPE = {
+        "river_valley": "growth",
+        "semiarid": "growth",
+        "maritime": "commerce",
+        "highland": "industry",
+    }
     FOCUS_ZONE = {"growth": "farm", "industry": "industry", "commerce": "commerce"}
 
     def __init__(self, state) -> None:
@@ -21,7 +27,11 @@ class CityManager:
 
     def plan(self, engine) -> None:
         for country in self.state.countries.values():
-            national_focus = self.FOCUS_BY_COUNTRY.get(country.country_id, "balanced")
+            polity = self.state.world.polities.get(country.country_id, {})
+            national_focus = self.FOCUS_BY_COUNTRY.get(
+                country.country_id,
+                self.FOCUS_BY_ARCHETYPE.get(polity.get("type"), "balanced"),
+            )
             for city in country.cities:
                 if city.managed_by != "ai":
                     continue

@@ -423,7 +423,7 @@ button.primary:hover{filter:brightness(1.08)}
     <div class="brand"><div class="sigil"><span>E</span></div>
       <div><div class="menu-kicker">A LIVING WORLD · 2000 BCE</div></div></div>
     <h1>PROJECT <span>EOS</span></h1>
-    <p class="menu-lead">一个会自己运行、也会等待你介入的文明沙盘。选择存档继续，或生成新的公平世界与四国。</p>
+    <p class="menu-lead">一个会自己运行、也会等待你介入的文明沙盘。选择存档继续，或生成新的公平世界与多个国家。</p>
     <div class="menu-actions">
       <button class="primary" id="continueBtn">继续游戏 <small id="continueMeta">读取最近存档</small></button>
       <button id="loadMenuBtn">载入存档 <small id="saveCount">0 个存档</small></button>
@@ -632,7 +632,7 @@ button.primary:hover{filter:brightness(1.08)}
 <div class="modal" id="newWorldModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><h2>生成新世界</h2><p>系统已自动填入默认四国；不修改任何内容也能直接开始。地图会自动搜索并选择地理公平度更高的种子。</p></div>
+      <div><h2>生成新世界</h2><p>默认填入四国，可增减到 2–12 国；不修改任何内容也能直接开始。地图会自动搜索并选择地理公平度更高的种子。</p></div>
       <button id="newWorldClose">关闭</button>
     </div>
     <div class="ai-fields" style="margin-bottom:10px">
@@ -643,8 +643,12 @@ button.primary:hover{filter:brightness(1.08)}
       <div class="wide key-state" id="startEraPreview" style="padding:4px 0">公元前 800 年 → 时代 II · 铁器时代，科技从 2 级起步</div>
     </div>
     <div id="setupCountries"></div>
+    <div class="ai-actions-row" style="justify-content:space-between;align-items:center;margin-top:6px">
+      <span class="key-state" id="setupCountryCount">4 个国家</span>
+      <button id="addCountryBtn">+ 添加国家</button>
+    </div>
     <div class="ai-actions-row" style="justify-content:space-between;align-items:center">
-      <span class="key-state" id="setupStatus">四国初始各获得 16 格连通核心领土。</span>
+      <span class="key-state" id="setupStatus">每个国家初始获得 16 格连通核心领土。</span>
       <button class="primary" id="generateWorldBtn">生成并开始</button>
     </div>
   </div>
@@ -676,7 +680,7 @@ const POLICY_LABELS={BALANCED:'均衡施政',AGRICULTURE:'农业优先',INDUSTRY
   RESEARCH:'学术优先',TRADE:'贸易优先',AUSTERITY:'紧缩政策'};
 const RESEARCH_LABELS={agriculture:'农业',bronze_metallurgy:'冶金',writing:'文字'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
-let WORLD=null,STATE=null,selectedCountry='ELAR',selectedTile=null,mapMode='satellite',rightTab='activity';
+let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='activity';
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
 let hoveredTile=null;
 const $=id=>document.getElementById(id);
@@ -1606,31 +1610,73 @@ function updateStartEraPreview(){
   $('startEraPreview').textContent=`${bce?'公元前':'公元'} ${year} 年 → ${era[0]} · ${era[1]}，三条科技线从 ${era[2]} 级起步`;
 }
 $('newWorldModal').onclick=e=>{if(e.target===$('newWorldModal'))$('newWorldModal').hidden=true;};
-async function openNewWorld(){
-  try{
-    const r=await fetch('/api/setup');const data=await r.json();
-    $('setupCountries').innerHTML=data.countries.map((c,index)=>`<div class="ai-country" data-slot="${index}">
-      <div class="ai-country-head"><b>国家 ${index+1}</b><span class="key-state">${esc(data.archetypes[c.archetype])}</span></div>
-      <div class="ai-fields">
-        <label>国名<input data-field="name" value="${esc(c.name)}" maxlength="24"></label>
-        <label>颜色<input data-field="color" type="color" value="${esc(c.color)}"></label>
-        <label>文明类型<select data-field="archetype">${Object.entries(data.archetypes).map(([key,label])=>`<option value="${key}" ${key===c.archetype?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
-        <label>初始人口<input data-field="population" type="number" min="8000" max="60000" value="${c.population}"></label>
-      </div>
-    </div>`).join('');
-    $('startYearValue').value=800;$('startYearEra').value='BCE';
-    $('startYearValue').max=800;updateStartEraPreview();
-    $('generateWorldBtn').disabled=false;
-    $('setupStatus').textContent=`已自动填入默认数据；四国各获得 ${data.core_tiles} 格连通核心领土。`;
-    $('newWorldModal').hidden=false;
-  }catch(err){showToast('无法读取新世界配置',true);}
+let setupArchetypes={},setupDefaults=[],setupCoreTiles=16;
+const SETUP_PALETTE=['#e7b45f','#63b1c9','#d97f75','#b98bcb','#8fbf7f','#d6a36f','#7f9ed6','#c98fae','#9fc9b4','#c4b56f','#aa8fd1','#d68a8a'];
+function setupCountryRow(c,index){
+  return `<div class="ai-country" data-slot="${index}">
+    <div class="ai-country-head"><b>国家 ${index+1}</b>
+      <span class="key-state" style="display:flex;gap:5px;align-items:center">${esc(setupArchetypes[c.archetype]||c.archetype)}<button data-remove-country>移除</button></span></div>
+    <div class="ai-fields">
+      <label>国名<input data-field="name" value="${esc(c.name)}" maxlength="24"></label>
+      <label>颜色<input data-field="color" type="color" value="${esc(c.color)}"></label>
+      <label>文明类型<select data-field="archetype">${Object.entries(setupArchetypes).map(([key,label])=>`<option value="${key}" ${key===c.archetype?'selected':''}>${esc(label)}</option>`).join('')}</select></label>
+      <label>初始人口<input data-field="population" type="number" min="8000" max="60000" value="${c.population}"></label>
+    </div>
+  </div>`;
 }
-$('generateWorldBtn').onclick=async()=>{
-  const button=$('generateWorldBtn');button.disabled=true;$('setupStatus').textContent='正在生成地图并评估公平度…';
-  const countries=[...document.querySelectorAll('#setupCountries .ai-country')].map(row=>{
+function refreshSetupCountryLabels(){
+  const rows=[...document.querySelectorAll('#setupCountries .ai-country')];
+  rows.forEach((row,index)=>{row.dataset.slot=index;row.querySelector('.ai-country-head b').textContent=`国家 ${index+1}`;});
+  $('setupCountryCount').textContent=`${rows.length} 个国家`;
+  $('addCountryBtn').disabled=rows.length>=12;
+  for(const btn of document.querySelectorAll('[data-remove-country]'))btn.disabled=rows.length<=2;
+}
+function captureSetupCountries(){
+  return [...document.querySelectorAll('#setupCountries .ai-country')].map(row=>{
     const val=name=>row.querySelector(`[data-field="${name}"]`).value;
     return {name:val('name').trim(),color:val('color'),archetype:val('archetype'),population:Number(val('population'))};
   });
+}
+function renderSetupCountries(countries){
+  $('setupCountries').innerHTML=countries.map((c,index)=>setupCountryRow(c,index)).join('');
+  for(const btn of document.querySelectorAll('[data-remove-country]'))btn.onclick=()=>{
+    const rows=document.querySelectorAll('#setupCountries .ai-country');
+    if(rows.length<=2)return;
+    btn.closest('.ai-country').remove();refreshSetupCountryLabels();
+  };
+  refreshSetupCountryLabels();
+}
+async function openNewWorld(){
+  try{
+    const r=await fetch('/api/setup');const data=await r.json();
+    setupArchetypes=data.archetypes||{};setupDefaults=data.countries||[];setupCoreTiles=data.core_tiles||16;
+    renderSetupCountries(setupDefaults.map(item=>({...item})));
+    $('startYearValue').value=800;$('startYearEra').value='BCE';
+    $('startYearValue').max=800;updateStartEraPreview();
+    $('generateWorldBtn').disabled=false;
+    $('setupStatus').textContent=`已自动填入默认数据；每个国家获得 ${setupCoreTiles} 格连通核心领土。`;
+    $('newWorldModal').hidden=false;
+  }catch(err){showToast('无法读取新世界配置',true);}
+}
+$('addCountryBtn').onclick=()=>{
+  const rows=[...document.querySelectorAll('#setupCountries .ai-country')];
+  if(rows.length>=12)return;
+  const defaults=captureSetupCountries();
+  const base=setupDefaults[defaults.length%Math.max(1,setupDefaults.length)]||{archetype:'river_valley',population:20000};
+  const used=new Set(defaults.map(c=>c.color.toLowerCase()));
+  const color=SETUP_PALETTE.find(c=>!used.has(c.toLowerCase()))||'#'+Math.floor(Math.random()*0xffffff).toString(16).padStart(6,'0');
+  const extra={name:`新国家${defaults.length+1}`,color,archetype:base.archetype,population:base.population};
+  $('setupCountries').insertAdjacentHTML('beforeend',setupCountryRow(extra,defaults.length));
+  const addedRow=$('setupCountries').lastElementChild;
+  addedRow.querySelector('[data-remove-country]').onclick=()=>{
+    const current=document.querySelectorAll('#setupCountries .ai-country');if(current.length<=2)return;
+    addedRow.remove();refreshSetupCountryLabels();
+  };
+  refreshSetupCountryLabels();
+};
+$('generateWorldBtn').onclick=async()=>{
+  const button=$('generateWorldBtn');button.disabled=true;$('setupStatus').textContent='正在生成地图并评估公平度…';
+  const countries=captureSetupCountries();
   const seed=$('worldSeed').value.trim(),saveName=$('saveName').value.trim();
   const bce=$('startYearEra').value==='BCE',year=Number($('startYearValue').value);
   const startYear=bce?(1-year):year;

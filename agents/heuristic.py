@@ -11,12 +11,23 @@ PREFERENCES = {
     "VAYR": {"policy": "INDUSTRY", "research": "bronze_metallurgy", "building": "MINE"},
     "SAHAR": {"policy": "AGRICULTURE", "research": "agriculture", "building": "FARM"},
 }
+DEFAULT_PROFILES = [
+    {"policy": "AGRICULTURE", "research": "agriculture", "building": "FARM"},
+    {"policy": "TRADE", "research": "bronze_metallurgy", "building": "ROAD"},
+    {"policy": "INDUSTRY", "research": "bronze_metallurgy", "building": "MINE"},
+    {"policy": "BALANCED", "research": "writing", "building": "LIBRARY"},
+]
 
 
 class HeuristicAgent(CountryAgent):
     def __init__(self, country_id: str) -> None:
         self.country_id = country_id
-        self.preference = PREFERENCES[country_id]
+        # New/custom worlds may contain any number of countries. Keep the four
+        # tuned profiles as special cases, but never fail for an unknown ID.
+        profile_index = sum(ord(char) for char in country_id) % len(DEFAULT_PROFILES)
+        self.preference = dict(
+            PREFERENCES.get(country_id, DEFAULT_PROFILES[profile_index])
+        )
 
     async def decide(self, observation: dict[str, Any]) -> dict[str, Any]:
         country = observation["country"]
@@ -195,9 +206,9 @@ class HeuristicAgent(CountryAgent):
     def _workers(self, country: dict[str, Any]) -> dict[str, float]:
         if country["food"] < 60 or country["last_economy"].get("food_shortage", 0) > 0:
             return {"agriculture": 0.7, "mining": 0.1, "construction": 0.2}
-        if self.country_id == "VAYR":
+        if self.preference["policy"] == "INDUSTRY":
             return {"agriculture": 0.45, "mining": 0.35, "construction": 0.2}
-        if self.country_id == "MARIS":
+        if self.preference["policy"] in {"TRADE", "RESEARCH"}:
             return {"agriculture": 0.5, "mining": 0.3, "construction": 0.2}
         return {"agriculture": 0.65, "mining": 0.15, "construction": 0.2}
 
