@@ -82,3 +82,22 @@ def test_simple_provider_key_stays_in_process_memory(monkeypatch):
         session._stop.set()
         session.thread.join(timeout=2)
         monkeypatch.delenv("EOS_AGENT_ELAR_API_KEY", raising=False)
+
+
+def test_live_session_blocks_llm_city_governance_without_model_agent():
+    session = LiveSession(speed=1.0, maximum_day=1, paused=True)
+    try:
+        assert session.control("take_control", "ELAR")["ok"]
+        city_id = session.simulation.state.countries["ELAR"].cities[0].city_id
+        blocked = session.player_action("ELAR", {
+            "type": "SET_CITY_GOVERNANCE", "city_id": city_id, "managed_by": "llm",
+        })
+        assert not blocked["ok"] and "模型控制" in blocked["error"]
+        accepted = session.player_action("ELAR", {
+            "type": "SET_CITY_GOVERNANCE", "city_id": city_id, "managed_by": "ai",
+        })
+        assert accepted["ok"]
+        assert session.simulation.state.countries["ELAR"].cities[0].managed_by == "ai"
+    finally:
+        session._stop.set()
+        session.thread.join(timeout=2)

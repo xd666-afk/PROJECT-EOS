@@ -659,6 +659,13 @@ class LiveSession:
                 return {"ok": False, "error": "当前为观战模式，请先介入一个国家"}
             if actor != self.player_country:
                 return {"ok": False, "error": "只能为自己接管的国家下达动作"}
+            if (
+                isinstance(action, dict)
+                and action.get("type") == "SET_CITY_GOVERNANCE"
+                and action.get("managed_by") == "llm"
+                and self.agent_meta.get(actor, {}).get("mode") != "openai_compatible"
+            ):
+                return {"ok": False, "error": "LLM 托管需要先把该国 AI 设为模型控制"}
             result = self.simulation.engine.apply_action(actor, action)
             return {"ok": result.accepted, "result": result.to_dict()}
 
