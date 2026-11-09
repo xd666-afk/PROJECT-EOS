@@ -339,6 +339,36 @@ button.primary:hover{filter:brightness(1.08)}
 .diary-actions{display:flex;gap:4px;flex-wrap:wrap;margin:7px 0 4px}
 .diary-action{font-size:9px;border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--muted)}
 .diary-meta{color:var(--faint);font-size:8.5px}
+.diary-bubbles{position:absolute;inset:0;pointer-events:none;z-index:6}
+.diary-bubble{position:absolute;transform:translate(-50%,-100%);max-width:240px;min-width:188px;
+  padding:9px 11px 8px;border:1px solid var(--c);border-left:3px solid var(--c);border-radius:12px;
+  background:linear-gradient(160deg,#102832f5,#091b22f5);box-shadow:0 8px 24px #02080c99;
+  pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .35s,transform .22s,max-width .2s;
+  backdrop-filter:blur(6px)}
+.diary-bubble.show{opacity:1}
+.diary-bubble::after{content:"";position:absolute;left:calc(50% + var(--tail,0px));bottom:-6px;width:10px;height:10px;
+  background:#0b1f27;border-right:1px solid var(--c);border-bottom:1px solid var(--c);transform:translateX(-50%) rotate(45deg)}
+.diary-bubble.below{transform:translate(-50%,0)}
+.diary-bubble.below::after{top:-6px;bottom:auto;border:0;border-left:1px solid var(--c);border-top:1px solid var(--c)}
+.diary-bubble.highlight{animation:diaryPulse 1.5s ease-in-out infinite}
+.diary-bubble.fading{opacity:0;transform:translate(-50%,-100%) translateY(-8px)}
+.diary-bubble.below.fading{transform:translate(-50%,0) translateY(8px)}
+.diary-bubble.expanded{max-width:360px;width:360px;max-height:calc(100vh - 140px);overflow:auto;z-index:9;cursor:default;border-left-width:4px}
+.diary-bubble.expanded::after{display:none}
+.diary-bubble:not(.expanded):hover{border-color:var(--c);box-shadow:0 10px 30px #02080ccc,0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent)}
+.db-head{display:flex;gap:7px;align-items:center;padding-right:14px}
+.db-mood{font-size:8px;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);border-radius:20px;padding:1px 6px;white-space:nowrap}
+.db-head b{font-size:10.5px;line-height:1.3;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.db-quote{margin:6px 0 4px;font-size:10px;line-height:1.55;color:#b9cdd2;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.db-hint{font-size:8px;color:var(--faint)}
+.db-full{display:none}
+.expanded .db-full{display:block}
+.expanded .db-quote,.expanded .db-hint{display:none}
+.db-full-text{white-space:pre-wrap;font-size:10.5px;line-height:1.72;color:#c4d5d9;margin:7px 0}
+.db-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.db-close{position:absolute;right:7px;top:5px;min-width:20px;min-height:20px;padding:0;border:0;background:transparent;color:var(--muted);font-size:14px;line-height:1}
+.db-close:hover{color:var(--ink)}
+@keyframes diaryPulse{0%,100%{box-shadow:0 8px 24px #02080c99,0 0 0 0 color-mix(in srgb,var(--c) 55%,transparent)}50%{box-shadow:0 8px 30px #02080ccc,0 0 0 6px transparent}}
 .ai-country{border:1px solid var(--line);border-radius:8px;padding:9px;background:#0b2029;margin-bottom:8px}
 .ai-country-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
 .ai-country-head b{font-size:11px;font-weight:600}
@@ -441,6 +471,7 @@ button.primary:hover{filter:brightness(1.08)}
     </aside>
     <section class="mapwrap">
       <canvas id="map"></canvas>
+      <div class="diary-bubbles" id="diaryBubbles"></div>
       <div class="map-toolbar">
         <div class="map-tools">
           <button class="on" data-layer="satellite">卫星</button>
@@ -578,7 +609,7 @@ button.primary:hover{filter:brightness(1.08)}
 <div class="modal" id="diaryModal" hidden>
   <div class="modal-card" style="width:min(920px,96vw)">
     <div class="modal-head">
-      <div><h2>AI 统治日记</h2><p>仅记录 LLM 控制国家的决策叙事：它看到了什么、为什么这样做、放弃了什么、下一步准备做什么。</p></div>
+      <div><h2>AI 统治档案</h2><p>决策会先以地图气泡出现；这里保留已经淡出或关闭的 LLM 日记，随时回看它看到了什么、为什么这样做、下一步准备做什么。</p></div>
       <button id="diaryClose">关闭</button>
     </div>
     <div class="diary-toolbar">
@@ -949,6 +980,7 @@ function render(force=false){
     ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
   }
   ctx.restore();
+  positionDiaryBubbles();
 }
 function updateMapLegend(){
   const items={
@@ -1255,6 +1287,7 @@ async function poll(force=false){
   try{
     const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw new Error('state');
     STATE=await r.json();
+    syncDiaryBubbles();
     if(force===true){
       lastStateKey='';renderTop();renderCountries();renderRight();render(true);
       if(STATE.finished&&!endShown)showEndScreen();
@@ -1384,7 +1417,7 @@ function renderDiary(data){
     :'当前由规则 AI 控制，不生成日记';
   if(!entries.length){
     $('diaryList').innerHTML=`<div class="mini-empty">${meta.mode==='openai_compatible'
-      ?'等待下一次 90 日规划产生第一篇日记。'
+      ?'等待下一次 90 日规划。新的日记会先以地图气泡高亮出现，淡出或关闭后归档在这里。'
       :'规则 AI 不写日记；可在 AI 席位把该国切换为 OpenAI 兼容模型，从下一次规划开始记录。'}</div>`;
     return;
   }
@@ -1397,6 +1430,133 @@ function renderDiary(data){
       <div class="diary-meta">${esc(e.provider||'')}${e.model?' · '+esc(e.model):''}${e.synthetic?' · 模型未提供日记，显示决策理由':''}</div>
     </article>`;
   }).join('');
+}
+const DIARY_HIGHLIGHT_MS=2200,DIARY_HOLD_MS=5200,DIARY_FADE_MS=900,DIARY_LEAVE_MS=1200,DIARY_MAX_BUBBLES=2;
+const diaryBubbles=new Map();
+let diaryQueue=[],diarySeen=new Set(),diaryInitialized=false;
+function diaryEventKey(event){return String(event.sequence??`${event.country_id}:${event.day}:${event.title||''}`);}
+function clearDiaryTimers(bubble){for(const timer of Object.values(bubble.timers))clearTimeout(timer);bubble.timers={};}
+function resetDiaryBubbles(){
+  diaryQueue=[];diarySeen=new Set();diaryInitialized=false;
+  for(const bubble of diaryBubbles.values()){clearDiaryTimers(bubble);bubble.el.remove();}
+  diaryBubbles.clear();
+  const host=$('diaryBubbles');if(host)host.innerHTML='';
+}
+function queueDiaryBubble(event){
+  const cid=event.country_id;
+  for(const bubble of [...diaryBubbles.values()])if(bubble.event.country_id===cid)removeDiaryBubble(bubble,false);
+  diaryQueue=diaryQueue.filter(item=>item.country_id!==cid);
+  if(diaryBubbles.size>=DIARY_MAX_BUBBLES)diaryQueue.push(event);
+  else createDiaryBubble(event);
+  drainDiaryQueue();
+}
+function drainDiaryQueue(){
+  while(diaryBubbles.size<DIARY_MAX_BUBBLES&&diaryQueue.length)createDiaryBubble(diaryQueue.shift());
+}
+function createDiaryBubble(event){
+  const key=diaryEventKey(event);if(diaryBubbles.has(key))return;
+  const cid=event.country_id;
+  const color=countryColor(cid);
+  const el=document.createElement('div');
+  el.className='diary-bubble highlight';
+  el.style.setProperty('--c',color);
+  const title=esc(event.title||'决策记录');
+  const mood=esc(event.mood||'未说明');
+  const quote=esc((event.text||'').slice(0,72))+(event.text&&event.text.length>72?'…':'');
+  const actions=(event.actions||[]).map(a=>`<span class="diary-action">${esc(fmtAction(a))}</span>`).join('');
+  el.innerHTML=`<button class="db-close" aria-label="关闭">×</button>
+    <div class="db-head"><span class="db-mood">${mood}</span><b>《${title}》</b></div>
+    <p class="db-quote">${quote}</p>
+    <div class="db-hint">日 ${event.day} · 点击展开</div>
+    <div class="db-full"><div class="db-full-text">${esc(event.text||'')}</div>
+      ${actions?`<div class="db-actions">${actions}</div>`:''}
+      <div class="diary-meta">${esc(event.provider||'')}${event.model?' · '+esc(event.model):''}${event.synthetic?' · 模型未提供日记，显示决策理由':''}</div>
+    </div>`;
+  $('diaryBubbles').appendChild(el);
+  const bubble={event,el,key,phase:'highlight',hovered:false,pinned:false,expanded:false,timers:{}};
+  diaryBubbles.set(key,bubble);
+  positionDiaryBubbles();
+  requestAnimationFrame(()=>el.classList.add('show'));
+  el.addEventListener('mouseenter',()=>{
+    bubble.hovered=true;
+    bubble.el.classList.remove('highlight');
+    if(bubble.phase==='highlight')bubble.phase='steady';
+    reviveDiaryBubble(bubble);
+  });
+  el.addEventListener('mouseleave',()=>{
+    bubble.hovered=false;
+    if(bubble.pinned||bubble.expanded)return;
+    clearDiaryTimers(bubble);
+    bubble.timers.leave=setTimeout(()=>startDiaryFade(bubble),DIARY_LEAVE_MS);
+  });
+  el.addEventListener('click',e=>{
+    if(e.target.closest('.db-close')){removeDiaryBubble(bubble);return;}
+    bubble.pinned=true;bubble.expanded=true;bubble.hovered=true;
+    clearDiaryTimers(bubble);
+    bubble.el.classList.remove('highlight','fading');
+    bubble.el.classList.add('steady','expanded');
+    positionDiaryBubbles();
+  });
+  armDiaryTimeline(bubble);
+}
+function armDiaryTimeline(bubble){
+  clearDiaryTimers(bubble);
+  if(bubble.pinned||bubble.expanded||bubble.hovered)return;
+  if(bubble.phase==='highlight'){
+    bubble.timers.highlight=setTimeout(()=>{
+      bubble.phase='steady';bubble.el.classList.remove('highlight');armDiaryTimeline(bubble);
+    },DIARY_HIGHLIGHT_MS);
+  }else{
+    bubble.timers.fade=setTimeout(()=>startDiaryFade(bubble),DIARY_HOLD_MS);
+  }
+}
+function startDiaryFade(bubble){
+  if(bubble.pinned||bubble.expanded||bubble.hovered)return;
+  clearDiaryTimers(bubble);
+  bubble.phase='fading';bubble.el.classList.remove('highlight');bubble.el.classList.add('fading');
+  bubble.timers.remove=setTimeout(()=>removeDiaryBubble(bubble),DIARY_FADE_MS);
+}
+function reviveDiaryBubble(bubble){
+  clearDiaryTimers(bubble);
+  bubble.el.classList.remove('fading');
+  bubble.phase='steady';bubble.el.classList.add('steady');
+}
+function removeDiaryBubble(bubble,drain=true){
+  clearDiaryTimers(bubble);
+  bubble.el.remove();
+  diaryBubbles.delete(bubble.key);
+  if(drain)drainDiaryQueue();
+}
+function positionDiaryBubbles(){
+  if(!WORLD||!STATE)return;
+  const w=mapPanel.clientWidth,h=mapPanel.clientHeight,scale=fitScale*zoom;
+  for(const bubble of diaryBubbles.values()){
+    const capital=countryMeta(bubble.event.country_id)?.capital;
+    if(!capital)continue;
+    const anchorX=baseOffX+panX+cx([capital.col,capital.row])*scale;
+    const anchorY=baseOffY+panY+cy([capital.col,capital.row])*scale;
+    const below=anchorY<150;
+    const margin=Math.min(bubble.expanded?190:135,w/2-8);
+    const x=Math.max(margin,Math.min(w-margin,anchorX));
+    const y=Math.max(55,Math.min(h-55,anchorY));
+    bubble.el.style.left=x+'px';
+    bubble.el.style.top=(below?y+18:y-18)+'px';
+    bubble.el.classList.toggle('below',below);
+    bubble.el.style.setProperty('--tail',Math.max(-65,Math.min(65,anchorX-x))+'px');
+  }
+}
+function syncDiaryBubbles(){
+  if(!STATE||!WORLD)return;
+  const events=(STATE.recent_events||[]).filter(e=>e.type==='llm_diary');
+  if(!diaryInitialized){
+    for(const event of events)diarySeen.add(diaryEventKey(event));
+    diaryInitialized=true;positionDiaryBubbles();return;
+  }
+  for(const event of events){
+    const key=diaryEventKey(event);
+    if(diarySeen.has(key))continue;
+    diarySeen.add(key);queueDiaryBubble(event);
+  }
 }
 $('diaryBtn').onclick=openDiary;
 $('pauseDiaryBtn').onclick=()=>{$('pauseMenu').hidden=true;openDiary();};
@@ -1557,6 +1717,7 @@ async function startSession(){
     for(const b of document.querySelectorAll('.map-tools button'))b.classList.toggle('on',b.dataset.layer===wantedLayer);
   }
   showOnlyScreen('game');gameLoaded=true;
+  resetDiaryBubbles();
   await new Promise(requestAnimationFrame);resize();fitMap();await poll(true);
   renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('activity');
   if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
