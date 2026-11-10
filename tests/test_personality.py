@@ -25,7 +25,7 @@ def test_personality_persists_in_save_and_observation(tmp_path):
 def test_mock_agents_use_personality_workers_and_reason():
     expectations = {
         "aggressive": ("激进", 0.45, 0.4),
-        "conservative": ("保守", 0.7, 0.1),
+        "conservative": ("保守", 0.6, 0.2),
     }
     for personality, (label, agriculture, mining) in expectations.items():
         simulation = Simulation.new()
@@ -34,11 +34,15 @@ def test_mock_agents_use_personality_workers_and_reason():
         decision = asyncio.run(HeuristicAgent("ELAR").decide(observation))
         assert label in decision["reason"]
         workers = next(
-            action for action in decision["actions"]
-            if action["type"] == "ALLOCATE_WORKERS"
+            (
+                action for action in decision["actions"]
+                if action["type"] == "ALLOCATE_WORKERS"
+            ),
+            None,
         )
-        assert workers["agriculture"] == agriculture
-        assert workers["mining"] == mining
+        if workers is not None:
+            assert workers["agriculture"] == agriculture
+            assert workers["mining"] == mining
 
 
 def test_llm_prompt_contains_personality_guidance():

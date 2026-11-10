@@ -91,23 +91,9 @@ class HeuristicAgent(CountryAgent):
         if country["workers"] != desired_workers and len(actions) < 4:
             actions.append({"type": "ALLOCATE_WORKERS", **desired_workers})
 
-        expansion = rules["expansion"]
-        if (
-            len(actions) < profile["expand_actions"]
-            and country["outposts"] < expansion["max_outposts"]
-            and country["treasury"] >= expansion["treasury_cost"] + profile["expand_reserve"]
-            and country["food"] >= profile["expand_food"]
-            and observation["frontier_candidates"]
-        ):
-            candidates = observation["frontier_candidates"]
-            target = max(
-                candidates,
-                key=lambda tile: (1 if tile["river"] else 0, tile["biome"] == "grassland"),
-            )
-            actions.append({
-                "type": "SETTLE",
-                "tile": {"col": target["col"], "row": target["row"]},
-            })
+        settle = self._settle_action(country, observation, rules, profile, actions)
+        if settle:
+            actions.append(settle)
 
         projected_treasury = country["treasury"]
         chosen_tiles = set()
@@ -124,7 +110,10 @@ class HeuristicAgent(CountryAgent):
             ):
                 break
             cost = spec["cost"]
-            if projected_treasury < cost:
+            reserve = profile.get("build_reserve", 0.0)
+            if country["outposts"] >= rules["expansion"]["max_outposts"]:
+                reserve = 0.0
+            if projected_treasury < cost + reserve:
                 break
             tile = self._choose_tile(
                 [tile for tile in observation["tiles"] if (tile["col"], tile["row"]) not in chosen_tiles],
@@ -201,6 +190,34 @@ class HeuristicAgent(CountryAgent):
             "actions": actions[: rules["max_actions_per_decision"]],
             "reason": self._reason(country, personality),
         }
+
+    def _settle_action(
+        self,
+        country: dict[str, Any],
+        observation: dict[str, Any],
+        rules: dict[str, Any],
+        profile: dict[str, Any],
+        actions: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        expansion = rules["expansion"]
+        if len(actions) >= profile["expand_actions"]:
+            return None
+        if country["outposts"] >= expansion["max_outposts"]:
+            return None
+        if country["treasury"] < expansion["treasury_cost"] + profile["expand_reserve"]:
+            return None
+        if country["food"] < profile["expand_food"]:
+            return None
+        if len(country.get("buildings", {})) < profile.get("expand_after_buildings", 0):
+            return None
+        candidates = observation.get("frontier_candidates") or []
+        if not candidates:
+            return None
+        target = max(
+            candidates,
+            key=lambda tile: (1 if tile["river"] else 0, tile["biome"] == "grassland"),
+        )
+        return {"type": "SETTLE", "tile": {"col": target["col"], "row": target["row"]}}
 
     def _workers(self, country: dict[str, Any]) -> dict[str, float]:
         if country["food"] < 60 or country["last_economy"].get("food_shortage", 0) > 0:

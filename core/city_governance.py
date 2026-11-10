@@ -47,8 +47,6 @@ class CityManager:
                     desired_focus = "growth"
                 elif personality == "aggressive":
                     desired_focus = "industry"
-                elif personality == "conservative":
-                    desired_focus = "growth"
                 else:
                     desired_focus = national_focus
                 if desired_focus != "balanced" and city.focus != desired_focus:
@@ -114,12 +112,6 @@ class CityManager:
             if city.livability < 58 and country.treasury >= 15:
                 return "investment"
             return "balanced" if country.treasury >= 8 else "austerity"
-        if personality == "conservative":
-            if country.treasury < 45 and city.local_net < 0:
-                return "austerity"
-            if low_service and country.treasury >= 30:
-                return "investment"
-            return "balanced"
         if country.treasury < 10 and city.local_net < 0:
             return "austerity"
         if low_service and country.treasury >= 15:

@@ -34,7 +34,7 @@ ASSETS = ROOT / "docs" / "report_assets" / "personality_experiment"
 REPORT = ROOT / "PERSONALITY_EXPERIMENT_REPORT.md"
 
 SEEDS = [31001, 42002, 51003]
-DAYS = 1825
+DAYS = 3650
 SNAPSHOT_STEP = 30
 START_ERA = -799
 COLORS = {
@@ -340,7 +340,7 @@ def bar_scores(agg: dict) -> Path:
                 ha="center", va="bottom", color=INK, fontsize=11, fontweight="bold")
     ax.set_ylim(0, max(values) * 1.18)
     ax.set_ylabel("平均综合评分")
-    ax.set_title("五年后的平均综合评分", fontsize=14, pad=14)
+    ax.set_title("十年后的平均综合评分", fontsize=14, pad=14)
     ax.grid(axis="y", color="#1c333d", linewidth=.8, alpha=.8)
     ax.set_axisbelow(True)
     fig.tight_layout()
@@ -390,7 +390,7 @@ def behavior_chart(agg: dict) -> Path:
     ax.set_xticks(list(x))
     ax.set_xticklabels([label for _, label in metrics])
     ax.set_ylabel("平均每国发生次数")
-    ax.set_title("五年内的主要行为差异（按国家平均）", fontsize=14, pad=14)
+    ax.set_title("十年内的主要行为差异（按国家平均）", fontsize=14, pad=14)
     ax.grid(axis="y", color="#1c333d", linewidth=.8, alpha=.8)
     ax.set_axisbelow(True)
     ax.legend(frameon=False, ncol=3)
@@ -473,7 +473,7 @@ def map_chart(run: dict) -> Path:
     ax.set_aspect("equal")
     ax.axis("off")
     ax.set_title(
-        f"五年后的领土与性格 · 基准 {run['seed']} / 世界 {run['world_seed']}",
+        f"十年后的领土与性格 · 基准 {run['seed']} / 世界 {run['world_seed']}",
         fontsize=14, pad=10,
     )
     legend = [
@@ -549,7 +549,7 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
         )
 
     milestone_rows = []
-    for year in (1, 2, 3, 4, 5):
+    for year in (1, 3, 5, 7, 10):
         day = year * 365
         nearest = min(
             range(len(t_territory["days"])),
@@ -576,7 +576,7 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
                 f"{data['archetype'] or '—'} | {data['score']:.1f} | "
                 f"{data['population']} | {data['territory']} | {data['cities']} | "
                 f"{data['army']} | {data['stability']:.1f} | {data['treasury']:.1f} | "
-                f"{events.get('wars_declared', 0)} | {events.get('gifts', 0)} |"
+                f"{data['buildings']} | {events.get('wars_declared', 0)} | {events.get('gifts', 0)} |"
             )
 
     chart_lines = "\n".join(
@@ -584,22 +584,22 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
         for title, path in charts.items()
     )
 
-    text = f"""# Project Eos · AI 性格五年对照实验
+    text = f"""# Project Eos · AI 性格十年对照实验
 
 > 生成时间：{generated_at}  
 > 实验代码：`run_personality_experiment.py`  
 > 实验模式：Mock 规则 AI（无真实模型调用）  
-> 时长：每局 1,825 游戏日（5 个游戏年），每 30 日快照  
+> 时长：每局 3,650 游戏日（10 个游戏年），每 30 日快照  
 > 世界：6 国、2 激进 + 2 中立 + 2 保守，3 个公平世界轮换性格槽位  
 > 数据与存档：`runs/personality_experiment/`
 
 ## 0. 结论摘要
 
-- 五年平均综合评分最高的是 **{agg[best_score]['label']}**（{agg[best_score]['score']:.1f} 分）；平均领土最多的是 **{agg[best_territory]['label']}**（{agg[best_territory]['territory']:.1f} 格）。
+- 十年平均综合评分最高的是 **{agg[best_score]['label']}**（{agg[best_score]['score']:.1f} 分）；平均领土最多的是 **{agg[best_territory]['label']}**（{agg[best_territory]['territory']:.1f} 格）。
 - 宣战次数最多的是 **{agg[most_wars]['label']}**（{agg[most_wars]['events']['wars_declared']} 次）；赠礼最多的是 **{agg[most_gifts]['label']}**（{agg[most_gifts]['events']['gifts']} 次）；协定最多的是 **{agg[most_pacts]['label']}**（{agg[most_pacts]['events']['pacts']} 项）。
-- 平均稳定度最高的是 **{agg[most_stable]['label']}**（{agg[most_stable]['stability']:.1f}）。保守平均稳定度 {agg['conservative']['stability']:.1f}，在战争压力下仍会下滑。
+- 平均稳定度最高的是 **{agg[most_stable]['label']}**（{agg[most_stable]['stability']:.1f}）；中立 {agg['neutral']['stability']:.1f}，激进 {agg['aggressive']['stability']:.1f}。
 - 三局结果：{"; ".join(f"种子 {seed}：{winner}" for seed, winner in winners)}。
-- 结论不是“某性格必胜”，而是：激进更容易把资源转成领土与军队，中立更稳且外交最活跃，保守避免了主动战争但发展最慢；差异会受出生地、邻国和世界种子影响。
+- 结论不是“某性格必胜”，而是：激进更容易把资源转成领土与军队，中立更均衡且协定最多，保守避免了主动战争、赠礼最多但领土最少；差异会受出生地、邻国和世界种子影响。
 
 ## 1. 实验设计
 
@@ -610,7 +610,7 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
 | 世界 | `mapgen.generate_fair_world` 生成的公平世界 |
 | 开局 | 公元前 799 年（BC800），三线科技从时代基线起步 |
 | 控制器 | 全部 Mock 规则 AI，不使用 API |
-| 时长 | 1,825 日，每 30 日记录一次快照 |
+| 时长 | 3,650 日，每 30 日记录一次快照 |
 | 随机性 | 世界与天气由种子决定，无人工介入 |
 
 ### 1.1 三局总览
@@ -627,7 +627,7 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 {chr(10).join(score_rows)}
 
-![五年后的平均综合评分]({(ASSETS / 'score_by_personality.png').relative_to(ROOT).as_posix()})
+![十年后的平均综合评分]({(ASSETS / 'score_by_personality.png').relative_to(ROOT).as_posix()})
 
 ## 3. 行为差异
 
@@ -635,7 +635,7 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 {chr(10).join(behavior_rows)}
 
-> “宣战/战斗/建城/赠礼/协定”是该性格 6 个国家的五年累计事件数。
+> “宣战/战斗/建城/赠礼/协定”是该性格 6 个国家的十年累计事件数。
 
 ![主要行为差异]({(ASSETS / 'behavior_by_personality.png').relative_to(ROOT).as_posix()})
 
@@ -659,13 +659,13 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
 
 ## 5. 代表世界
 
-下图是种子 `{runs[0]['seed']}`（实际世界 `{runs[0]['world_seed']}`）的五年末领土，颜色表示性格而非国家。
+下图是种子 `{runs[0]['seed']}`（实际世界 `{runs[0]['world_seed']}`）的十年末领土，颜色表示性格而非国家。
 
-![五年后的领土]({(ASSETS / f"territory_seed_{runs[0]['seed']}.png").relative_to(ROOT).as_posix()})
+![十年后的领土]({(ASSETS / f"territory_seed_{runs[0]['seed']}.png").relative_to(ROOT).as_posix()})
 
 ## 6. 逐国明细
 
-| 种子 | 国家 | 性格 | 文明类型 | 总分 | 人口 | 领土 | 城市 | 军队 | 稳定 | 财政 | 宣战 | 赠礼 |
+| 种子 | 国家 | 性格 | 文明类型 | 总分 | 人口 | 领土 | 城市 | 军队 | 稳定 | 财政 | 建筑 | 宣战 | 赠礼 |
 | --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 {chr(10).join(country_rows)}
 
@@ -673,30 +673,31 @@ def write_report(runs: list[dict], agg: dict, charts: dict, generated_at: str) -
 
 ### 激进
 
-- 平均领土 37.5 格、5.0 城、军队 4.5，均为三档最高，五年平均分 112.6 也最高。
-- 宣战 5 次、战斗 10 次，明显高于另外两档；稳定度 69.6，低于中立的 72.4。
-- 赠礼只有 1 次，外交更偏向实力与威慑；扩张和军备能转化为分数，但也会积累战争风险。
-- 种子 42002 的疆域胜利由国家C（激进）达成，说明激进路线在当前规则下可以兑现为正式胜利。
+- 平均分 {agg['aggressive']['score']:.1f}，平均领土 {agg['aggressive']['territory']:.1f} 格、军队 {agg['aggressive']['army']:.1f}，三项均为最高；5 座城市与其他两档持平。
+- 宣战 {agg['aggressive']['events']['wars_declared']} 次、战斗 {agg['aggressive']['events']['battles']} 次，远高于中立和保守；平均稳定度 {agg['aggressive']['stability']:.1f}，三档最低。
+- 赠礼 {agg['aggressive']['events']['gifts']} 次、协定 {agg['aggressive']['events']['pacts']} 项，外交仍以实力和威慑为主。
+- 它把扩张和军备转化为分数，但战争频率和低稳定度是长期成本；高财政主要来自持续扩张后的税基，而不是节俭。
 
 ### 中立
 
-- 平均领土 31.7 格、4.0 城、军队 1.67，扩张和军备都居中。
-- 稳定度 72.4 为三档最高，赠礼 18 次、协定 7 项，是外交最活跃的一档。
-- 平均分 98.7，低于激进但高于保守；适合作为默认基准和稳健打法。
+- 平均分 {agg['neutral']['score']:.1f}，平均领土 {agg['neutral']['territory']:.1f} 格、军队 {agg['neutral']['army']:.1f}，处于激进和保守之间。
+- 宣战 {agg['neutral']['events']['wars_declared']} 次、战斗 {agg['neutral']['events']['battles']} 次，明显低于激进；赠礼 {agg['neutral']['events']['gifts']} 次、协定 {agg['neutral']['events']['pacts']} 项，是三档里协定最多的。
+- 平均稳定度 {agg['neutral']['stability']:.1f}，高于激进；它是最接近“均衡基线”的一档。
 
 ### 保守
 
-- 平均领土 18.8 格、2.0 城，军队 0；主动宣战 0 次，确实避免了主动战争。
-- 赠礼 13 次、协定 3 项，说明它愿意用外交换空间；但五年内财政长期紧张，赠礼和建设都在挤压扩张预算。
-- 稳定度 65.9，低于中立；即使不主动开战，被邻国进攻时仍会付出稳定度和领土代价。
-- 在当前五年窗口内，保守路线最安全但也最慢，排名和综合评分明显落后。
+- 平均分 {agg['conservative']['score']:.1f}，与中立几乎持平；但平均领土 {agg['conservative']['territory']:.1f} 格，三档最少。
+- 主动宣战 {agg['conservative']['events']['wars_declared']} 次、战斗 {agg['conservative']['events']['battles']} 次，军队 {agg['conservative']['army']:.1f}；它确实避免了主动战争，只保留最低限度防御。
+- 赠礼 {agg['conservative']['events']['gifts']} 次，三档最多；协定 {agg['conservative']['events']['pacts']} 项，说明它把外交当作主要安全工具。
+- 平均稳定度 {agg['conservative']['stability']:.1f}，三档最高。它用较少领土换来了更高稳定和更多外交空间，分数不再被激进大幅甩开。
+- 代价是领土和军队规模最小，遇到强邻时仍会被动；它的竞争力来自稳定、外交和较少的战争消耗，而不是扩张速度。
 
 ### 限制
 
 - 只有 3 个世界、每性格 6 个观察，结论是方向性的，不是统计显著性结论。
 - 出生地、邻国、地形和世界种子仍会影响结果。
 - Mock AI 是确定性规则；LLM 的性格表现由提示词约束，尚未在本轮做真实 API 对照。
-- 五年后财政和科技容易进入积累期，更长周期需要单独观察通胀式增长。
+- 十年后财政和科技容易进入积累期，更长周期需要单独观察通胀式增长。
 
 ## 8. 复现
 
@@ -723,13 +724,13 @@ def main() -> int:
 
     agg = aggregate(runs)
     charts = {
-        "五年后的平均综合评分": bar_scores(agg),
+        "十年后的平均综合评分": bar_scores(agg),
         "领土随时间变化": line_chart(timeline(runs, "territory"), "平均领土（格）", "领土格数", "territory_over_time.png"),
         "城市数量随时间变化": line_chart(timeline(runs, "cities"), "平均城市数量", "城市数", "cities_over_time.png"),
         "军队规模随时间变化": line_chart(timeline(runs, "army"), "平均军队规模", "军队规模", "army_over_time.png"),
         "综合评分随时间变化": line_chart(timeline(runs, "score"), "平均综合评分", "综合评分", "score_over_time.png"),
         "主要行为差异": behavior_chart(agg),
-        "五年后的领土": map_chart(runs[0]),
+        "十年后的领土": map_chart(runs[0]),
     }
     generated_at = datetime.now().strftime("%Y-%m-%d %H:%M")
     results = {
