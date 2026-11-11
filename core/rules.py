@@ -124,6 +124,8 @@ class RuleEngine:
             )
             if occupied_by is not None:
                 raise ActionRejected("TILE_ALREADY_OWNED", f"地块已属于 {occupied_by}")
+            if tile["river"]:
+                raise ActionRejected("RIVER_TILE", "不能在河道水面上建城；请选择相邻的干燥陆地")
             if not any(hex_distance(coord, own) == 1 for own in country.tiles):
                 raise ActionRejected("NOT_ADJACENT", "前哨必须与本国现有领土相邻")
             expansion = self.state.config["expansion"]

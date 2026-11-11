@@ -1024,6 +1024,7 @@ function settleConditions(tile){
   const expansion=STATE.expansion||{};
   const adjacent=(country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
   const unowned=!tile.owner;
+  const dryLand=!tile.river;
   const outpostOk=(country.outposts||[]).length<(expansion.max_outposts??4);
   const popOk=country.population>=(expansion.minimum_population??10000);
   const cost=expansion.treasury_cost??35;
@@ -1031,11 +1032,12 @@ function settleConditions(tile){
   const checks=[
     {label:'与本国领土相邻',ok:adjacent},
     {label:'地块无归属',ok:unowned},
+    {label:'不是河道水面',ok:dryLand},
     {label:`新建城市 ${(country.outposts||[]).length} / ${expansion.max_outposts??4}`,ok:outpostOk},
     {label:`人口 ≥ ${fmtInt(expansion.minimum_population??10000)}`,ok:popOk},
     {label:`国库 ≥ ${cost}（现有 ${fmtNum(country.treasury,1)}）`,ok:moneyOk},
   ];
-  return {adjacent,ok:adjacent&&unowned&&outpostOk&&popOk&&moneyOk,checks,cost};
+  return {adjacent,ok:adjacent&&unowned&&dryLand&&outpostOk&&popOk&&moneyOk,checks,cost};
 }
 function canSettleHere(tile){
   return settleConditions(tile).ok;
@@ -1048,7 +1050,7 @@ function frontierTiles(cid){
   const result=[];
   for(const [col,row] of (country.tiles||[]))for(const [nc,nr] of hexNeighbors(col,row)){
     const key=nc+','+nr;if(owned.has(key))continue;
-    const tile=getTile(nc,nr);if(tile&&tile[2])result.push([nc,nr]);
+    const tile=getTile(nc,nr);if(tile&&tile[2]&&!tile[5])result.push([nc,nr]);
   }
   return result;
 }

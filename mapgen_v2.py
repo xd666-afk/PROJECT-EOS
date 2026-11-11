@@ -337,7 +337,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
     capitals = mapgen._place_capitals(
         countries, polity_land, v2_elev, polity_biome, polity_p, polity_tmean,
         polity_river, polity_basin, v2_slope, polity_dist_ocean,
-        polity_hazards, polity_lat, V2_WIDTH, V2_HEIGHT, True,
+        polity_hazards, polity_lat, V2_WIDTH, V2_HEIGHT, True, polity_river,
     )
     available = polity_land.copy()
     ownership, territories = mapgen._grow_equal_territories(
@@ -517,6 +517,11 @@ def validate_v2(world: dict[str, Any]) -> bool:
         assert len(polity["initial_tiles"]) == mapgen.CORE_TILES
         capital = (polity["capital"]["col"], polity["capital"]["row"])
         assert capital in {tuple(coord) for coord in polity["initial_tiles"]}
+        capital_tile = next(
+            tile for tile in world["tiles"]
+            if (tile["col"], tile["row"]) == capital
+        )
+        assert capital_tile["land"] and not capital_tile["river"], "capital must be dry land"
         for coord in polity["initial_tiles"]:
             assert tuple(coord) not in all_occupied
             all_occupied.add(tuple(coord))

@@ -118,7 +118,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
                 continue
             frontier_seen.add(neighbor)
             tile = state.world.tile(neighbor)
-            if tile["land"]:
+            if tile["land"] and not tile["river"]:
                 frontier.append({
                     "col": neighbor[0], "row": neighbor[1],
                     "biome": tile["biome"], "river": tile["river"],

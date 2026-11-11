@@ -540,3 +540,23 @@ def test_ai_frontier_expansion_creates_city_and_skips_player(engine):
                 for e in state.event_log
             )
             break
+
+
+def test_settle_rejects_river_water_tile(engine):
+    state = engine.state
+    country = state.countries["ELAR"]
+    owned = {coord for entity in state.countries.values() for coord in entity.tiles}
+    river_tile = next(
+        tile for tile in state.world.tiles.values()
+        if tile["land"] and tile["river"] and (tile["col"], tile["row"]) not in owned
+    )
+    dry_neighbor = next(
+        neighbor for neighbor in state.world.neighbors(river_tile["col"], river_tile["row"])
+        if state.world.tile(neighbor)["land"] and not state.world.tile(neighbor)["river"]
+    )
+    country.tiles.append(dry_neighbor)
+    result = engine.apply_action("ELAR", {
+        "type": "SETTLE", "tile": {"col": river_tile["col"], "row": river_tile["row"]},
+    })
+    assert not result.accepted
+    assert result.reason_code == "RIVER_TILE"

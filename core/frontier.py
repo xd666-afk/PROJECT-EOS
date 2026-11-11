@@ -21,7 +21,7 @@ def choose_frontier(state, country) -> tuple[int, int] | None:
             if coord in owned or coord in candidates:
                 continue
             tile = state.world.tile(coord)
-            if not tile["land"]:
+            if not tile["land"] or tile["river"]:
                 continue
             foreign_neighbor = any(
                 neighbor in owned and owned[neighbor] != country.country_id

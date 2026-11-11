@@ -102,7 +102,7 @@ def _archetype_specs(land, elev, biome, p, tmean, river, basin, slope, dist_ocea
     }
 
 
-def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat, w=W, h=H, allow_fallback=False):
+def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat, w=W, h=H, allow_fallback=False, forbidden=None):
     specs = _archetype_specs(
         land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat
     )
@@ -113,6 +113,8 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
         location = None
         for separation in (12, 10, 8, 6):
             candidate_scores = np.where(valid, score, -1e8).copy()
+            if forbidden is not None:
+                candidate_scores[forbidden] = -1e8
             for capital in placed:
                 for y in range(H):
                     for x in range(W):
@@ -125,6 +127,8 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
                 break
         if location is None and allow_fallback:
             candidate_scores = np.where(land, score, -1e8).copy()
+            if forbidden is not None:
+                candidate_scores[forbidden] = -1e8
             for capital in placed:
                 for y in range(h):
                     for x in range(w):
