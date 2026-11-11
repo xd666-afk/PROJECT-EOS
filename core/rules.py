@@ -114,6 +114,8 @@ class RuleEngine:
             coord = (action["tile"]["col"], action["tile"]["row"])
             tile = self.state.world.tile(coord)
             if not tile["land"]:
+                if tile.get("lake"):
+                    raise ActionRejected("LAKE_TILE", "不能在内湖水面建立前哨；请选择相邻的干燥陆地")
                 raise ActionRejected("INVALID_TERRAIN", "不能在海域建立前哨")
             occupied_by = next(
                 (

@@ -14,6 +14,7 @@ from typing import Any
 
 import numpy as np
 from PIL import Image
+from scipy.ndimage import distance_transform_edt, gaussian_filter, minimum_filter
 
 import mapgen
 import worldgen
@@ -63,6 +64,270 @@ def _dominant(values: np.ndarray, fallback: str) -> str:
     if not values:
         return fallback
     return Counter(values).most_common(1)[0][0]
+
+
+# --- hydrology geometry -----------------------------------------------------
+# Rivers are still hex entities, but their cell paths are shaped as meandering
+# walks instead of raw flow-accumulation blobs. A reach is a chain of cells
+# between two junctions/outlets: each reach is replaced by a curved walk with a
+# sine offset, so bends survive at hex resolution.
+
+HEX_SQRT3 = math.sqrt(3.0)
+
+
+def _hex_center(col: int, row: int) -> tuple[float, float]:
+    return HEX_SQRT3 * (col + .5 * (row & 1)), 1.5 * row
+
+
+def _offset_to_cube(col: int, row: int) -> tuple[int, int, int]:
+    q = col - (row - (row & 1)) // 2
+    return q, row, -q - row
+
+
+def _cube_round(q: float, r: float, s: float) -> tuple[int, int]:
+    rq, rr, rs = round(q), round(r), round(s)
+    dq, dr, ds = abs(rq - q), abs(rr - r), abs(rs - s)
+    if dq > dr and dq > ds:
+        rq = -rr - rs
+    elif dr > ds:
+        rr = -rq - rs
+    else:
+        rs = -rq - rr
+    return int(rq), int(rr)
+
+
+def _cube_to_offset(q: int, r: int) -> tuple[int, int]:
+    return q + (r - (r & 1)) // 2, r
+
+
+def _pixel_to_hex(x: float, y: float) -> tuple[int, int]:
+    r = 2.0 * y / 3.0
+    q = x / HEX_SQRT3 - y / 3.0
+    qr, rr = _cube_round(q, r, -q - r)
+    return _cube_to_offset(qr, rr)
+
+
+def _hex_line(start: tuple[int, int], end: tuple[int, int]) -> list[tuple[int, int]]:
+    q1, r1, s1 = _offset_to_cube(*start)
+    q2, r2, s2 = _offset_to_cube(*end)
+    steps = max(abs(q1 - q2), abs(r1 - r2), abs(s1 - s2))
+    if steps == 0:
+        return [start]
+    path = []
+    for index in range(steps + 1):
+        t = index / steps
+        q, r, s = q1 + (q2 - q1) * t, r1 + (r2 - r1) * t, s1 + (s2 - s1) * t
+        qr, rr = _cube_round(q, r, s)
+        path.append(_cube_to_offset(qr, rr))
+    return path
+
+
+def _chaikin(points: list[tuple[float, float]], iterations: int = 2) -> list[tuple[float, float]]:
+    for _ in range(iterations):
+        if len(points) < 2:
+            return points
+        smoothed = [points[0]]
+        for first, second in zip(points, points[1:]):
+            smoothed.append((
+                .75 * first[0] + .25 * second[0],
+                .75 * first[1] + .25 * second[1],
+            ))
+            smoothed.append((
+                .25 * first[0] + .75 * second[0],
+                .25 * first[1] + .75 * second[1],
+            ))
+        smoothed.append(points[-1])
+        points = smoothed
+    return points
+
+
+def _resample(points: list[tuple[float, float]], step: float) -> list[tuple[float, float, float]]:
+    """Return (arc_length, x, y) samples at roughly even spacing."""
+    lengths = [0.0]
+    for first, second in zip(points, points[1:]):
+        lengths.append(lengths[-1] + math.hypot(second[0] - first[0], second[1] - first[1]))
+    total = lengths[-1]
+    if total <= 0:
+        return [(0.0, points[0][0], points[0][1])]
+    count = max(2, int(math.ceil(total / max(step, .05))))
+    samples = []
+    cursor = 0
+    for index in range(count + 1):
+        target = total * index / count
+        while cursor < len(lengths) - 2 and lengths[cursor + 1] < target:
+            cursor += 1
+        span = lengths[cursor + 1] - lengths[cursor]
+        local = 0.0 if span <= 0 else (target - lengths[cursor]) / span
+        x = points[cursor][0] + (points[cursor + 1][0] - points[cursor][0]) * local
+        y = points[cursor][1] + (points[cursor + 1][1] - points[cursor][1]) * local
+        samples.append((target, x, y))
+    return samples
+
+
+def _offset_curve(
+    samples: list[tuple[float, float, float]],
+    total: float,
+    amplitude: float,
+    wavelength: float,
+    phase: float,
+) -> list[tuple[float, float]]:
+    curve = []
+    for index, (arc, x, y) in enumerate(samples):
+        before = samples[max(0, index - 1)]
+        after = samples[min(len(samples) - 1, index + 1)]
+        tx, ty = after[1] - before[1], after[2] - before[2]
+        norm = math.hypot(tx, ty) or 1.0
+        tx, ty = tx / norm, ty / norm
+        envelope = math.sin(math.pi * min(1.0, max(0.0, arc / max(total, 1e-6)))) ** .42
+        wave = (
+            math.sin(2 * math.pi * arc / max(wavelength, 1.0) + phase)
+            + .34 * math.sin(2 * math.pi * arc / max(wavelength * .47, 1.0) + phase * 1.8)
+        )
+        offset = amplitude * envelope * wave
+        curve.append((x - ty * offset, y + tx * offset))
+    curve[0] = (samples[0][1], samples[0][2])
+    curve[-1] = (samples[-1][1], samples[-1][2])
+    return curve
+
+
+def _curve_to_cells(
+    curve: list[tuple[float, float]],
+    original: list[tuple[int, int]],
+    land_ok,
+    elev: np.ndarray,
+    max_base_elev: float,
+    max_climb: float = 190.0,
+) -> list[tuple[int, int]] | None:
+    height, width = elev.shape
+    raw = [_pixel_to_hex(x, y) for x, y in curve]
+    raw[0], raw[-1] = original[0], original[-1]
+    path: list[tuple[int, int]] = [raw[0]]
+
+    def permitted(cell: tuple[int, int]) -> bool:
+        x, y = cell
+        return 0 <= x < width and 0 <= y < height and land_ok(x, y) and float(elev[y, x]) <= max_base_elev + 110
+
+    if not all(permitted(cell) for cell in raw):
+        return None
+    path_set = {path[0]}
+    for cell in raw[1:]:
+        if cell == path[-1]:
+            continue
+        previous = path[-1]
+        for nxt in _hex_line(previous, cell)[1:]:
+            if not permitted(nxt):
+                return None
+            if abs(float(elev[nxt[1], nxt[0]]) - float(elev[previous[1], previous[0]])) > max_climb:
+                return None
+            # Keep the channel one cell wide: reject tight folds that would make
+            # the water two cells thick, while allowing ordinary hex bends.
+            touching = sum(
+                1 for neighbor in worldgen.neighbors(nxt[0], nxt[1], width, height)
+                if neighbor in path_set and neighbor != previous
+            )
+            if touching > 1:
+                return None
+            path.append(nxt)
+            path_set.add(nxt)
+            previous = nxt
+    if path[0] != original[0] or path[-1] != original[-1]:
+        return None
+    if len(set(path)) != len(path):
+        return None
+    if len(path) > max(len(original) * 2.8, len(original) + 14):
+        return None
+    return path
+
+
+def _meander_reach(
+    cells: list[tuple[int, int]],
+    elev: np.ndarray,
+    land_ok,
+    amplitude: float,
+    wavelength: float,
+    phase: float,
+) -> list[tuple[int, int]] | None:
+    if len(cells) < 5:
+        return None
+    points = [_hex_center(*cell) for cell in cells]
+    smoothed = _chaikin(points, 2)
+    lengths = [0.0]
+    for first, second in zip(smoothed, smoothed[1:]):
+        lengths.append(lengths[-1] + math.hypot(second[0] - first[0], second[1] - first[1]))
+    total = lengths[-1]
+    if total < 2.0:
+        return None
+    samples = _resample(smoothed, .38)
+    max_base_elev = max(float(elev[y, x]) for x, y in cells)
+    for factor in (1.0, .78, .56, .36, .2):
+        curve = _offset_curve(samples, total, amplitude * factor, wavelength, phase)
+        candidate = _curve_to_cells(curve, cells, land_ok, elev, max_base_elev)
+        if candidate:
+            return candidate
+    return None
+
+
+def _hex_zone(
+    cells: set[tuple[int, int]],
+    radius: int,
+    width: int,
+    height: int,
+) -> set[tuple[int, int]]:
+    zone = set(cells)
+    frontier = set(cells)
+    for _ in range(max(0, radius)):
+        following = set()
+        for x, y in frontier:
+            for nx, ny in worldgen.neighbors(x, y, width, height):
+                if (nx, ny) not in zone:
+                    following.add((nx, ny))
+        zone |= following
+        frontier = following
+    return zone
+
+
+def _river_reaches(
+    mask: np.ndarray,
+    parent: np.ndarray,
+    width: int,
+    height: int,
+) -> list[list[tuple[int, int]]]:
+    cells = [(x, y) for y in range(height) for x in range(width) if mask[y, x]]
+    if not cells:
+        return []
+    cellset = set(cells)
+    downstream: dict[tuple[int, int], tuple[int, int] | None] = {}
+    upstream: dict[tuple[int, int], list[tuple[int, int]]] = {cell: [] for cell in cells}
+    for x, y in cells:
+        px, py = int(parent[y, x][0]), int(parent[y, x][1])
+        destination = (px, py) if px >= 0 and (px, py) in cellset else None
+        downstream[(x, y)] = destination
+        if destination:
+            upstream[destination].append((x, y))
+    special = {
+        cell for cell in cells
+        if len(upstream[cell]) != 1 or downstream[cell] is None
+    }
+    reaches = []
+    seen_edges = set()
+    for start in special:
+        destination = downstream[start]
+        if destination is None:
+            continue
+        reach = [start]
+        current = start
+        while True:
+            nxt = downstream[current]
+            if nxt is None or (current, nxt) in seen_edges:
+                break
+            seen_edges.add((current, nxt))
+            reach.append(nxt)
+            current = nxt
+            if current in special:
+                break
+        if len(reach) >= 2:
+            reaches.append(reach)
+    return reaches
 
 
 def _road_path(
@@ -299,26 +564,43 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         [aggregated[(x, y)]["land"] for x in range(V2_WIDTH)]
         for y in range(V2_HEIGHT)
     ])
-    v2_parent, _, v2_basin, _, v2_slope = worldgen.gen_hydrology(
+    v2_parent, _, _, _, v2_slope = worldgen.gen_hydrology(
         v2_land, v2_elev,
         np.array([[aggregated[(x, y)]["annual_precip_mm"] for x in range(V2_WIDTH)] for y in range(V2_HEIGHT)]),
         V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM, V2_CELL_AREA_KM2,
     )
 
-    polity_land = v2_land
-    polity_biome = np.array([
-        [aggregated[(x, y)]["biome"] for x in range(V2_WIDTH)]
-        for y in range(V2_HEIGHT)
-    ], dtype=object)
     polity_p = np.array([
         [aggregated[(x, y)]["annual_precip_mm"] for x in range(V2_WIDTH)]
         for y in range(V2_HEIGHT)
     ])
+    river_count = np.array([
+        [aggregated[(x, y)].get("river_count", 0) for x in range(V2_WIDTH)]
+        for y in range(V2_HEIGHT)
+    ])
+    lake_mask, lakes = _find_inland_lakes(v2_land, v2_elev, polity_p, V2_WIDTH, V2_HEIGHT)
+    hydro_parent, by_lake, _ = _endorheic_catchments(
+        v2_land, v2_elev, lake_mask, lakes, v2_parent, V2_WIDTH, V2_HEIGHT
+    )
+    v2_basin, v2_flow = _recompute_accumulation(
+        v2_land, lake_mask, hydro_parent, polity_p, V2_WIDTH, V2_HEIGHT
+    )
+    terminus = _terminal_lakes(
+        v2_land, lake_mask, hydro_parent, lakes, V2_WIDTH, V2_HEIGHT
+    )
+    polity_land = v2_land & ~lake_mask
+    polity_river, river_meta, max_river_basin = _shape_rivers(
+        v2_land, lake_mask, v2_elev, hydro_parent, v2_basin, v2_flow,
+        by_lake, terminus, river_count, V2_WIDTH, V2_HEIGHT, seed,
+    )
+    polity_biome = np.array([
+        [aggregated[(x, y)]["biome"] for x in range(V2_WIDTH)]
+        for y in range(V2_HEIGHT)
+    ], dtype=object)
     polity_tmean = np.array([
         [aggregated[(x, y)]["annual_mean_temp_c"] for x in range(V2_WIDTH)]
         for y in range(V2_HEIGHT)
     ])
-    polity_river = polity_land & (v2_basin >= V2_RIVER_MIN_BASIN)
     polity_basin = v2_basin
     polity_hazards = {
         key: np.array([
@@ -385,47 +667,47 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         )
     tiles = []
     river_cells = []
-    max_river_basin = max(
-        (float(v2_basin[y, x]) for y in range(V2_HEIGHT) for x in range(V2_WIDTH)
-         if polity_river[y, x]),
-        default=1,
-    )
     for y in range(V2_HEIGHT):
         for x in range(V2_WIDTH):
             data = aggregated[(x, y)]
+            lake = bool(lake_mask[y, x])
             tiles.append({
                 "q": x - (y - (y & 1)) // 2, "r": y, "col": x, "row": y,
                 "latitude_deg": round(float(polity_lat[y, x]), 2),
-                "land": bool(data["land"]),
+                "land": bool(data["land"] and not lake),
+                "lake": lake,
                 "elevation_m": int(round(data["elevation_m"])),
-                "biome": str(data["biome"]),
+                "biome": "lake" if lake else str(data["biome"]),
                 "annual_mean_temp_c": round(data["annual_mean_temp_c"], 1),
                 "annual_precip_mm": int(round(data["annual_precip_mm"])),
                 "monthly_temp_c": [round(value, 1) for value in data["monthly_temp_c"]],
                 "monthly_precip_mm": [round(value, 1) for value in data["monthly_precip_mm"]],
                 "slope": round(float(v2_slope[y, x]), 4),
-                "river": bool(polity_river[y, x]),
+                "river": bool(polity_river[y, x] and not lake),
                 "drainage_area_km2": int(v2_basin[y, x] * V2_CELL_AREA_KM2),
                 "downstream": None,
                 "hazards": {key: round(float(data[key]), 3) for key in hazards},
                 "owner_id": str(ownership[y, x]) or None,
             })
-            if polity_river[y, x]:
-                ratio = min(1.0, float(v2_basin[y, x]) / max(1, max_river_basin))
+            if polity_river[y, x] and not lake:
+                info = river_meta[(x, y)]
+                ratio = min(1.0, info["basin"] / max(1, max_river_basin))
                 depth = max(0.3, min(12.0, 0.3 + 9.6 * ratio ** 0.55))
                 river_cells.append({
                     "id": f"RV{x:03d}{y:03d}",
                     "network_id": None,
                     "tile": {"col": x, "row": y},
                     "depth_m": round(depth, 3),
-                    "coverage": round(min(1.0, data["river_count"] / (CONTINUOUS_SCALE ** 2)) or .15, 3),
-                    "flow_m3_per_year": round(data["flow"], 1),
-                    "drainage_area_km2": int(v2_basin[y, x] * V2_CELL_AREA_KM2),
+                    "coverage": round(min(1.0, info["coverage"]) or .15, 3),
+                    "flow_m3_per_year": round(info["flow"], 1),
+                    "drainage_area_km2": int(info["basin"] * V2_CELL_AREA_KM2),
+                    "kind": info["kind"],
+                    "terminal_lake_id": info["terminal_lake_id"],
                 })
     river_cells = _label_river_networks(river_cells)
     for tile in tiles:
         x, y = tile["col"], tile["row"]
-        px, py = v2_parent[y, x]
+        px, py = hydro_parent[y, x]
         tile["downstream"] = {"col": int(px), "row": int(py)} if tile["land"] and px >= 0 else None
 
     weather_samples, events = worldgen.demo_weather_hazards(
@@ -468,14 +750,23 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
                 "sampling": "4x4 block aggregation at hex centers",
             },
             "river_depth_model": "basin_area_proxy_v2; depth is an estimate, not a hydraulic measurement",
+            "hydrology_model": "meandering hex reaches + terminal endorheic lakes; closed basins stop at the shore",
         },
         "world_summary": {
             "land_hexes": int(polity_land.sum()),
-            "ocean_hexes": int((~polity_land).sum()),
+            "ocean_hexes": int((~v2_land).sum()),
+            "lake_hexes": int(lake_mask.sum()),
+            "lake_count": len(lakes),
             "land_area_km2": round(float(polity_land.sum() * V2_CELL_AREA_KM2)),
+            "lake_area_km2": round(float(lake_mask.sum() * V2_CELL_AREA_KM2)),
+            "endorheic_catchment_km2": round(float(sum(len(c) for c in by_lake.values()) * V2_CELL_AREA_KM2)),
             "maximum_elevation_m": round(float(v2_elev.max())),
             "river_hexes": len(river_cells),
             "river_cell_count": len(river_cells),
+            "endorheic_river_hexes": sum(1 for cell in river_cells if cell["kind"] == "endorheic"),
+            "endorheic_network_count": len({
+                cell["network_id"] for cell in river_cells if cell["kind"] == "endorheic"
+            }),
             "road_cell_count": len(road_cells),
             "unclaimed_land_hexes": int(np.count_nonzero(polity_land & (ownership == ""))),
         },
@@ -489,18 +780,344 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         },
         "rendering": {
             "river_depth_stops": DEPTH_STOPS,
+            "lake_depth_stops": [
+                [1.0, "#93e4e8"],
+                [4.0, "#5bc6d1"],
+                [8.0, "#319fb2"],
+                [12.0, "#1c6b80"],
+            ],
+            "lake_color": "#4fc0cd",
+            "endorheic_tint": "#63c9b4",
             "road_color": "#c6a065",
             "bridge_color": "#88949b",
         },
         "polities": polities,
         "tiles": tiles,
         "river_cells": river_cells,
+        "lake_cells": _lake_cells(lakes, v2_elev),
         "road_cells": road_cells,
         "weather_samples": weather_samples,
         "illustrative_hazard_events": events,
     }
     validate_v2(world)
     return world
+
+
+def _find_inland_lakes(
+    land: np.ndarray,
+    elev: np.ndarray,
+    precip: np.ndarray,
+    width: int,
+    height: int,
+) -> tuple[np.ndarray, list[dict[str, Any]]]:
+    """Find interior closed depressions and fill them to a natural-looking level."""
+    distance = distance_transform_edt(land)
+    smooth = gaussian_filter(elev, sigma=2.0)
+    bowl_depth = gaussian_filter(elev, sigma=6.0) - elev
+    minima = (
+        (smooth == minimum_filter(smooth, size=7))
+        & land
+        & (distance > 14)
+        & (elev < 1900)
+    )
+    scored = []
+    for y, x in np.argwhere(minima):
+        if not (8 <= x < width - 8 and 8 <= y < height - 8):
+            continue
+        depth = float(bowl_depth[y, x])
+        if depth < .4:
+            continue
+        dryness = min(1.0, max(0.0, (900.0 - float(precip[y, x])) / 700.0))
+        score = float(distance[y, x]) * .35 + depth * 3.0 + dryness * 10.0
+        scored.append((score, int(x), int(y)))
+    scored.sort(reverse=True)
+
+    chosen: list[tuple[int, int]] = []
+    for _, cx, cy in scored:
+        if all(worldgen.hex_distance((cx, cy), other) >= 24 for other in chosen):
+            chosen.append((cx, cy))
+        if len(chosen) >= 4:
+            break
+
+    lake_mask = np.zeros_like(land, dtype=bool)
+    lakes = []
+    for index, (cx, cy) in enumerate(chosen, 1):
+        start_elev = float(elev[cy, cx])
+        # Prefer the lowest cell within a small radius so the lake sits in the basin.
+        lowest = (cx, cy)
+        for yy in range(max(0, cy - 2), min(height, cy + 3)):
+            for xx in range(max(0, cx - 2), min(width, cx + 3)):
+                if land[yy, xx] and land[cy, cx] and float(elev[yy, xx]) < float(elev[lowest[1], lowest[0]]):
+                    lowest = (xx, yy)
+        start_elev = float(elev[lowest[1], lowest[0]])
+        target = 8 + ((cx * 13 + cy * 17) % 10)
+        heap = [(0.0, start_elev, lowest[1], lowest[0])]
+        seen = {lowest}
+        cells: list[tuple[int, int]] = []
+        while heap and len(cells) < target:
+            _, level, y, x = heapq.heappop(heap)
+            if level > start_elev + 34:
+                continue
+            cells.append((x, y))
+            for nx, ny in worldgen.neighbors(x, y, width, height):
+                if (nx, ny) in seen or not land[ny, nx] or lake_mask[ny, nx]:
+                    continue
+                if abs(nx - lowest[0]) > 4 or abs(ny - lowest[1]) > 4:
+                    continue
+                if not (2 <= nx < width - 2 and 2 <= ny < height - 2):
+                    continue
+                seen.add((nx, ny))
+                ring = worldgen.hex_distance((nx, ny), (lowest[0], lowest[1]))
+                rank = ring * 4.5 + max(0.0, float(elev[ny, nx]) - start_elev) / 10.0
+                heapq.heappush(heap, (rank, float(elev[ny, nx]), ny, nx))
+        if len(cells) < 4:
+            continue
+        level = max(float(elev[y, x]) for x, y in cells) + .4
+        for x, y in cells:
+            lake_mask[y, x] = True
+        depth = max(1.2, min(12.0, level - start_elev + .9))
+        lakes.append({
+            "id": f"LK{index:02d}",
+            "center": [cx, cy],
+            "lowest": [lowest[0], lowest[1]],
+            "level_m": round(level, 1),
+            "depth_m": round(depth, 2),
+            "spill_height_m": 110.0,
+            "cells": [[x, y] for x, y in sorted(cells, key=lambda item: (item[1], item[0]))],
+        })
+    return lake_mask, lakes
+
+
+def _endorheic_catchments(
+    land: np.ndarray,
+    elev: np.ndarray,
+    lake_mask: np.ndarray,
+    lakes: list[dict[str, Any]],
+    parent: np.ndarray,
+    width: int,
+    height: int,
+) -> tuple[np.ndarray, dict[str, list[tuple[int, int]]], dict[tuple[int, int], str]]:
+    """Route a closed basin around each lake and stop its rivers at the shore."""
+    routed = parent.copy()
+    claimed = np.zeros_like(land, dtype=bool)
+    by_lake: dict[str, list[tuple[int, int]]] = {}
+    cell_lake: dict[tuple[int, int], str] = {}
+    for lake in lakes:
+        cx, cy = lake["center"]
+        level = float(lake["level_m"])
+        spill = level + float(lake["spill_height_m"])
+        visited = np.zeros_like(land, dtype=bool)
+        heap = []
+        for x, y in lake["cells"]:
+            visited[y, x] = True
+            heapq.heappush(heap, (level, y, x))
+        catchment: list[tuple[int, int]] = []
+        while heap and len(catchment) < 130:
+            current_level, y, x = heapq.heappop(heap)
+            if not lake_mask[y, x]:
+                catchment.append((x, y))
+                claimed[y, x] = True
+                cell_lake[(x, y)] = lake["id"]
+            for nx, ny in worldgen.neighbors(x, y, width, height):
+                if visited[ny, nx] or not land[ny, nx] or lake_mask[ny, nx] or claimed[ny, nx]:
+                    continue
+                if worldgen.hex_distance((nx, ny), (cx, cy)) > 14:
+                    continue
+                neighbor_elev = float(elev[ny, nx])
+                if neighbor_elev > spill:
+                    continue
+                visited[ny, nx] = True
+                routed[ny, nx] = [x, y]
+                heapq.heappush(heap, (max(neighbor_elev, current_level) + 1e-4, ny, nx))
+        by_lake[lake["id"]] = catchment
+        lake["catchment_hexes"] = len(catchment)
+        lake["spill_m"] = round(spill, 1)
+    for lake in lakes:
+        for x, y in lake["cells"]:
+            routed[y, x] = [-1, -1]
+    return routed, by_lake, cell_lake
+
+
+def _recompute_accumulation(
+    land: np.ndarray,
+    lake_mask: np.ndarray,
+    parent: np.ndarray,
+    precip: np.ndarray,
+    width: int,
+    height: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    dry_land = land & ~lake_mask
+    basin = np.where(dry_land, 1, 0).astype(int)
+    flow = np.where(
+        dry_land,
+        np.maximum(precip - 310.0, 20.0) / 1000.0 * V2_CELL_AREA_KM2 * 1e6 * .36,
+        0.0,
+    )
+    indegree = np.zeros((height, width), dtype=int)
+    for y in range(height):
+        for x in range(width):
+            if not dry_land[y, x]:
+                continue
+            px, py = int(parent[y, x][0]), int(parent[y, x][1])
+            if px >= 0 and dry_land[py, px]:
+                indegree[py, px] += 1
+    queue = deque(
+        (x, y) for y in range(height) for x in range(width)
+        if dry_land[y, x] and indegree[y, x] == 0
+    )
+    processed = 0
+    while queue:
+        x, y = queue.popleft()
+        processed += 1
+        px, py = int(parent[y, x][0]), int(parent[y, x][1])
+        if px >= 0 and dry_land[py, px]:
+            basin[py, px] += basin[y, x]
+            flow[py, px] += flow[y, x]
+            indegree[py, px] -= 1
+            if indegree[py, px] == 0:
+                queue.append((px, py))
+    if processed != int(dry_land.sum()):
+        raise RuntimeError("v2 hydrology parent graph contains a cycle")
+    return basin, flow
+
+
+def _terminal_lakes(
+    land: np.ndarray,
+    lake_mask: np.ndarray,
+    parent: np.ndarray,
+    lakes: list[dict[str, Any]],
+    width: int,
+    height: int,
+) -> dict[tuple[int, int], str]:
+    """Map every cell that drains into a closed-basin lake to that lake id."""
+    lake_at = {}
+    for lake in lakes:
+        for x, y in lake["cells"]:
+            lake_at[(x, y)] = lake["id"]
+    upstream: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for y in range(height):
+        for x in range(width):
+            if not land[y, x] or lake_mask[y, x]:
+                continue
+            px, py = int(parent[y, x][0]), int(parent[y, x][1])
+            if px >= 0:
+                upstream.setdefault((px, py), []).append((x, y))
+    terminus: dict[tuple[int, int], str] = {}
+    queue = deque()
+    for (lx, ly), lake_id in lake_at.items():
+        for child in upstream.get((lx, ly), []):
+            terminus[child] = lake_id
+            queue.append(child)
+    while queue:
+        cell = queue.popleft()
+        lake_id = terminus[cell]
+        for child in upstream.get(cell, []):
+            if child not in terminus:
+                terminus[child] = lake_id
+                queue.append(child)
+    return terminus
+
+
+def _shape_rivers(
+    land: np.ndarray,
+    lake_mask: np.ndarray,
+    elev: np.ndarray,
+    parent: np.ndarray,
+    basin: np.ndarray,
+    flow: np.ndarray,
+    by_lake: dict[str, list[tuple[int, int]]],
+    terminus: dict[tuple[int, int], str],
+    river_count: np.ndarray,
+    width: int,
+    height: int,
+    seed: int,
+) -> tuple[np.ndarray, dict[tuple[int, int], dict[str, Any]], int]:
+    """Build a connected river mask from meandering reaches."""
+    base = land & ~lake_mask & (basin >= V2_RIVER_MIN_BASIN)
+    for lake_id, catchment in by_lake.items():
+        threshold = max(6, round(len(catchment) * .10))
+        for x, y in catchment:
+            if basin[y, x] >= threshold:
+                base[y, x] = True
+
+    coverage = np.where(land, np.clip(river_count / (CONTINUOUS_SCALE ** 2), .08, 1.0), 0.0)
+    shaped = np.zeros_like(land, dtype=bool)
+    blocked = np.zeros_like(land, dtype=bool)
+    meta: dict[tuple[int, int], dict[str, Any]] = {}
+
+    reaches = _river_reaches(base, parent, width, height)
+    reaches.sort(
+        key=lambda reach: -sum(int(basin[y, x]) for x, y in reach) / len(reach)
+    )
+    base_cells = {(x, y) for y in range(height) for x in range(width) if base[y, x]}
+    for index, reach in enumerate(reaches):
+        reach_set = set(reach)
+        endpoints = {reach[0], reach[-1]}
+        corridor = _hex_zone(reach_set, 3, width, height)
+        reserved = _hex_zone(base_cells - reach_set, 1, width, height) - reach_set
+        endpoint_zone = _hex_zone(endpoints, 2, width, height)
+
+        def land_ok(x: int, y: int) -> bool:
+            if not land[y, x] or lake_mask[y, x]:
+                return False
+            if (x, y) not in corridor:
+                return False
+            if (x, y) in reserved and (x, y) not in endpoint_zone:
+                return False
+            if blocked[y, x] and (x, y) not in endpoint_zone:
+                return False
+            return True
+
+        average = sum(int(basin[y, x]) for x, y in reach) / len(reach)
+        amplitude = .75 + .85 * min(1.0, average / 320.0)
+        wavelength = 7.2 + 2.8 * ((seed + index * 37) % 100) / 100.0
+        phase = ((seed * 131 + index * 977) % 360) / 180.0 * math.pi
+        curved = _meander_reach(reach, elev, land_ok, amplitude, wavelength, phase)
+        cells = curved or reach
+        for x, y in cells:
+            source = min(
+                reach,
+                key=lambda item: worldgen.hex_distance(item, (x, y)),
+            )
+            sx, sy = source
+            record = meta.get((x, y))
+            lake_id = terminus.get((x, y))
+            values = {
+                "basin": int(basin[sy, sx]),
+                "flow": float(flow[sy, sx]),
+                "coverage": float(coverage[sy, sx]),
+                "kind": "endorheic" if lake_id else "exorheic",
+                "terminal_lake_id": lake_id,
+            }
+            if record is None:
+                meta[(x, y)] = values
+            else:
+                record["basin"] = max(record["basin"], values["basin"])
+                record["flow"] = max(record["flow"], values["flow"])
+                record["coverage"] = max(record["coverage"], values["coverage"])
+                if values["kind"] == "endorheic":
+                    record["kind"] = "endorheic"
+                    record["terminal_lake_id"] = values["terminal_lake_id"] or record["terminal_lake_id"]
+            shaped[y, x] = True
+        for x, y in cells:
+            blocked[y, x] = True
+            for nx, ny in worldgen.neighbors(x, y, width, height):
+                blocked[ny, nx] = True
+    # Isolated river mouths can be single cells and are not part of a reach.
+    for y in range(height):
+        for x in range(width):
+            if base[y, x] and not shaped[y, x]:
+                shaped[y, x] = True
+                lake_id = terminus.get((x, y))
+                meta[(x, y)] = {
+                    "basin": int(basin[y, x]),
+                    "flow": float(flow[y, x]),
+                    "coverage": float(coverage[y, x]),
+                    "kind": "endorheic" if lake_id else "exorheic",
+                    "terminal_lake_id": lake_id,
+                }
+    max_basin = max((item["basin"] for item in meta.values()), default=1)
+    return shaped, meta, max_basin
 
 
 def _label_river_networks(river_cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -527,23 +1144,60 @@ def _label_river_networks(river_cells: list[dict[str, Any]]) -> list[dict[str, A
     return river_cells
 
 
+def _lake_cells(lakes: list[dict[str, Any]], elev: np.ndarray) -> list[dict[str, Any]]:
+    cells = []
+    for lake in lakes:
+        level = float(lake["level_m"])
+        for col, row in lake["cells"]:
+            depth = max(.8, min(float(lake["depth_m"]), level - float(elev[row, col]) + .8))
+            cells.append({
+                "id": f"{lake['id']}-{col:03d}{row:03d}",
+                "lake_id": lake["id"],
+                "tile": {"col": col, "row": row},
+                "depth_m": round(depth, 2),
+                "area_km2": round(len(lake["cells"]) * V2_CELL_AREA_KM2, 1),
+                "level_m": lake["level_m"],
+            })
+    return cells
+
+
 def validate_v2(world: dict[str, Any]) -> bool:
     metadata = world["metadata"]
     width, height = metadata["grid_width"], metadata["grid_height"]
     assert metadata["schema_version"] == 2
     assert len(world["tiles"]) == width * height
-    assert world["world_summary"]["land_hexes"] == sum(tile["land"] for tile in world["tiles"])
-    assert world["world_summary"]["river_hexes"] == len(world["river_cells"])
+    tiles = {(tile["col"], tile["row"]): tile for tile in world["tiles"]}
+    summary = world["world_summary"]
+    assert summary["land_hexes"] == sum(tile["land"] for tile in world["tiles"])
+    assert summary["river_hexes"] == len(world["river_cells"])
+    assert summary["river_cell_count"] == len(world["river_cells"])
+
+    lake_cells = world.get("lake_cells", [])
+    lake_ids = {cell["lake_id"] for cell in lake_cells}
+    lake_coords = {(cell["tile"]["col"], cell["tile"]["row"]) for cell in lake_cells}
+    assert summary["lake_hexes"] == len(lake_cells)
+    assert summary["lake_count"] == len(lake_ids)
+    assert len(lake_coords) == len(lake_cells), "duplicate lake cell"
+    for cell in lake_cells:
+        coord = (cell["tile"]["col"], cell["tile"]["row"])
+        assert tiles[coord]["lake"] and not tiles[coord]["land"]
+        assert tiles[coord]["biome"] == "lake"
+        assert cell["depth_m"] > 0
+        assert cell["lake_id"]
+    for tile in world["tiles"]:
+        assert bool(tile["lake"]) == ((tile["col"], tile["row"]) in lake_coords)
+        if tile["lake"]:
+            assert not tile["land"] and not tile["river"]
+
     all_occupied = set()
     for polity in world["polities"]:
         assert len(polity["initial_tiles"]) == mapgen.CORE_TILES
         capital = (polity["capital"]["col"], polity["capital"]["row"])
         assert capital in {tuple(coord) for coord in polity["initial_tiles"]}
-        capital_tile = next(
-            tile for tile in world["tiles"]
-            if (tile["col"], tile["row"]) == capital
+        capital_tile = tiles[capital]
+        assert capital_tile["land"] and not capital_tile["river"] and not capital_tile["lake"], (
+            "capital must be dry land"
         )
-        assert capital_tile["land"] and not capital_tile["river"], "capital must be dry land"
         coords = {tuple(coord) for coord in polity["initial_tiles"]}
         for coord in coords:
             assert coord not in all_occupied
@@ -558,12 +1212,12 @@ def validate_v2(world: dict[str, Any]) -> bool:
                     queue.append(neighbor)
         assert seen == coords, "polity core is not connected"
 
-    tiles = {(tile["col"], tile["row"]): tile for tile in world["tiles"]}
     for tile in world["tiles"]:
         if not tile["land"]:
             continue
         current = tile
         seen = set()
+        terminated = False
         for _ in range(width * height):
             key = (current["col"], current["row"])
             assert key not in seen, "v2 drainage loop"
@@ -572,25 +1226,31 @@ def validate_v2(world: dict[str, Any]) -> bool:
             assert destination is not None, "v2 land has no downstream"
             next_tile = tiles[(destination["col"], destination["row"])]
             assert worldgen.hex_distance(key, (next_tile["col"], next_tile["row"])) == 1
-            if not next_tile["land"]:
+            if next_tile["lake"] or not next_tile["land"]:
+                terminated = True
                 break
             current = next_tile
-        else:
-            raise AssertionError("v2 drainage does not reach ocean")
+        assert terminated, "v2 drainage does not reach ocean or lake"
 
     river_ids = set()
+    river_coords = set()
     for cell in world["river_cells"]:
         assert cell["id"] not in river_ids
         river_ids.add(cell["id"])
         coord = (cell["tile"]["col"], cell["tile"]["row"])
+        river_coords.add(coord)
         assert tiles[coord]["land"]
         assert tiles[coord]["river"]
+        assert not tiles[coord]["lake"]
         assert cell["depth_m"] > 0
+        assert cell["kind"] in {"exorheic", "endorheic"}
+        if cell["kind"] == "endorheic":
+            assert cell["terminal_lake_id"] in lake_ids
+        else:
+            assert cell["terminal_lake_id"] is None
+    assert len(river_coords) == len(world["river_cells"]), "duplicate river cell"
     for tile in world["tiles"]:
-        assert tile["river"] == any(
-            cell["tile"]["col"] == tile["col"] and cell["tile"]["row"] == tile["row"]
-            for cell in world["river_cells"]
-        )
+        assert tile["river"] == ((tile["col"], tile["row"]) in river_coords)
     river_networks: dict[str, list[tuple[int, int]]] = {}
     for cell in world["river_cells"]:
         coord = (cell["tile"]["col"], cell["tile"]["row"])
@@ -605,6 +1265,38 @@ def validate_v2(world: dict[str, Any]) -> bool:
                     seen.add(neighbor)
                     queue.append(neighbor)
         assert seen == set(coords), "river network is not hex-connected"
+
+    lake_ids_by_coord = {
+        (cell["tile"]["col"], cell["tile"]["row"]): cell["lake_id"]
+        for cell in lake_cells
+    }
+    for cell in world["river_cells"]:
+        current = (cell["tile"]["col"], cell["tile"]["row"])
+        seen = set()
+        terminated = False
+        for _ in range(width * height):
+            assert current not in seen, "river drainage loop"
+            seen.add(current)
+            destination = tiles[current]["downstream"]
+            assert destination is not None, "river cell has no downstream"
+            nxt = (destination["col"], destination["row"])
+            if nxt in lake_ids_by_coord:
+                assert cell["kind"] == "endorheic", "river entering a lake must be endorheic"
+                assert cell["terminal_lake_id"] == lake_ids_by_coord[nxt]
+                terminated = True
+                break
+            if not tiles[nxt]["land"]:
+                assert cell["kind"] == "exorheic", "river reaching the ocean must be exorheic"
+                terminated = True
+                break
+            current = nxt
+        assert terminated, "river drainage does not reach ocean or lake"
+    assert summary["endorheic_river_hexes"] == sum(
+        1 for cell in world["river_cells"] if cell["kind"] == "endorheic"
+    )
+    assert summary["endorheic_network_count"] == len({
+        cell["network_id"] for cell in world["river_cells"] if cell["kind"] == "endorheic"
+    })
     depths = [stop[0] for stop in world["rendering"]["river_depth_stops"]]
     assert depths == sorted(depths)
 

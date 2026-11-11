@@ -116,8 +116,8 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
             if forbidden is not None:
                 candidate_scores[forbidden] = -1e8
             for capital in placed:
-                for y in range(H):
-                    for x in range(W):
+                for y in range(h):
+                    for x in range(w):
                         if hex_distance((x, y), capital) < separation:
                             candidate_scores[y, x] = -1e8
             candidate_scores[blocked] = -1e8

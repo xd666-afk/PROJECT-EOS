@@ -60,3 +60,13 @@ def test_v2_terrain_and_entity_layers_are_wired():
     assert "WORLD?.river_cells" in DASHBOARD
     assert "roadEntityCells" in DASHBOARD
     assert "drawImage(terrainImage" in DASHBOARD
+
+
+def test_v2_lakes_and_endorheic_rivers_are_wired():
+    assert "function drawLakeCells(" in DASHBOARD
+    assert "lakeDepthColor" in DASHBOARD
+    assert "WORLD?.lake_cells" in DASHBOARD
+    assert "endorheic_tint" in DASHBOARD
+    assert "cell.kind==='endorheic'" in DASHBOARD
+    assert "内流湖" in DASHBOARD
+    assert "内流河" in DASHBOARD

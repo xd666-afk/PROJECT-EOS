@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-11，对应当前代码与 97 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-12，对应当前代码与 99 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、97 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、99 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -300,7 +300,7 @@ AI：
 | `config/rules.json` | 所有数值与内容定义 | 平衡/策划 |
 | `worldgen.py` | 原始世界生成、气候、水文、灾害、天气函数 | 地图 |
 | `mapgen.py` | 公平随机世界、自定义 2–12 国、v1/v2 入口 | 地图 |
-| `mapgen_v2.py` | 连续地形、地形纹理、细六边形、河深与道路格 | 地图 |
+| `mapgen_v2.py` | 连续地形、地形纹理、细六边形、蜿蜒河网、内流湖/内流河、河深与道路格 | 地图 |
 | `run_simulation.py` | 批处理/交互 CLI | 工具 |
 | `build_viewer.py` / `simulate_climate.py` / `plot_elevation.py` | 离线地图/天气/海拔工具 | 地图 |
 | `tests/` | 规则、经济、AI、回放、地图、LLM 测试 | 所有人 |
@@ -936,7 +936,7 @@ POST /api/agents/budget
 | 路径 | 作用 |
 | --- | --- |
 | `/` | 返回 `dashboard.html` |
-| `/api/world` | 静态世界压缩载荷（metadata/polities/tiles） |
+| `/api/world` | 静态世界压缩载荷（metadata/polities/tiles/river_cells/lake_cells/road_cells） |
 | `/api/state` | 实时完整快照：日期、国家、城市、事件、建筑、项目、AI、预算、胜利 |
 | `/api/agents` | 各国控制器、模型、预算、厂商预设、连接测试状态（不含密钥） |
 | `POST /api/agents/test` | 对当前 LLM 席位发起一次最小连接测试 |
@@ -945,6 +945,8 @@ POST /api/agents/budget
 | `/api/setup` | 新建世界的默认国家、文明类型、核心格数 |
 | `/api/saves` | 存档列表与当前存档 ID |
 | `/assets/*` | 图标/图片静态资源 |
+
+`/api/world` 的 v2 地块是 12 元数组：`col,row,land,biome,owner_id,river,downstream,elevation_m,annual_precip_mm,annual_mean_temp_c,slope,lake`。`river_cells` 每项含 `depth_m、coverage、flow_m3_per_year、drainage_area_km2、kind、terminal_lake_id、network_id`；`kind=endorheic` 表示内流河，`terminal_lake_id` 指向 `lake_cells` 中的内湖。`lake_cells` 每项含 `lake_id、tile、depth_m、level_m、area_km2`。
 
 ### 11.2 POST
 
@@ -1062,7 +1064,7 @@ POST /api/agents/budget
 - 图层：卫星、政治、海拔、降水、资源、交通。
 - 卫星图层叠加所有国家的领土色与边界；v2 世界会先绘制 576×432 连续地形纹理，再叠加 144×108 六边形网格。政治图层显示更强的国家染色。
 - 河流由 `buildRiverChains()` 按下游关系构建从河源到河口的连续链，`sampleRiver()` 用 Catmull-Rom 采样并加入低频横向摆动，`drawRiverNetwork()` 分层绘制河岸、水体和细高光；河宽从源头向下游渐宽。
-- v2 河流按 `river_cells.depth_m` 填充河格，颜色随水深变深；道路按 `road_cells` 填充占格道路/桥梁，不再绘制中心线。v1 世界仍回退旧的弯曲河道和道路线稿。
+- v2 河流按 `river_cells.depth_m` 填充河格，颜色随水深变深；内流河额外叠加轻微青绿色调。湖泊按 `lake_cells.depth_m` 绘制深度梯度。道路按 `road_cells` 填充占格道路/桥梁，不再绘制中心线。v1 世界仍回退旧的弯曲河道和道路线稿。
 - `shortestLandPath` 必须使用 `landNeighbors`（只返回陆地邻格）；不要与全局 `hexNeighbors(col,row)` 混用，否则道路寻路会全部失败。
 - 国家颜色来自世界 polities；城市、设施图标、道路、施工进度环叠加。
 - 设施图标通过 `BUILD_ICON` 映射到 `/assets/icons/*.png`；图标为透明背景 320×320。
@@ -1184,9 +1186,10 @@ POST /api/agents/budget
 
 - `worldgen.py`：海拔/气候/水文/灾害/初始国家/天气函数。
 - `mapgen.py`：v1 公平随机地图与自定义 2–12 国；旧测试和基线保持此路径。
-- `mapgen_v2.py`：新世界默认路径。先在高分辨率栅格上生成连续地形、水系、道路，再聚合到 144×108 细六边形。输出 `river_cells`、`road_cells`、连续地形纹理和河深色阶。
+- `mapgen_v2.py`：新世界默认路径。先在高分辨率栅格上生成连续地形、水系、道路，再聚合到 144×108 细六边形。河段按支流—干流追踪并用平滑曲线 + 正弦偏移生成蜿蜒河道；封闭洼地生成内湖，湖泊集水区内的河流在湖岸终止为内流河。输出 `river_cells`、`lake_cells`、`road_cells`、连续地形纹理、河深/湖深色阶。
 - v2 地图半径 17 km，单元面积约 750 km²；旧地图半径 34 km、单元约 3,003 km²。
-- v2 河流阈值按真实汇水面积校准，不直接复用旧 17 格阈值；河格由细网格水文生成，同一 `network_id` 内必须六邻接连通；河深是汇水面积代理，不是水力测量值。
+- v2 河流阈值按真实汇水面积校准，不直接复用旧 17 格阈值；河格由细网格水文、河段追踪和蜿蜒整形生成，同一 `network_id` 内必须六邻接连通；河深是汇水面积代理，不是水力测量值。
+- 内湖选在距海岸和地图边缘较远的封闭洼地，湖格为 `land=false、lake=true`；局部优先洪泛定义封闭集水区，`river_cells.kind=endorheic` 的河流不得越过湖岸进入海洋，`kind=exorheic` 的河流必须最终入海。城心与道路格不得落在湖格上。
 - v2 首都选址禁止河格；`SETTLE` 在河格上返回 `RIVER_TILE`，AI 边疆候选也会跳过河格。
 - 连续气候噪声与火山核按物理尺度缩放，避免高分辨率栅格把气候切成高频噪点。
 - 旧 72×54 世界文件不能覆盖；v2 使用 `world_v2_custom_<seed>.json`。动态存档仍只保存 `world_file` 与 SHA-256。
@@ -1211,13 +1214,13 @@ POST /api/agents/budget
 | --- | --- |
 | `test_generated_world.py` | 世界完整性、气候、连通性、天气样本 |
 | `test_mapgen.py` | 自定义国家、16 格连通核心、公平度元数据 |
-| `test_mapgen_v2.py` | 连续地形、144×108 网格、河深/道路实体、存档往返 |
+| `test_mapgen_v2.py` | 连续地形、144×108 网格、河深/道路实体、内湖与内流河、蜿蜒整形、存档往返 |
 | `test_actions.py` | 建造、科研、政策、交易、外交、军事、城市、预算、动作原子性 |
 | `test_simulation.py` | 日历、暂停/倍速、存档、世界哈希、经济、评分、胜利、灾害 |
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**97 passed**。
+当前：**99 passed**。
 
 ### 15.2 测试原则
 
@@ -1516,7 +1519,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：97 项。
+- 测试：99 项。
 - 实时服务默认端口：8765。
 
 ---

@@ -751,6 +751,7 @@ class LiveSession:
                 if tile.get("downstream") else None,
                 tile["elevation_m"], tile["annual_precip_mm"],
                 tile["annual_mean_temp_c"], round(tile.get("slope", 0), 4),
+                1 if tile.get("lake") else 0,
             ]
             for tile in world.data["tiles"]
         ]
@@ -763,6 +764,7 @@ class LiveSession:
                 "schema_version": metadata.get("schema_version", 1),
                 "generator": metadata.get("generator", "mapgen_v1"),
                 "river_depth_model": metadata.get("river_depth_model"),
+                "hydrology_model": metadata.get("hydrology_model"),
                 "seed": metadata.get("seed"),
                 "terrain_texture_url": (
                     f"/api/terrain?seed={metadata.get('seed')}"
@@ -772,8 +774,10 @@ class LiveSession:
             "polities": polities,
             "tiles": tiles,
             "river_cells": world.data.get("river_cells", []),
+            "lake_cells": world.data.get("lake_cells", []),
             "road_cells": world.data.get("road_cells", []),
             "rendering": world.data.get("rendering", {}),
+            "world_summary": world.data.get("world_summary", {}),
         }
 
     def snapshot(self) -> dict:

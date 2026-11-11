@@ -1,10 +1,12 @@
 from pathlib import Path
 
+import numpy as np
 from PIL import Image
 
 from core.state import GameState
 from mapgen import generate_fair_world
-from mapgen_v2 import V2_HEIGHT, V2_WIDTH, validate_v2
+from mapgen_v2 import V2_HEIGHT, V2_WIDTH, _meander_reach, validate_v2
+from worldgen import hex_distance
 
 COUNTRIES = [
     {"name": "赤河国", "color": "#cc5544", "archetype": "river_valley", "population": 30000},
@@ -30,6 +32,19 @@ def test_v2_world_has_continuous_terrain_and_cell_entities(tmp_path):
     assert len(world["road_cells"]) > 20
     assert world["world_summary"]["river_hexes"] == len(world["river_cells"])
     assert world["world_summary"]["river_cell_count"] == len(world["river_cells"])
+    assert world["lake_cells"], "v2 should contain inland lakes"
+    assert world["world_summary"]["lake_hexes"] == len(world["lake_cells"])
+    assert world["world_summary"]["lake_count"] == len({
+        cell["lake_id"] for cell in world["lake_cells"]
+    })
+    assert world["world_summary"]["endorheic_river_hexes"] > 0
+    assert any(cell["kind"] == "endorheic" for cell in world["river_cells"])
+    terminal_ids = {cell["lake_id"] for cell in world["lake_cells"]}
+    assert all(
+        cell["terminal_lake_id"] in terminal_ids
+        for cell in world["river_cells"]
+        if cell["kind"] == "endorheic"
+    )
     assert all(
         not next(
             tile for tile in world["tiles"]
@@ -75,3 +90,14 @@ def test_v2_has_fine_hexes_but_keeps_old_tile_contract():
     assert required <= set(tile)
     assert sum(tile["river"] for tile in world["tiles"]) == len(world["river_cells"])
     assert world["metadata"]["cell_area_km2"] < 1000
+
+
+def test_meander_reach_bends_a_straight_channel():
+    elev = np.full((12, 40), 120.0)
+    reach = [(x, 6) for x in range(6, 26)]
+    curved = _meander_reach(reach, elev, lambda x, y: True, 2.0, 10.0, 1.1)
+    assert curved is not None
+    assert curved[0] == reach[0] and curved[-1] == reach[-1]
+    assert max(abs(y - 6) for x, y in curved) >= 1
+    assert all(hex_distance(a, b) == 1 for a, b in zip(curved, curved[1:]))
+    assert len(set(curved)) == len(curved)

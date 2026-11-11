@@ -839,10 +839,10 @@ body.right-panel-open .notice-stack{right:354px}
   </div>
 </div>
 <script>
-const BIOME_COLORS={ocean:'#1b526d',alpine:'#8f9d99',tundra:'#9ba78f',
+const BIOME_COLORS={ocean:'#1b526d',lake:'#2f9fb2',alpine:'#8f9d99',tundra:'#9ba78f',
   desert:'#d1b475',steppe:'#b4b178',savanna:'#9db06c',grassland:'#789f70',
   forest:'#3d7a61',rainforest:'#286d54',wetland:'#5a9584'};
-const BIOME_NAMES={ocean:'海洋',alpine:'高山',tundra:'冻原',desert:'沙漠',steppe:'半干旱草原',
+const BIOME_NAMES={ocean:'海洋',lake:'湖泊',alpine:'高山',tundra:'冻原',desert:'沙漠',steppe:'半干旱草原',
   savanna:'稀树草原',grassland:'草原',forest:'森林',rainforest:'雨林',wetland:'湿地'};
 const BUILD_NAMES={FARM:'农田',MINE:'矿场',ROAD:'道路',GRANARY:'粮仓',IRRIGATION:'灌溉渠',
   WORKSHOP:'工坊',LIBRARY:'书库',MARKET:'市场',TEMPLE:'神庙',GREAT_GRANARY:'大粮仓',
@@ -920,8 +920,14 @@ function selectedTileData(){
   if(!selectedTile)return null;const raw=getTile(selectedTile[0],selectedTile[1]);
   const owner=dynamicOwnerMap()[selectedTile[0]+','+selectedTile[1]]||raw?.[4]||null;
   const riverCell=(WORLD?.river_cells||[]).find(cell=>cell.tile.col===selectedTile[0]&&cell.tile.row===selectedTile[1]);
+  const lakeCell=(WORLD?.lake_cells||[]).find(cell=>cell.tile.col===selectedTile[0]&&cell.tile.row===selectedTile[1]);
   const roadCell=(WORLD?.road_cells||[]).find(cell=>cell.tile.col===selectedTile[0]&&cell.tile.row===selectedTile[1]);
-  return raw?{col:raw[0],row:raw[1],land:raw[2],biome:raw[3],owner,river:!!raw[5],riverDepth:riverCell?.depth_m,riverCoverage:riverCell?.coverage,roadKind:roadCell?.kind}:null;
+  return raw?{col:raw[0],row:raw[1],land:raw[2],biome:raw[3],owner,river:!!raw[5],
+    riverDepth:riverCell?.depth_m,riverCoverage:riverCell?.coverage,
+    riverKind:riverCell?.kind,riverTerminal:riverCell?.terminal_lake_id,
+    riverFlow:riverCell?.flow_m3_per_year,riverDrainage:riverCell?.drainage_area_km2,
+    lake:!!raw[11],lakeDepth:lakeCell?.depth_m,lakeId:lakeCell?.lake_id,lakeLevel:lakeCell?.level_m,
+    roadKind:roadCell?.kind}:null;
 }
 function hexDistance(a,b){
   const q1=a[0]-((a[1]-(a[1]&1))>>1),q2=b[0]-((b[1]-(b[1]&1))>>1);
@@ -1024,7 +1030,7 @@ function settleConditions(tile){
   const expansion=STATE.expansion||{};
   const adjacent=(country.tiles||[]).some(coord=>hexDistance([tile.col,tile.row],coord)===1);
   const unowned=!tile.owner;
-  const dryLand=!tile.river;
+  const dryLand=!tile.river&&!tile.lake;
   const outpostOk=(country.outposts||[]).length<(expansion.max_outposts??4);
   const popOk=country.population>=(expansion.minimum_population??10000);
   const cost=expansion.treasury_cost??35;
@@ -1249,12 +1255,54 @@ function riverDepthColor(depth){
   }
   return stops[stops.length-1][1];
 }
+const DEFAULT_LAKE_STOPS=[[1,'#93e4e8'],[4,'#5bc6d1'],[8,'#319fb2'],[12,'#1c6b80']];
+function colorStopsColor(depth, stops){
+  const sorted=stops.map(stop=>[Number(stop[0]),stop[1]]).sort((a,b)=>a[0]-b[0]);
+  if(depth<=sorted[0][0])return sorted[0][1];
+  for(let i=1;i<sorted.length;i++){
+    if(depth<=sorted[i][0]){
+      const a=hexToRgb(sorted[i-1][1]),b=hexToRgb(sorted[i][1]);
+      const t=(depth-sorted[i-1][0])/Math.max(.001,sorted[i][0]-sorted[i-1][0]);
+      return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)},${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)})`;
+    }
+  }
+  return sorted[sorted.length-1][1];
+}
+function lakeDepthColor(depth){
+  return colorStopsColor(depth,(WORLD?.rendering?.lake_depth_stops||DEFAULT_LAKE_STOPS));
+}
+function blendRgbColor(color,target,amount){
+  const match=String(color).match(/rgba?\(([^)]+)\)/);
+  if(!match)return color;
+  const parts=match[1].split(',').map(Number);
+  const t=Math.max(0,Math.min(1,amount));
+  return `rgb(${Math.round(parts[0]+(target[0]-parts[0])*t)},${Math.round(parts[1]+(target[1]-parts[1])*t)},${Math.round(parts[2]+(target[2]-parts[2])*t)})`;
+}
+function drawLakeCells(scale){
+  const cells=WORLD?.lake_cells;
+  if(!Array.isArray(cells)||!cells.length)return false;
+  for(const cell of cells){
+    const tile=getTile(cell.tile.col,cell.tile.row);
+    if(!tile)continue;
+    const x=cx([cell.tile.col,cell.tile.row]),y=cy([cell.tile.col,cell.tile.row]);
+    hexPath(x,y,.985);
+    ctx.fillStyle=lakeDepthColor(Number(cell.depth_m||0));
+    ctx.fill();
+    ctx.strokeStyle='rgba(8,42,54,.28)';
+    ctx.lineWidth=Math.max(.03,1.2/scale);ctx.stroke();
+  }
+  return true;
+}
 function drawRiverCells(scale){
   const cells=WORLD?.river_cells;
   if(!Array.isArray(cells)||!cells.length)return false;
+  const endorheicTint=hexToRgb(WORLD?.rendering?.endorheic_tint||'#63c9b4');
   const visible=cells.map(cell=>{
     const tile=getTile(cell.tile.col,cell.tile.row);
-    return tile&&tile[2]?{cell,tile,color:riverDepthColor(Number(cell.depth_m||0))}:null;
+    if(!tile||!tile[2])return null;
+    let color=riverDepthColor(Number(cell.depth_m||0));
+    if(cell.kind==='endorheic')color=blendRgbColor(color,endorheicTint,.28);
+    return {cell,tile,color};
   }).filter(Boolean);
   for(const item of visible){
     hexPath(cx([item.cell.tile.col,item.cell.tile.row]),cy([item.cell.tile.col,item.cell.tile.row]),.97);
@@ -1352,6 +1400,7 @@ function render(force=false){
       if(owner){ctx.strokeStyle=countryColor(owner)+'88';ctx.stroke();}
     }
   }
+  drawLakeCells(scale);
   if(['satellite','political','terrain','routes'].includes(mapMode)){
     drawRiverNetwork(scale,mapMode==='routes');
   }
@@ -1414,13 +1463,15 @@ function render(force=false){
   positionDiaryBubbles();
 }
 function updateMapLegend(){
+  const hasEndorheic=!!WORLD?.river_cells?.some(cell=>cell.kind==='endorheic');
+  const hasLakes=!!WORLD?.lake_cells?.length;
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),['道路','#c9a46b'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),...(hasEndorheic?[['内流河','#63c9b4']]:[]),...(hasLakes?[['内流湖','#54c3cf']]:[]),['道路','#c9a46b'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
-    terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
-    rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],
+    terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c'],...(hasLakes?[['湖泊','#54c3cf']]:[])],
+    rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f'],...(hasLakes?[['湖泊','#54c3cf']]:[])],
     resources:[['粮食','#d8c165'],['金属','#b9c5ce'],['木材','#56a276'],['石料','#b6a99d'],['牧草','#b6b77c']],
-    routes:[['道路','#e5c07b'],['河流','#5babc7'],['贸易联系','#d4a856']]
+    routes:[['道路','#e5c07b'],['河流','#5babc7'],...(hasEndorheic?[['内流河','#63c9b4']]:[]),...(hasLakes?[['湖泊','#54c3cf']]:[]),['贸易联系','#d4a856']]
   };
   $('mapLegend').innerHTML=(items[mapMode]||[]).map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
 }
@@ -1589,7 +1640,8 @@ function renderRight(){
       <span class="pill">${b?(b.project?'施工中':'已建设'):'未建设'}</span></div>
       <div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
       <div class="kv"><span>地形</span><b>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</b></div>
-      ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverDepth!=null?`水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:'有水流'}</b></div>`:''}
+      ${tile.lake?`<div class="kv"><span>湖泊</span><b>内流湖 · 水深 ${tile.lakeDepth!=null?fmtNum(tile.lakeDepth,1)+' m':'未知'}${tile.lakeLevel!=null?` · 湖面 ${fmtNum(tile.lakeLevel,0)} m`:''}</b></div>`:''}
+      ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverKind==='endorheic'?'内流河':'外流河'}${tile.riverKind==='endorheic'&&tile.riverTerminal?` · 注入 ${esc(tile.riverTerminal)}`:''}${tile.riverDepth!=null?` · 水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:''}${tile.riverDrainage?` · 流域 ${fmtInt(tile.riverDrainage)} km²`:''}</b></div>`:''}
       ${tile.roadKind?`<div class="kv"><span>道路</span><b>${tile.roadKind==='bridge'?'桥梁':'道路'}</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
