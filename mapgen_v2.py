@@ -30,6 +30,7 @@ CONTINUOUS_HEIGHT = V2_HEIGHT * CONTINUOUS_SCALE
 CONTINUOUS_RADIUS_KM = V2_RADIUS_KM / CONTINUOUS_SCALE
 CONTINUOUS_CELL_AREA_KM2 = (3 * math.sqrt(3) / 2) * CONTINUOUS_RADIUS_KM ** 2
 CONTINUOUS_RIVER_MIN_BASIN = max(1, round(17 * V1_CELL_AREA_KM2 / CONTINUOUS_CELL_AREA_KM2))
+V2_RIVER_MIN_BASIN = max(1, round(17 * V1_CELL_AREA_KM2 / V2_CELL_AREA_KM2))
 DEPTH_STOPS = [
     [0.3, "#b9e6ed"],
     [1.2, "#83cfdd"],
@@ -298,7 +299,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         [aggregated[(x, y)]["land"] for x in range(V2_WIDTH)]
         for y in range(V2_HEIGHT)
     ])
-    _, _, v2_basin, _, v2_slope = worldgen.gen_hydrology(
+    v2_parent, _, v2_basin, _, v2_slope = worldgen.gen_hydrology(
         v2_land, v2_elev,
         np.array([[aggregated[(x, y)]["annual_precip_mm"] for x in range(V2_WIDTH)] for y in range(V2_HEIGHT)]),
         V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM, V2_CELL_AREA_KM2,
@@ -317,10 +318,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         [aggregated[(x, y)]["annual_mean_temp_c"] for x in range(V2_WIDTH)]
         for y in range(V2_HEIGHT)
     ])
-    polity_river = np.array([
-        [aggregated[(x, y)]["river_count"] > 0 for x in range(V2_WIDTH)]
-        for y in range(V2_HEIGHT)
-    ])
+    polity_river = polity_land & (v2_basin >= V2_RIVER_MIN_BASIN)
     polity_basin = v2_basin
     polity_hazards = {
         key: np.array([
@@ -380,18 +378,21 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         cell for cell in _aggregate_roads(raw_roads, river)
         if polity_land[cell["tile"]["row"], cell["tile"]["col"]]
     ])
+    for cell in road_cells:
+        cell["kind"] = (
+            "bridge" if polity_river[cell["tile"]["row"], cell["tile"]["col"]]
+            else "road"
+        )
     tiles = []
     river_cells = []
     max_river_basin = max(
-        (data["basin"] for data in aggregated.values()
-         if data["land"] and data["river_count"]),
+        (float(v2_basin[y, x]) for y in range(V2_HEIGHT) for x in range(V2_WIDTH)
+         if polity_river[y, x]),
         default=1,
     )
     for y in range(V2_HEIGHT):
         for x in range(V2_WIDTH):
             data = aggregated[(x, y)]
-            px, py = -1, -1
-            # Recompute the downstream parent on the v2 grid to preserve the old contract.
             tiles.append({
                 "q": x - (y - (y & 1)) // 2, "r": y, "col": x, "row": y,
                 "latitude_deg": round(float(polity_lat[y, x]), 2),
@@ -403,29 +404,25 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
                 "monthly_temp_c": [round(value, 1) for value in data["monthly_temp_c"]],
                 "monthly_precip_mm": [round(value, 1) for value in data["monthly_precip_mm"]],
                 "slope": round(float(v2_slope[y, x]), 4),
-                "river": bool(data["land"] and data["river_count"] > 0),
+                "river": bool(polity_river[y, x]),
                 "drainage_area_km2": int(v2_basin[y, x] * V2_CELL_AREA_KM2),
-                "downstream": None,  # filled below from v2 parent
+                "downstream": None,
                 "hazards": {key: round(float(data[key]), 3) for key in hazards},
                 "owner_id": str(ownership[y, x]) or None,
             })
-            if data["land"] and data["river_count"]:
-                ratio = min(1.0, data["basin"] / max(1, max_river_basin))
+            if polity_river[y, x]:
+                ratio = min(1.0, float(v2_basin[y, x]) / max(1, max_river_basin))
                 depth = max(0.3, min(12.0, 0.3 + 9.6 * ratio ** 0.55))
                 river_cells.append({
                     "id": f"RV{x:03d}{y:03d}",
-                    "network_id": f"RV{x // 8:02d}{y // 8:02d}",
+                    "network_id": None,
                     "tile": {"col": x, "row": y},
                     "depth_m": round(depth, 3),
-                    "coverage": round(data["river_count"] / (CONTINUOUS_SCALE ** 2), 3),
+                    "coverage": round(min(1.0, data["river_count"] / (CONTINUOUS_SCALE ** 2)) or .15, 3),
                     "flow_m3_per_year": round(data["flow"], 1),
-                    "drainage_area_km2": int(data["basin"] * CONTINUOUS_CELL_AREA_KM2),
+                    "drainage_area_km2": int(v2_basin[y, x] * V2_CELL_AREA_KM2),
                 })
-    # A second hydrology pass supplies valid v2 parent pointers without drawing lines.
-    v2_parent, _, _, _, _ = worldgen.gen_hydrology(
-        v2_land, v2_elev, polity_p,
-        V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM, V2_CELL_AREA_KM2,
-    )
+    river_cells = _label_river_networks(river_cells)
     for tile in tiles:
         x, y = tile["col"], tile["row"]
         px, py = v2_parent[y, x]
@@ -470,14 +467,14 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
                 "resolution_km": CONTINUOUS_RADIUS_KM,
                 "sampling": "4x4 block aggregation at hex centers",
             },
-            "river_depth_model": "log_flow_proxy_v1; depth is an estimate, not a hydraulic measurement",
+            "river_depth_model": "basin_area_proxy_v2; depth is an estimate, not a hydraulic measurement",
         },
         "world_summary": {
             "land_hexes": int(polity_land.sum()),
             "ocean_hexes": int((~polity_land).sum()),
             "land_area_km2": round(float(polity_land.sum() * V2_CELL_AREA_KM2)),
             "maximum_elevation_m": round(float(v2_elev.max())),
-            "river_hexes": int(polity_river.sum()),
+            "river_hexes": len(river_cells),
             "river_cell_count": len(river_cells),
             "road_cell_count": len(road_cells),
             "unclaimed_land_hexes": int(np.count_nonzero(polity_land & (ownership == ""))),
@@ -506,12 +503,37 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
     return world
 
 
+def _label_river_networks(river_cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    by_coord = {(cell["tile"]["col"], cell["tile"]["row"]): cell for cell in river_cells}
+    remaining = set(by_coord)
+    components = []
+    while remaining:
+        start = next(iter(remaining))
+        remaining.remove(start)
+        queue = deque([start])
+        component = [start]
+        while queue:
+            current = queue.popleft()
+            for neighbor in worldgen.neighbors(*current, V2_WIDTH, V2_HEIGHT):
+                if neighbor in remaining:
+                    remaining.remove(neighbor)
+                    queue.append(neighbor)
+                    component.append(neighbor)
+        components.append(component)
+    components.sort(key=len, reverse=True)
+    for index, component in enumerate(components, 1):
+        for coord in component:
+            by_coord[coord]["network_id"] = f"RV{index:02d}"
+    return river_cells
+
+
 def validate_v2(world: dict[str, Any]) -> bool:
     metadata = world["metadata"]
     width, height = metadata["grid_width"], metadata["grid_height"]
     assert metadata["schema_version"] == 2
     assert len(world["tiles"]) == width * height
     assert world["world_summary"]["land_hexes"] == sum(tile["land"] for tile in world["tiles"])
+    assert world["world_summary"]["river_hexes"] == len(world["river_cells"])
     all_occupied = set()
     for polity in world["polities"]:
         assert len(polity["initial_tiles"]) == mapgen.CORE_TILES
@@ -522,9 +544,19 @@ def validate_v2(world: dict[str, Any]) -> bool:
             if (tile["col"], tile["row"]) == capital
         )
         assert capital_tile["land"] and not capital_tile["river"], "capital must be dry land"
-        for coord in polity["initial_tiles"]:
-            assert tuple(coord) not in all_occupied
-            all_occupied.add(tuple(coord))
+        coords = {tuple(coord) for coord in polity["initial_tiles"]}
+        for coord in coords:
+            assert coord not in all_occupied
+            all_occupied.add(coord)
+        seen = {capital}
+        queue = deque([capital])
+        while queue:
+            current = queue.popleft()
+            for neighbor in worldgen.neighbors(*current, width, height):
+                if neighbor in coords and neighbor not in seen:
+                    seen.add(neighbor)
+                    queue.append(neighbor)
+        assert seen == coords, "polity core is not connected"
 
     tiles = {(tile["col"], tile["row"]): tile for tile in world["tiles"]}
     for tile in world["tiles"]:
@@ -559,6 +591,20 @@ def validate_v2(world: dict[str, Any]) -> bool:
             cell["tile"]["col"] == tile["col"] and cell["tile"]["row"] == tile["row"]
             for cell in world["river_cells"]
         )
+    river_networks: dict[str, list[tuple[int, int]]] = {}
+    for cell in world["river_cells"]:
+        coord = (cell["tile"]["col"], cell["tile"]["row"])
+        river_networks.setdefault(cell["network_id"], []).append(coord)
+    for coords in river_networks.values():
+        seen = {coords[0]}
+        queue = deque(seen)
+        while queue:
+            current = queue.popleft()
+            for neighbor in worldgen.neighbors(*current, width, height):
+                if neighbor in coords and neighbor not in seen:
+                    seen.add(neighbor)
+                    queue.append(neighbor)
+        assert seen == set(coords), "river network is not hex-connected"
     depths = [stop[0] for stop in world["rendering"]["river_depth_stops"]]
     assert depths == sorted(depths)
 
@@ -570,6 +616,7 @@ def validate_v2(world: dict[str, Any]) -> bool:
         coord = (cell["tile"]["col"], cell["tile"]["row"])
         assert tiles[coord]["land"]
         assert cell["kind"] in {"road", "bridge"}
+        assert (cell["kind"] == "bridge") == bool(tiles[coord]["river"])
         by_network.setdefault(cell["network_id"], []).append(coord)
     for coords in by_network.values():
         if not coords:

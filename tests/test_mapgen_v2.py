@@ -28,6 +28,16 @@ def test_v2_world_has_continuous_terrain_and_cell_entities(tmp_path):
     assert world["terrain"]["height"] > V2_HEIGHT
     assert len(world["river_cells"]) > 100
     assert len(world["road_cells"]) > 20
+    assert world["world_summary"]["river_hexes"] == len(world["river_cells"])
+    assert world["world_summary"]["river_cell_count"] == len(world["river_cells"])
+    assert all(
+        not next(
+            tile for tile in world["tiles"]
+            if tile["col"] == polity["capital"]["col"]
+            and tile["row"] == polity["capital"]["row"]
+        )["river"]
+        for polity in world["polities"]
+    )
     assert all(cell["depth_m"] > 0 for cell in world["river_cells"])
     assert {cell["kind"] for cell in world["road_cells"]} <= {"road", "bridge"}
     assert len({cell["id"] for cell in world["river_cells"]}) == len(world["river_cells"])

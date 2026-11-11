@@ -2,7 +2,7 @@ import numpy as np
 
 from core.rules import RuleEngine
 from core.simulation import Simulation
-from core.society import food_capacity
+from core.society import food_capacity, zone_adjacency
 from core.state import GameState, calendar_date
 
 
@@ -317,3 +317,12 @@ def test_old_save_gets_current_tech_content(tmp_path, state):
     restored = GameState.load(path)
     assert restored.config["tech_tree"]["bronze_metallurgy"]["label"] == "科技"
     assert restored.config["tech_tree"]["writing"]["label"] == "政治"
+
+
+def test_commerce_zone_gets_center_adjacency_bonus():
+    state = GameState.new(seed=2000)
+    city = state.countries["ELAR"].cities[0]
+    neighbor = next(state.world.neighbors(*city.center))
+    city.zones[neighbor] = "commerce"
+    bonus = zone_adjacency(city, neighbor, state.world)
+    assert bonus["tax"] > 1.0

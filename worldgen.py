@@ -111,7 +111,7 @@ def gen_climate(rng,lat,land,elev,w=W,h=H,r_km=R_KM):
                 humidity=max(.22,humidity-.05)
             prev_h=z
     # Smoothed regional precipitation microstructure, including leeward drying.
-    p *= np.clip(1+.13*gaussian_filter(rng.normal(size=(h,w)),sigma=2.0*r_km/R_KM),.7,1.4)
+    p *= np.clip(1+.13*gaussian_filter(rng.normal(size=(h,w)),sigma=max(0.5,2.0*R_KM/r_km)),.7,1.4)
     p=np.clip(p,70,3300)
     # Seasonal rainfall: summer monsoon at low latitudes, winter storms at high latitudes.
     monthly=[]
@@ -195,7 +195,8 @@ def gen_hazards(land,elev,fault,biome,p,tmean,lat,river,basin,slope,dist_ocean,w
         for idx in np.linspace(0,len(fault_candidates)-1,min(5,len(fault_candidates)),dtype=int):
             yy,xx=fault_candidates[idx]
             yyarr,xxarr=np.mgrid[:h,:w]
-            eruption=np.maximum(eruption,np.exp(-(((xxarr-xx)/4.3)**2+((yyarr-yy)/4.3)**2)))
+            sigma=max(1.0,4.3*R_KM/r_km)
+            eruption=np.maximum(eruption,np.exp(-(((xxarr-xx)/sigma)**2+((yyarr-yy)/sigma)**2)))
     eruption*=fault*land
     return {'flood':flood,'drought':drought,'earthquake':earthquake,'volcano':eruption,
             'wildfire':wildfire,'cyclone':cyclone}

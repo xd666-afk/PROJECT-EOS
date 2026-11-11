@@ -81,9 +81,9 @@ def zone_adjacency(city, coord: tuple[int, int], world=None) -> dict[str, float]
 
     zone = city.zones.get(coord, "unzoned")
     if world is not None:
-        adjacent = world.neighbors(*coord)
+        adjacent = list(world.neighbors(*coord))
     else:
-        adjacent = neighbors(*coord)
+        adjacent = list(neighbors(*coord))
     neighbor_zones = Counter(
         city.zones.get(neighbor, "unzoned") for neighbor in adjacent
     )

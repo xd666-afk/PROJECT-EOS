@@ -1299,7 +1299,7 @@ function loadTerrainTexture(url){
   terrainImage=null;terrainReady=false;terrainUrl=url||null;
   if(!url)return;
   const image=new Image();
-  image.onload=()=>{terrainImage=image;terrainReady=true;render(true);};
+  image.onload=()=>{if(terrainUrl!==url)return;terrainImage=image;terrainReady=true;render(true);};
   image.src=url;
 }
 function render(force=false){
