@@ -100,6 +100,15 @@ class WorldStatic:
         except KeyError as exc:
             raise ValueError(f"unknown tile {coord}") from exc
 
+    def neighbors(self, x: int, y: int):
+        from worldgen import neighbors
+
+        return neighbors(
+            x, y,
+            self.data["metadata"]["grid_width"],
+            self.data["metadata"]["grid_height"],
+        )
+
 
 @dataclass
 class CityState:

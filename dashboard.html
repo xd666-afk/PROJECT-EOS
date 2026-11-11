@@ -868,6 +868,7 @@ const PERSONALITY_LABELS={aggressive:'激进',neutral:'中立',conservative:'保
 const PERSONALITY_DESC={aggressive:'扩张、军备与威慑优先',neutral:'粮食、财政、军备与外交均衡',conservative:'粮食、稳定、防御与外交优先'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
 let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='country';
+let terrainImage=null,terrainReady=false,terrainUrl=null;
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
 let hoveredTile=null;
 const $=id=>document.getElementById(id);
@@ -892,9 +893,20 @@ function resize(){
   if(WORLD)fitMap();else render();
 }
 function fitMap(){
-  const w=mapPanel.clientWidth,h=mapPanel.clientHeight,bw=Math.sqrt(3)*(WORLD.metadata.grid_width+1),bh=1.5*(WORLD.metadata.grid_height+1);
+  const w=mapPanel.clientWidth,h=mapPanel.clientHeight;
+  const refWidth=72,refHeight=54;
+  const bw=Math.sqrt(3)*(refWidth+1),bh=1.5*(refHeight+1);
   fitScale=Math.min((w-50)/bw,(h-66)/bh);baseOffX=(w-bw*fitScale)/2+Math.sqrt(3)*fitScale*.5;
-  baseOffY=(h-bh*fitScale)/2+1.5*fitScale;zoom=1;panX=0;panY=0;render(true);
+  baseOffY=(h-bh*fitScale)/2+1.5*fitScale;zoom=1;panX=0;panY=0;
+  if(WORLD&&(WORLD.metadata.grid_width>refWidth||WORLD.metadata.grid_height>refHeight)){
+    const polity=WORLD.polities?.find(item=>item.id===selectedCountry)||WORLD.polities?.[0];
+    const capital=polity?.capital;
+    if(capital){
+      panX=w/2-baseOffX-cx([capital.col,capital.row])*fitScale;
+      panY=h/2-baseOffY-cy([capital.col,capital.row])*fitScale;
+    }
+  }
+  render(true);
 }
 function hexPath(x,y,r=.98){ctx.beginPath();for(let i=0;i<6;i++){
   const a=(60*i-30)*Math.PI/180,xx=x+r*Math.cos(a),yy=y+r*Math.sin(a);
@@ -907,7 +919,9 @@ function dynamicOwnerMap(){
 function selectedTileData(){
   if(!selectedTile)return null;const raw=getTile(selectedTile[0],selectedTile[1]);
   const owner=dynamicOwnerMap()[selectedTile[0]+','+selectedTile[1]]||raw?.[4]||null;
-  return raw?{col:raw[0],row:raw[1],land:raw[2],biome:raw[3],owner,river:!!raw[5]}:null;
+  const riverCell=(WORLD?.river_cells||[]).find(cell=>cell.tile.col===selectedTile[0]&&cell.tile.row===selectedTile[1]);
+  const roadCell=(WORLD?.road_cells||[]).find(cell=>cell.tile.col===selectedTile[0]&&cell.tile.row===selectedTile[1]);
+  return raw?{col:raw[0],row:raw[1],land:raw[2],biome:raw[3],owner,river:!!raw[5],riverDepth:riverCell?.depth_m,riverCoverage:riverCell?.coverage,roadKind:roadCell?.kind}:null;
 }
 function hexDistance(a,b){
   const q1=a[0]-((a[1]-(a[1]&1))>>1),q2=b[0]-((b[1]-(b[1]&1))>>1);
@@ -934,7 +948,7 @@ function shortestLandPath(start,end){
       if(next[0]===end[0]&&next[1]===end[1]){found=true;break;}
       queue.push(next);
     }
-    if(queue.length>6000)break;
+    if(queue.length>50000)break;
   }
   if(!found){roadPathCache[key]=null;return null;}
   const path=[];let current=end;
@@ -966,23 +980,42 @@ function roadSegments(){
   }
   roadNetworkCache={key,segments};return segments;
 }
-function drawRoadNetwork(scale,strong=false){
-  const segments=roadSegments();if(!segments.length)return;
-  ctx.lineCap='round';ctx.lineJoin='round';
-  for(const segment of segments){
-    ctx.beginPath();ctx.moveTo(cx(segment.points[0]),cy(segment.points[0]));
-    for(let i=1;i<segment.points.length;i++)ctx.lineTo(cx(segment.points[i]),cy(segment.points[i]));
-    ctx.strokeStyle='#171b18';ctx.globalAlpha=.82;
-    ctx.lineWidth=Math.max(.12,(strong?2.1:1.7)/scale);ctx.stroke();
-    ctx.strokeStyle=strong?'#e9c57e':'#d0aa6d';ctx.globalAlpha=1;
-    ctx.lineWidth=Math.max(.07,(strong?1.05:.82)/scale);ctx.stroke();
-    for(const point of [segment.points[0],segment.points[segment.points.length-1]]){
-      ctx.beginPath();ctx.arc(cx(point),cy(point),Math.max(.07,.36/scale),0,Math.PI*2);
-      ctx.fillStyle=strong?'#e9c57e':'#d0aa6d';ctx.fill();
-      ctx.strokeStyle='#28251e';ctx.lineWidth=Math.max(.025,.12/scale);ctx.stroke();
+function roadEntityCells(){
+  const cells=new Map();
+  if(WORLD?.road_cells){
+    for(const cell of WORLD.road_cells){
+      const col=cell.tile.col,row=cell.tile.row;
+      cells.set(col+','+row,{col,row,kind:cell.kind||'road',owner:cell.owner_id});
     }
   }
-  ctx.lineCap='butt';
+  for(const segment of roadSegments()){
+    for(const point of segment.points){
+      const key=point.join(',');
+      if(cells.has(key))continue;
+      const tile=getTile(point[0],point[1]);
+      cells.set(key,{col:point[0],row:point[1],kind:tile?.[5]?'bridge':'road',owner:segment.country});
+    }
+  }
+  return [...cells.values()];
+}
+function drawRoadNetwork(scale,strong=false){
+  const cells=roadEntityCells();if(!cells.length)return;
+  const visible=cells.map(cell=>{
+    const tile=getTile(cell.col,cell.row);
+    return tile&&tile[2]?{cell,tile,bridge:cell.kind==='bridge'||tile[5]}:null;
+  }).filter(Boolean);
+  for(const item of visible){
+    const {cell,tile,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
+    hexPath(x,y,.84);
+    ctx.fillStyle=bridge?'#7d8f98':(strong?'#e0bd7b':'#c9a46b');ctx.fill();
+    ctx.strokeStyle=bridge?'#263a44':'#3a2a18';
+    ctx.lineWidth=Math.max(.03,1.3/scale);ctx.stroke();
+  }
+  for(const item of visible){
+    const {cell,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
+    hexPath(x,y,.84);
+    ctx.fillStyle=bridge?'#7d8f98':(strong?'#e0bd7b':'#c9a46b');ctx.fill();
+  }
 }
 function settleConditions(tile){
   const empty={adjacent:false,ok:false,checks:[]};
@@ -1196,7 +1229,45 @@ function strokeRibbon(samples,scale,widthAt,style,alpha){
     ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
   }
 }
+const DEFAULT_RIVER_STOPS=[[.3,'#b9e6ed'],[1.2,'#83cfdd'],[2.5,'#54a8c0'],[4.5,'#337f9d'],[7,'#205c79'],[10,'#153e57']];
+function hexToRgb(hex){
+  const value=hex.replace('#','');
+  return [parseInt(value.slice(0,2),16),parseInt(value.slice(2,4),16),parseInt(value.slice(4,6),16)];
+}
+function riverDepthColor(depth){
+  const stops=(WORLD?.rendering?.river_depth_stops||DEFAULT_RIVER_STOPS)
+    .map(stop=>[Number(stop[0]),stop[1]]).sort((a,b)=>a[0]-b[0]);
+  if(depth<=stops[0][0])return stops[0][1];
+  for(let i=1;i<stops.length;i++){
+    if(depth<=stops[i][0]){
+      const a=hexToRgb(stops[i-1][1]),b=hexToRgb(stops[i][1]);
+      const t=(depth-stops[i-1][0])/Math.max(.001,stops[i][0]-stops[i-1][0]);
+      return `rgb(${Math.round(a[0]+(b[0]-a[0])*t)},${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)})`;
+    }
+  }
+  return stops[stops.length-1][1];
+}
+function drawRiverCells(scale){
+  const cells=WORLD?.river_cells;
+  if(!Array.isArray(cells)||!cells.length)return false;
+  const visible=cells.map(cell=>{
+    const tile=getTile(cell.tile.col,cell.tile.row);
+    return tile&&tile[2]?{cell,tile,color:riverDepthColor(Number(cell.depth_m||0))}:null;
+  }).filter(Boolean);
+  for(const item of visible){
+    hexPath(cx([item.cell.tile.col,item.cell.tile.row]),cy([item.cell.tile.col,item.cell.tile.row]),.97);
+    ctx.fillStyle=item.color;ctx.fill();
+    ctx.strokeStyle='rgba(4,17,24,.72)';
+    ctx.lineWidth=Math.max(.03,1.5/scale);ctx.stroke();
+  }
+  for(const item of visible){
+    hexPath(cx([item.cell.tile.col,item.cell.tile.row]),cy([item.cell.tile.col,item.cell.tile.row]),.985);
+    ctx.fillStyle=item.color;ctx.fill();
+  }
+  return true;
+}
 function drawRiverNetwork(scale,strong=false){
+  if(drawRiverCells(scale))return;
   const chains=buildRiverChains();if(!chains.length)return;
   const boost=strong?1.16:1;
   const prepared=chains.map(chain=>{
@@ -1222,6 +1293,13 @@ function drawRiverNetwork(scale,strong=false){
   }
   ctx.restore();
 }
+function loadTerrainTexture(url){
+  terrainImage=null;terrainReady=false;terrainUrl=url||null;
+  if(!url)return;
+  const image=new Image();
+  image.onload=()=>{terrainImage=image;terrainReady=true;render(true);};
+  image.src=url;
+}
 function render(force=false){
   const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
   const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0)].join('~');
@@ -1231,11 +1309,19 @@ function render(force=false){
   const scale=fitScale*zoom,owners=dynamicOwnerMap();
   ctx.save();ctx.translate(baseOffX+panX,baseOffY+panY);ctx.scale(scale,scale);
   ctx.lineWidth=Math.max(.05,.2/scale);
+  const useTerrain=mapMode==='satellite'&&terrainReady&&terrainImage;
+  if(useTerrain){
+    ctx.imageSmoothingEnabled=true;
+    ctx.drawImage(terrainImage,0,0,
+      Math.sqrt(3)*(WORLD.metadata.grid_width+1),
+      1.5*(WORLD.metadata.grid_height+1));
+  }
   for(const t of WORLD.tiles){
     const owner=owners[t[0]+','+t[1]]||t[4];
     const x=cx(t),y=cy(t);hexPath(x,y);
     if(mapMode==='satellite'){
-      ctx.fillStyle=satelliteColor(t);ctx.fill();ctx.strokeStyle='rgba(6,20,26,.08)';ctx.stroke();
+      if(!useTerrain){ctx.fillStyle=satelliteColor(t);ctx.fill();}
+      ctx.strokeStyle=useTerrain?'rgba(6,20,26,.12)':'rgba(6,20,26,.08)';ctx.stroke();
       if(owner){
         ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.23;ctx.fill();ctx.globalAlpha=1;
         ctx.strokeStyle=countryColor(owner)+'dd';ctx.lineWidth=Math.max(.06,.2/scale);ctx.stroke();
@@ -1327,7 +1413,7 @@ function render(force=false){
 }
 function updateMapLegend(){
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],['河流','#4f9fba'],['道路','#d0aa6d'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),['道路','#c9a46b'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
     rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],
@@ -1501,6 +1587,8 @@ function renderRight(){
       <span class="pill">${b?(b.project?'施工中':'已建设'):'未建设'}</span></div>
       <div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
       <div class="kv"><span>地形</span><b>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</b></div>
+      ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverDepth!=null?`水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:'有水流'}</b></div>`:''}
+      ${tile.roadKind?`<div class="kv"><span>道路</span><b>${tile.roadKind==='bridge'?'桥梁':'道路'}</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
       ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
@@ -2443,10 +2531,21 @@ async function refreshSaves(){
   for(const btn of document.querySelectorAll('[data-load]'))btn.onclick=()=>loadSave(btn.dataset.load);
   for(const btn of document.querySelectorAll('[data-delete]'))btn.onclick=()=>deleteSave(btn.dataset.delete);
 }
+function centralCountryId(){
+  if(!WORLD?.polities?.length)return null;
+  const center=[(WORLD.metadata.grid_width-1)/2,(WORLD.metadata.grid_height-1)/2];
+  return WORLD.polities.reduce((best,item)=>{
+    const point=[item.capital.col,item.capital.row];
+    const distance=hexDistance(point,center);
+    return !best||distance<best.distance?{id:item.id,distance}:best;
+  },null)?.id||WORLD.polities[0].id;
+}
 async function startSession(){
   const r=await fetch('/api/world');WORLD=await r.json();
   WORLD.tileMap={};for(const t of WORLD.tiles)WORLD.tileMap[t[0]+','+t[1]]=t;
-  selectedCountry=WORLD.polities[0].id;selectedTile=null;endShown=false;
+  loadTerrainTexture(WORLD.metadata?.terrain_texture_url||null);
+  roadPathCache={};roadNetworkCache={key:'',segments:[]};
+  selectedCountry=(WORLD.metadata?.schema_version>=2?centralCountryId():WORLD.polities[0].id);selectedTile=null;endShown=false;
   $('endModal').hidden=true;
   const wantedLayer=bootParams.get('layer');
   if(['satellite','political','terrain','rain','resources','routes'].includes(wantedLayer)){

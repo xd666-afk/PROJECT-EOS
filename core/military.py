@@ -62,7 +62,7 @@ class Military:
             current = queue.popleft()
             if current == target:
                 break
-            for neighbor in neighbors(*current):
+            for neighbor in self.state.world.neighbors(*current):
                 if neighbor in previous or not self.state.world.tile(neighbor)["land"]:
                     continue
                 owner = self._owner_of(neighbor)
@@ -191,7 +191,7 @@ class Military:
             nearby = [coord for coord in hostiles if hex_distance(current, coord) == 1]
             if nearby:
                 return min(nearby, key=lambda coord: hex_distance(start, coord))
-            for neighbor in neighbors(*current):
+            for neighbor in self.state.world.neighbors(*current):
                 if neighbor in visited or not self.state.world.tile(neighbor)["land"]:
                     continue
                 visited.add(neighbor)

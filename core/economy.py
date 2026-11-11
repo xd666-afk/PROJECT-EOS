@@ -111,7 +111,7 @@ class Economy:
             focus = focus_config.get(city_focus.get(coord, "balanced"), focus_config["balanced"])
             zone = zone_config.get(city_zone.get(coord, "unzoned"), zone_config["unzoned"])
             city = city_by_coord.get(coord)
-            adjacency = zone_adjacency(city, coord) if city else {
+            adjacency = zone_adjacency(city, coord, self.state.world) if city else {
                 "food": 1.0, "mining": 1.0, "tax": 1.0, "research": 1.0,
             }
             livability_factor = 0.8 + max(0, min(100, city.livability)) / 200.0 if city else 1.0
@@ -185,7 +185,7 @@ class Economy:
         ) / population_total
         zone_tax_bonus = sum(
             zone_config.get(city_zone.get(coord, "unzoned"), zone_config["unzoned"])["tax_bonus"]
-            + (zone_adjacency(city_by_coord[coord], coord)["tax"] - 1.0 if coord in city_by_coord else 0.0)
+            + (zone_adjacency(city_by_coord[coord], coord, self.state.world)["tax"] - 1.0 if coord in city_by_coord else 0.0)
             for coord in country.tiles
         )
         city_tax_multiplier *= 1.0 + zone_tax_bonus
@@ -406,7 +406,7 @@ class Economy:
         ) / population_total
         city_research_multiplier *= 1.0 + sum(
             zone_config.get(city_zone.get(coord, "unzoned"), zone_config["unzoned"])["research_bonus"]
-            + (zone_adjacency(city_by_coord[coord], coord)["research"] - 1.0 if coord in city_by_coord else 0.0)
+            + (zone_adjacency(city_by_coord[coord], coord, self.state.world)["research"] - 1.0 if coord in city_by_coord else 0.0)
             for coord in country.tiles
         )
         points = (

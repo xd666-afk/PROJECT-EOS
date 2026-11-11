@@ -88,7 +88,7 @@ class CityManager:
                     candidates,
                     key=lambda coord: (
                         sum(
-                            1 for neighbor in neighbors(*coord)
+                            1 for neighbor in self.state.world.neighbors(*coord)
                             if city.zones.get(neighbor) == desired_zone
                         ),
                         -abs(coord[0] - city.center[0]) - abs(coord[1] - city.center[1]),

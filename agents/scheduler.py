@@ -35,7 +35,7 @@ def _campaign_options(state, country) -> dict[str, dict[str, Any]]:
     staging = {}
     while queue and len(distance) < 700:
         current = queue.popleft()
-        for neighbor in neighbors(*current):
+        for neighbor in state.world.neighbors(*current):
             tile = state.world.tile(neighbor)
             if not tile["land"] or neighbor in distance:
                 continue
@@ -52,7 +52,7 @@ def _campaign_options(state, country) -> dict[str, dict[str, Any]]:
         )
         best = None
         for coord in target.tiles:
-            for candidate in neighbors(*coord):
+            for candidate in state.world.neighbors(*coord):
                 if candidate in distance and (best is None or distance[candidate] < best[0]):
                     best = (distance[candidate], candidate)
         reachable = adjacent_to_army or best is not None
@@ -113,7 +113,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
     frontier_seen = set()
     from worldgen import neighbors
     for coord in country.tiles:
-        for neighbor in neighbors(coord[0], coord[1]):
+        for neighbor in state.world.neighbors(coord[0], coord[1]):
             if neighbor in owned or neighbor in frontier_seen:
                 continue
             frontier_seen.add(neighbor)

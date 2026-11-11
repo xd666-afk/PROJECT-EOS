@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-10，对应当前代码与 92 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-11，对应当前代码与 95 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、战争疲劳、和平 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、92 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、95 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -299,7 +299,8 @@ AI：
 | `dashboard.html` | 分层 UI：一级导航、二级标签、地图、城市视图、通知 | 前端 |
 | `config/rules.json` | 所有数值与内容定义 | 平衡/策划 |
 | `worldgen.py` | 原始世界生成、气候、水文、灾害、天气函数 | 地图 |
-| `mapgen.py` | 公平随机世界、自定义 2–12 国 | 地图 |
+| `mapgen.py` | 公平随机世界、自定义 2–12 国、v1/v2 入口 | 地图 |
+| `mapgen_v2.py` | 连续地形、地形纹理、细六边形、河深与道路格 | 地图 |
 | `run_simulation.py` | 批处理/交互 CLI | 工具 |
 | `build_viewer.py` / `simulate_climate.py` / `plot_elevation.py` | 离线地图/天气/海拔工具 | 地图 |
 | `tests/` | 规则、经济、AI、回放、地图、LLM 测试 | 所有人 |
@@ -1059,12 +1060,13 @@ POST /api/agents/budget
 
 - Canvas 绘制六边形，支持拖动、缩放、选中地块。
 - 图层：卫星、政治、海拔、降水、资源、交通。
-- 卫星图层叠加所有国家的领土色与边界；政治图层显示更强的国家染色。
+- 卫星图层叠加所有国家的领土色与边界；v2 世界会先绘制 576×432 连续地形纹理，再叠加 144×108 六边形网格。政治图层显示更强的国家染色。
 - 河流由 `buildRiverChains()` 按下游关系构建从河源到河口的连续链，`sampleRiver()` 用 Catmull-Rom 采样并加入低频横向摆动，`drawRiverNetwork()` 分层绘制河岸、水体和细高光；河宽从源头向下游渐宽。
-- 河流绘制在卫星/政治/海拔/交通图层；道路绘制在所有非资源图层，卫星图层使用更亮的金色。
+- v2 河流按 `river_cells.depth_m` 填充河格，颜色随水深变深；道路按 `road_cells` 填充占格道路/桥梁，不再绘制中心线。v1 世界仍回退旧的弯曲河道和道路线稿。
 - `shortestLandPath` 必须使用 `landNeighbors`（只返回陆地邻格）；不要与全局 `hexNeighbors(col,row)` 混用，否则道路寻路会全部失败。
 - 国家颜色来自世界 polities；城市、设施图标、道路、施工进度环叠加。
 - 设施图标通过 `BUILD_ICON` 映射到 `/assets/icons/*.png`；图标为透明背景 320×320。
+- v2 地形纹理由 `/api/terrain?seed=<seed>` 提供，文件默认位于 `runs/worlds/`，不进入 Git。
 - 道路在卫星/政治/交通图上始终画成连续线稿，不使用设施图片。
 
 ### 12.4 城市视图
@@ -1181,7 +1183,11 @@ POST /api/agents/budget
 ### 14.2 地图生成
 
 - `worldgen.py`：海拔/气候/水文/灾害/初始国家/天气函数。
-- `mapgen.py`：公平随机地图与自定义 2–12 国；各国核心各 16 格连通；搜索公平度达标种子；保存到 `runs/worlds/`。
+- `mapgen.py`：v1 公平随机地图与自定义 2–12 国；旧测试和基线保持此路径。
+- `mapgen_v2.py`：新世界默认路径。先在高分辨率栅格上生成连续地形、水系、道路，再聚合到 144×108 细六边形。输出 `river_cells`、`road_cells`、连续地形纹理和河深色阶。
+- v2 地图半径 17 km，单元面积约 750 km²；旧地图半径 34 km、单元约 3,003 km²。
+- v2 河流阈值按真实汇水面积校准，不直接复用旧 17 格阈值；河深是汇水面积代理，不是水力测量值。
+- 旧 72×54 世界文件不能覆盖；v2 使用 `world_v2_custom_<seed>.json`。动态存档仍只保存 `world_file` 与 SHA-256。
 - 新建世界使用 A/B/C/D… 的通用 ID；固定基线仍使用 ELAR/MARIS/VAYR/SAHAR；颜色、公平度、AI 偏好和 UI 均按国家列表动态生成。
 - 新世界通过 UI（可增减国家）或 `POST /api/new_game` 创建。
 - 自动边疆扩张在 `core/frontier.py`，规则参数在 `config.expansion.ai_interval_days`、`ai_treasury_reserve`；回放时关闭自动扩张，只重放动作日志。
@@ -1203,12 +1209,13 @@ POST /api/agents/budget
 | --- | --- |
 | `test_generated_world.py` | 世界完整性、气候、连通性、天气样本 |
 | `test_mapgen.py` | 自定义国家、16 格连通核心、公平度元数据 |
+| `test_mapgen_v2.py` | 连续地形、144×108 网格、河深/道路实体、存档往返 |
 | `test_actions.py` | 建造、科研、政策、交易、外交、军事、城市、预算、动作原子性 |
 | `test_simulation.py` | 日历、暂停/倍速、存档、世界哈希、经济、评分、胜利、灾害 |
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**92 passed**。
+当前：**95 passed**。
 
 ### 15.2 测试原则
 
@@ -1305,7 +1312,7 @@ docs(manual): document action protocol and save format
 | AI | `agents/*` | 观察隔离、预算、失败回退 |
 | 后端/API | `live_server.py`, `core/replay.py` | 本地安全边界、存档槽 |
 | 前端 | `dashboard.html` | 单文件，改动前先沟通，避免冲突 |
-| 地图/美术 | `worldgen.py`, `mapgen.py`, `assets/` | 不覆盖基线世界 |
+| 地图/美术 | `worldgen.py`, `mapgen.py`, `mapgen_v2.py`, `assets/` | 不覆盖基线世界 |
 | QA/平衡 | `tests/`, `run_simulation.py`, `runs/` | 365/1,825 日实验 |
 
 `dashboard.html` 与 `core/actions.py` 是冲突高发区；多人同时改时先约定接口字段。
@@ -1507,7 +1514,7 @@ livability, managed_by, zones, buildings, tiles_detail
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 测试：92 项。
+- 测试：95 项。
 - 实时服务默认端口：8765。
 
 ---

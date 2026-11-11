@@ -75,13 +75,17 @@ def city_housing(city, country, config: dict[str, Any]) -> float:
     return round(total, 2)
 
 
-def zone_adjacency(city, coord: tuple[int, int]) -> dict[str, float]:
+def zone_adjacency(city, coord: tuple[int, int], world=None) -> dict[str, float]:
     """Local spatial bonus: clustered industry, central commerce, residential-supported scholars."""
     from worldgen import neighbors
 
     zone = city.zones.get(coord, "unzoned")
+    if world is not None:
+        adjacent = world.neighbors(*coord)
+    else:
+        adjacent = neighbors(*coord)
     neighbor_zones = Counter(
-        city.zones.get(neighbor, "unzoned") for neighbor in neighbors(*coord)
+        city.zones.get(neighbor, "unzoned") for neighbor in adjacent
     )
     food = 1.0
     mining = 1.0
@@ -92,7 +96,7 @@ def zone_adjacency(city, coord: tuple[int, int]) -> dict[str, float]:
     elif zone == "industry":
         mining += min(0.36, neighbor_zones.get("industry", 0) * 0.10)
     elif zone == "commerce":
-        if city.center in neighbors(*coord):
+        if city.center in adjacent:
             tax += 0.15
         tax += min(0.20, neighbor_zones.get("commerce", 0) * 0.05)
     elif zone == "scholar":
@@ -266,7 +270,7 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
                 "zone": city.zones.get(coord, "unzoned"),
                 "adjacency": {
                     key: round(value, 3)
-                    for key, value in zone_adjacency(city, coord).items()
+                    for key, value in zone_adjacency(city, coord, world).items()
                 },
             }
             for coord in city.tiles

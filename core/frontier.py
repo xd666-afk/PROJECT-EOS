@@ -17,7 +17,7 @@ def choose_frontier(state, country) -> tuple[int, int] | None:
     owned = _owned_map(state)
     candidates: dict[tuple[int, int], tuple[float, int, int]] = {}
     for origin in country.tiles:
-        for coord in neighbors(*origin):
+        for coord in state.world.neighbors(*origin):
             if coord in owned or coord in candidates:
                 continue
             tile = state.world.tile(coord)
@@ -25,7 +25,7 @@ def choose_frontier(state, country) -> tuple[int, int] | None:
                 continue
             foreign_neighbor = any(
                 neighbor in owned and owned[neighbor] != country.country_id
-                for neighbor in neighbors(*coord)
+                for neighbor in state.world.neighbors(*coord)
             )
             biome = {
                 "grassland": 4.0, "savanna": 3.2,

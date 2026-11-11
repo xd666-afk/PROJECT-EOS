@@ -52,14 +52,14 @@ def smooth_noise(rng,h,w,sy,sx):
     b=b[:h,:w]
     return (b-b.mean())/max(b.std(),1e-6)
 
-def gen_base(seed):
+def gen_base(seed, w=W, h=H):
     rng=np.random.default_rng(seed)
-    Y,X=np.mgrid[0:H,0:W].astype(float)
-    X=(X+(Y%2)*.5)/(W-.5); Y=Y/(H-1)
+    Y,X=np.mgrid[0:h,0:w].astype(float)
+    X=(X+(Y%2)*.5)/(w-.5); Y=Y/(h-1)
     lat=51.0 - Y*43.0
-    n1=smooth_noise(rng,H,W,7,9)
-    n2=smooth_noise(rng,H,W,15,18)
-    n3=smooth_noise(rng,H,W,27,35)
+    n1=smooth_noise(rng,h,w,7,9)
+    n2=smooth_noise(rng,h,w,15,18)
+    n3=smooth_noise(rng,h,w,27,35)
     # Broad cratonic interior with gulfs and irregular coastal peninsulas.
     continental=(1.42*np.exp(-((abs((X-.49)/.45)**3.6)+(abs((Y-.49)/.54)**3.3)))
                 +.23*np.exp(-(((X-.69)/.17)**2+((Y-.79)/.17)**2))
@@ -81,10 +81,10 @@ def gen_base(seed):
     fault=np.where(land,np.clip(fault,0,1),0)
     return rng,X,Y,lat,land,elev,fault,west_ridge
 
-def gen_climate(rng,lat,land,elev):
+def gen_climate(rng,lat,land,elev,w=W,h=H,r_km=R_KM):
     # Maritime / continental moderation. East-west moisture carriage in simplified
     # Hadley/trade wind and mid-latitude westerly regimes.
-    dist_ocean=distance_transform_edt(land)*R_KM*1.7
+    dist_ocean=distance_transform_edt(land)*r_km*1.7
     inland=np.minimum(dist_ocean/1000,1)
     tmean=30.8-.53*lat-.0060*np.maximum(elev,0)+.8*inland
     amp=1.2 + 7.2*lat/51 + 4.2*inland
@@ -93,8 +93,8 @@ def gen_climate(rng,lat,land,elev):
     target=(520+970*np.exp(-((lat-11)/11)**2)
             +660*np.exp(-((lat-47)/12)**2)-390*np.exp(-((lat-28)/9)**2))
     p=np.zeros_like(elev)
-    for y in range(H):
-        order=range(W) if float(lat[y,0])>=29 else range(W-1,-1,-1)
+    for y in range(h):
+        order=range(w) if float(lat[y,0])>=29 else range(w-1,-1,-1)
         humidity=1.0; prev_h=0
         for x in order:
             if not land[y,x]:
@@ -111,7 +111,7 @@ def gen_climate(rng,lat,land,elev):
                 humidity=max(.22,humidity-.05)
             prev_h=z
     # Smoothed regional precipitation microstructure, including leeward drying.
-    p *= np.clip(1+.13*gaussian_filter(rng.normal(size=(H,W)),sigma=2.0),.7,1.4)
+    p *= np.clip(1+.13*gaussian_filter(rng.normal(size=(h,w)),sigma=2.0*r_km/R_KM),.7,1.4)
     p=np.clip(p,70,3300)
     # Seasonal rainfall: summer monsoon at low latitudes, winter storms at high latitudes.
     monthly=[]
@@ -126,7 +126,7 @@ def gen_climate(rng,lat,land,elev):
     monthly=np.stack(monthly)
     monthly*=p/np.maximum(monthly.sum(axis=0),1)
     # Simplified biome classes: water availability, temperature and alpine climate.
-    biome=np.full((H,W),'grassland',dtype=object)
+    biome=np.full((h,w),'grassland',dtype=object)
     biome[~land]='ocean'
     dry_idx=p/np.maximum(250+18*np.maximum(tmean,0),1)
     biome[land & (dry_idx<.42)]='desert'
@@ -139,11 +139,11 @@ def gen_climate(rng,lat,land,elev):
     biome[land & ((elev>2650)|(tmean<-4))]='alpine'
     return p,tmean,mtemp,monthly,biome,dist_ocean
 
-def gen_hydrology(land,elev,p):
+def gen_hydrology(land,elev,p,w=W,h=H,r_km=R_KM,cell_area_km2=CELL_AREA_KM2,river_min_basin=17):
     # Priority flood ensures every flow path terminates in ocean; artificially
     # fills local pits to spill elevation. Tracks a parent for each land tile.
-    visited=np.zeros((H,W),bool)
-    fill=elev.copy(); parent=np.full((H,W,2),-1,int)
+    visited=np.zeros((h,w),bool)
+    fill=elev.copy(); parent=np.full((h,w,2),-1,int)
     heap=[]; order=[]
     for y in range(H):
         for x in range(W):
@@ -152,7 +152,7 @@ def gen_hydrology(land,elev,p):
                 heapq.heappush(heap,(float(elev[y,x]),y,x))
     while heap:
         level,y,x=heapq.heappop(heap)
-        for nx,ny in neighbors(x,y):
+        for nx,ny in neighbors(x,y,w,h):
             if visited[ny,nx]:continue
             visited[ny,nx]=True
             fill[ny,nx]=max(float(elev[ny,nx]),level+1e-4)
@@ -160,22 +160,22 @@ def gen_hydrology(land,elev,p):
             heapq.heappush(heap,(float(fill[ny,nx]),ny,nx))
             order.append((nx,ny))
     # Approx annual runoff: precipitation minus evapotranspiration and infiltration.
-    local=np.where(land,np.maximum(p-310,20)/1000*CELL_AREA_KM2*1e6*.36,0)
+    local=np.where(land,np.maximum(p-310,20)/1000*cell_area_km2*1e6*.36,0)
     flow=local.copy(); basin=np.where(land,1,0).astype(int)
     for x,y in reversed(order):
         px,py=parent[y,x]
         if px<0:continue
         flow[py,px]+=flow[y,x]; basin[py,px]+=basin[y,x]
     # Channel headwater threshold 17 upstream cells; meanders not modeled.
-    river=land & (basin>=17) & (elev<3300)
+    river=land & (basin>=river_min_basin) & (elev<3300)
     # Slope is max gradient to immediate neighboring tile, in km/km
-    slope=np.zeros((H,W))
+    slope=np.zeros((h,w))
     for y in range(H):
         for x in range(W):
-            slope[y,x]=max([abs(float(elev[y,x])-float(elev[ny,nx]))/(R_KM*1.732*1000) for nx,ny in neighbors(x,y)] or [0])
+            slope[y,x]=max([abs(float(elev[y,x])-float(elev[ny,nx]))/(r_km*1.732*1000) for nx,ny in neighbors(x,y,w,h)] or [0])
     return parent,flow,basin,river,slope
 
-def gen_hazards(land,elev,fault,biome,p,tmean,lat,river,basin,slope,dist_ocean):
+def gen_hazards(land,elev,fault,biome,p,tmean,lat,river,basin,slope,dist_ocean,w=W,h=H,r_km=R_KM):
     # The following are relative exposure indices, NOT calibrated return periods.
     wetness=np.clip(p/1500,0,1)
     flat=np.exp(-slope*19)
@@ -183,18 +183,18 @@ def gen_hazards(land,elev,fault,biome,p,tmean,lat,river,basin,slope,dist_ocean):
     flood*=np.where(river,1,0.42)
     flood=np.where(land,flood,0)
     drought=np.where(land,np.clip((950-p)/780,0,1)*np.clip((tmean+2)/30,.2,1),0)
-    coast=land & (dist_ocean<R_KM*2.5)
+    coast=land & (dist_ocean<r_km*2.5)
     cyclone=np.where(coast & (lat<30) & (lat>8),np.clip((30-lat)/22,0,1)*.72,0)
     wildfire=np.where(land & np.isin(biome,['forest','savanna','grassland','steppe']),
                       np.clip((1100-p)/750,0,1)*np.clip((tmean+5)/33,0,1),0)
     earthquake=np.clip(.06+.86*fault,0,1)*land
     # Volcanic arc along active tectonic belt: deterministic point sources, geological not meteorological.
-    eruption=np.zeros((H,W))
+    eruption=np.zeros((h,w))
     fault_candidates=np.argwhere(land & (fault>.64) & (elev>1200))
     if len(fault_candidates):
         for idx in np.linspace(0,len(fault_candidates)-1,min(5,len(fault_candidates)),dtype=int):
             yy,xx=fault_candidates[idx]
-            yyarr,xxarr=np.mgrid[:H,:W]
+            yyarr,xxarr=np.mgrid[:h,:w]
             eruption=np.maximum(eruption,np.exp(-(((xxarr-xx)/4.3)**2+((yyarr-yy)/4.3)**2)))
     eruption*=fault*land
     return {'flood':flood,'drought':drought,'earthquake':earthquake,'volcano':eruption,
@@ -265,7 +265,8 @@ def pick_polities(land,elev,biome,p,tmean,river,basin,slope,dist_ocean,hazards,l
 
 def weather_day(rng,day,monthly_rain,monthly_temp,land,weather_anomaly):
     # Spatially-correlated AR(1) synoptic weather proxy, on top of monthly means.
-    noise=gaussian_filter(rng.normal(size=(H,W)),sigma=2.0)
+    shape=land.shape
+    noise=gaussian_filter(rng.normal(size=shape),sigma=2.0)
     noise=noise/max(noise.std(),1e-6)
     a=.86*weather_anomaly+.14*noise
     # Standard 365-day year, with 31/28/31/... day months.
@@ -273,15 +274,15 @@ def weather_day(rng,day,monthly_rain,monthly_temp,land,weather_anomaly):
     d=day%365
     m=next(m for m,cutoff in enumerate(np.cumsum(mdays)) if d<cutoff)
     rainy_chance=np.clip(.34+monthly_rain[m]/400, .23,.69)
-    wet=rng.random((H,W))<np.clip(rainy_chance+0.11*a,.10,.87)
+    wet=rng.random(shape)<np.clip(rainy_chance+0.11*a,.10,.87)
     rain=(monthly_rain[m]/30)*wet/np.maximum(rainy_chance,.08)*np.exp(.25*np.clip(a,-2,2))
-    temp=monthly_temp[m]+1.8*a+1.2*rng.normal(size=(H,W))
+    temp=monthly_temp[m]+1.8*a+1.2*rng.normal(size=shape)
     snow=land & (temp<0) & (rain>0)
     return a,rain,temp,snow
 
-def demo_weather_hazards(seed,land,monthly_rain,monthly_temp,hazards,polities):
+def demo_weather_hazards(seed,land,monthly_rain,monthly_temp,hazards,polities,w=W,h=H):
     rng=np.random.default_rng(seed+91)
-    a=np.zeros((H,W)); samples=[]; events=[]
+    a=np.zeros((h,w)); samples=[]; events=[]
     capital_lookup={p['id']:(p['capital']['row'],p['capital']['col']) for p in polities}
     recent_dry={k:0 for k in capital_lookup}
     # 360 days is illustrative climate variability, not an observational hindcast.

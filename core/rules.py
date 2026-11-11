@@ -154,7 +154,7 @@ class RuleEngine:
             queue = [coord]
             while queue and len(claimed) < self.state.config["expansion"].get("city_tiles", 5):
                 current = queue.pop(0)
-                for neighbor in neighbors(*current):
+                for neighbor in self.state.world.neighbors(*current):
                     if len(claimed) >= self.state.config["expansion"].get("city_tiles", 5):
                         break
                     if neighbor in occupied or neighbor in claimed:

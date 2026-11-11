@@ -327,7 +327,9 @@ class LiveSession:
 
         with self.lock:
             normalized = normalize_countries(countries)
-            world, path = generate_fair_world(normalized, base_seed=base_seed)
+            world, path = generate_fair_world(
+                normalized, base_seed=base_seed, generation_version="v2"
+            )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
             self.simulation = simulation
@@ -758,9 +760,20 @@ class LiveSession:
                 "grid_height": metadata["grid_height"],
                 "cell_area_km2": metadata["cell_area_km2"],
                 "hex_radius_km": metadata["hex_radius_km"],
+                "schema_version": metadata.get("schema_version", 1),
+                "generator": metadata.get("generator", "mapgen_v1"),
+                "river_depth_model": metadata.get("river_depth_model"),
+                "seed": metadata.get("seed"),
+                "terrain_texture_url": (
+                    f"/api/terrain?seed={metadata.get('seed')}"
+                    if metadata.get("terrain_texture") else None
+                ),
             },
             "polities": polities,
             "tiles": tiles,
+            "river_cells": world.data.get("river_cells", []),
+            "road_cells": world.data.get("road_cells", []),
+            "rendering": world.data.get("rendering", {}),
         }
 
     def snapshot(self) -> dict:
@@ -866,6 +879,14 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, DASHBOARD_HTML.read_bytes(), "text/html; charset=utf-8")
         elif path == "/api/world":
             self._json(self.session.world_payload())
+        elif path == "/api/terrain":
+            world_data = self.session.simulation.state.world.data
+            reference = world_data.get("metadata", {}).get("terrain_texture")
+            target = (BASE_DIR / reference).resolve() if reference else None
+            if target and target.is_relative_to(BASE_DIR.resolve()) and target.is_file():
+                self._send(200, target.read_bytes(), "image/png")
+            else:
+                self._json({"error": "terrain texture not found"}, 404)
         elif path == "/api/state":
             self._json(self.session.snapshot())
         elif path == "/api/agents":

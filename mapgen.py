@@ -102,12 +102,12 @@ def _archetype_specs(land, elev, biome, p, tmean, river, basin, slope, dist_ocea
     }
 
 
-def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat):
+def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat, w=W, h=H, allow_fallback=False):
     specs = _archetype_specs(
         land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat
     )
     placed = []
-    blocked = np.zeros((H, W), bool)
+    blocked = np.zeros((h, w), bool)
     for country in countries:
         valid, score = specs[country["archetype"]]
         location = None
@@ -123,6 +123,16 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
             if candidate_scores[y, x] > -1e6:
                 location = (int(x), int(y))
                 break
+        if location is None and allow_fallback:
+            candidate_scores = np.where(land, score, -1e8).copy()
+            for capital in placed:
+                for y in range(h):
+                    for x in range(w):
+                        if hex_distance((x, y), capital) < 4:
+                            candidate_scores[y, x] = -1e8
+            if np.max(candidate_scores) > -1e6:
+                y, x = np.unravel_index(np.argmax(candidate_scores), candidate_scores.shape)
+                location = (int(x), int(y))
         if location is None:
             raise RuntimeError(f"no fair capital location for {country['name']}")
         placed.append(location)
@@ -130,8 +140,8 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
     return placed
 
 
-def _grow_equal_territories(capitals, land, available):
-    ownership = np.full((H, W), "", dtype=object)
+def _grow_equal_territories(capitals, land, available, w=W, h=H):
+    ownership = np.full((h, w), "", dtype=object)
     territories = []
     ids = country_ids(len(capitals))
     for index, capital in enumerate(capitals):
@@ -146,7 +156,7 @@ def _grow_equal_territories(capitals, land, available):
             ownership[y, x] = country_id
             available[y, x] = False
             cells.append([x, y])
-            for nx, ny in neighbors(x, y):
+            for nx, ny in neighbors(x, y, w, h):
                 if (nx, ny) not in seen:
                     seen.add((nx, ny))
                     queue.append((nx, ny))
@@ -239,8 +249,12 @@ def generate_fair_world(
     countries: list[dict[str, Any]] | None = None,
     base_seed: int | None = None,
     attempts: int = 8,
+    generation_version: str = "v1",
 ) -> tuple[dict[str, Any], Path]:
     normalized = normalize_countries(countries)
+    if generation_version == "v2":
+        from mapgen_v2 import generate_fair_world_v2
+        return generate_fair_world_v2(normalized, base_seed=base_seed, attempts=attempts)
     base = secrets.randbelow(2_000_000_000) if base_seed is None else int(base_seed)
     best = None
     for offset in range(max(1, attempts)):

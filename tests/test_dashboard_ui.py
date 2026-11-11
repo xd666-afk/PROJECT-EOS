@@ -50,3 +50,13 @@ def test_rivers_are_curved_and_roads_draw_on_satellite():
     assert "landNeighbors(current)" in DASHBOARD
     assert "drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite')" in DASHBOARD
     assert "riverCache={world:WORLD,chains}" in DASHBOARD
+
+
+def test_v2_terrain_and_entity_layers_are_wired():
+    assert "function loadTerrainTexture(" in DASHBOARD
+    assert "terrain_texture_url" in DASHBOARD
+    assert "function drawRiverCells(" in DASHBOARD
+    assert "riverDepthColor" in DASHBOARD
+    assert "WORLD?.river_cells" in DASHBOARD
+    assert "roadEntityCells" in DASHBOARD
+    assert "drawImage(terrainImage" in DASHBOARD
