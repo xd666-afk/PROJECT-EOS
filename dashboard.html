@@ -1013,14 +1013,14 @@ function drawRoadNetwork(scale,strong=false){
   for(const item of visible){
     const {cell,tile,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
     hexPath(x,y,.84);
-    ctx.fillStyle=bridge?'#7d8f98':(strong?'#e0bd7b':'#c9a46b');ctx.fill();
-    ctx.strokeStyle=bridge?'#263a44':'#3a2a18';
+    ctx.fillStyle=bridge?bridgeColor():roadColor(strong);ctx.fill();
+    ctx.strokeStyle=bridge?'#263a44':'#2e1d14';
     ctx.lineWidth=Math.max(.03,1.3/scale);ctx.stroke();
   }
   for(const item of visible){
     const {cell,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
     hexPath(x,y,.84);
-    ctx.fillStyle=bridge?'#7d8f98':(strong?'#e0bd7b':'#c9a46b');ctx.fill();
+    ctx.fillStyle=bridge?bridgeColor():roadColor(strong);ctx.fill();
   }
 }
 function settleConditions(tile){
@@ -1256,6 +1256,9 @@ function riverDepthColor(depth){
   return stops[stops.length-1][1];
 }
 const DEFAULT_LAKE_STOPS=[[1,'#93e4e8'],[4,'#5bc6d1'],[8,'#319fb2'],[12,'#1c6b80']];
+function waterColor(){return WORLD?.rendering?.water_color||'#2f7d9c';}
+function roadColor(strong=false){return strong?(WORLD?.rendering?.road_strong_color||'#c07a55'):(WORLD?.rendering?.road_color||'#a56245');}
+function bridgeColor(){return WORLD?.rendering?.bridge_color||'#6f7f86';}
 function colorStopsColor(depth, stops){
   const sorted=stops.map(stop=>[Number(stop[0]),stop[1]]).sort((a,b)=>a[0]-b[0]);
   if(depth<=sorted[0][0])return sorted[0][1];
@@ -1286,33 +1289,27 @@ function drawLakeCells(scale){
     if(!tile)continue;
     const x=cx([cell.tile.col,cell.tile.row]),y=cy([cell.tile.col,cell.tile.row]);
     hexPath(x,y,.985);
-    ctx.fillStyle=lakeDepthColor(Number(cell.depth_m||0));
+    ctx.fillStyle=waterColor();
     ctx.fill();
-    ctx.strokeStyle='rgba(8,42,54,.28)';
-    ctx.lineWidth=Math.max(.03,1.2/scale);ctx.stroke();
   }
   return true;
 }
 function drawRiverCells(scale){
   const cells=WORLD?.river_cells;
   if(!Array.isArray(cells)||!cells.length)return false;
-  const endorheicTint=hexToRgb(WORLD?.rendering?.endorheic_tint||'#63c9b4');
   const visible=cells.map(cell=>{
     const tile=getTile(cell.tile.col,cell.tile.row);
-    if(!tile||!tile[2])return null;
-    let color=riverDepthColor(Number(cell.depth_m||0));
-    if(cell.kind==='endorheic')color=blendRgbColor(color,endorheicTint,.28);
-    return {cell,tile,color};
+    return tile&&tile[2]?{cell,tile}:null;
   }).filter(Boolean);
   for(const item of visible){
     hexPath(cx([item.cell.tile.col,item.cell.tile.row]),cy([item.cell.tile.col,item.cell.tile.row]),.97);
-    ctx.fillStyle=item.color;ctx.fill();
+    ctx.fillStyle=waterColor();ctx.fill();
     ctx.strokeStyle='rgba(4,17,24,.72)';
     ctx.lineWidth=Math.max(.03,1.5/scale);ctx.stroke();
   }
   for(const item of visible){
     hexPath(cx([item.cell.tile.col,item.cell.tile.row]),cy([item.cell.tile.col,item.cell.tile.row]),.985);
-    ctx.fillStyle=item.color;ctx.fill();
+    ctx.fillStyle=waterColor();ctx.fill();
   }
   return true;
 }
@@ -1465,13 +1462,15 @@ function render(force=false){
 function updateMapLegend(){
   const hasEndorheic=!!WORLD?.river_cells?.some(cell=>cell.kind==='endorheic');
   const hasLakes=!!WORLD?.lake_cells?.length;
+  const hasWater=!!(WORLD?.river_cells?.length||hasLakes);
+  const water=waterColor(), road=roadColor();
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),...(hasEndorheic?[['内流河','#63c9b4']]:[]),...(hasLakes?[['内流湖','#54c3cf']]:[]),['道路','#c9a46b'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(hasWater?[['河流 / 湖泊',water]]:[]),...(hasEndorheic?[['内流河 / 内流湖',water]]:[]),['道路',road],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
-    terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c'],...(hasLakes?[['湖泊','#54c3cf']]:[])],
-    rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f'],...(hasLakes?[['湖泊','#54c3cf']]:[])],
+    terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c'],...(hasWater?[['湖泊',water]]:[])],
+    rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f'],...(hasWater?[['湖泊',water]]:[])],
     resources:[['粮食','#d8c165'],['金属','#b9c5ce'],['木材','#56a276'],['石料','#b6a99d'],['牧草','#b6b77c']],
-    routes:[['道路','#e5c07b'],['河流','#5babc7'],...(hasEndorheic?[['内流河','#63c9b4']]:[]),...(hasLakes?[['湖泊','#54c3cf']]:[]),['贸易联系','#d4a856']]
+    routes:[['道路',road],['河流 / 湖泊',water],...(hasEndorheic?[['内流河 / 内流湖',water]]:[]),['贸易联系','#d4a856']]
   };
   $('mapLegend').innerHTML=(items[mapMode]||[]).map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
 }

@@ -32,6 +32,8 @@ CONTINUOUS_RADIUS_KM = V2_RADIUS_KM / CONTINUOUS_SCALE
 CONTINUOUS_CELL_AREA_KM2 = (3 * math.sqrt(3) / 2) * CONTINUOUS_RADIUS_KM ** 2
 CONTINUOUS_RIVER_MIN_BASIN = max(1, round(17 * V1_CELL_AREA_KM2 / CONTINUOUS_CELL_AREA_KM2))
 V2_RIVER_MIN_BASIN = max(1, round(17 * V1_CELL_AREA_KM2 / V2_CELL_AREA_KM2))
+WATER_COLOR = "#2f7d9c"
+WATER_RGB = (47, 125, 156)
 DEPTH_STOPS = [
     [0.3, "#b9e6ed"],
     [1.2, "#83cfdd"],
@@ -491,9 +493,7 @@ def _terrain_texture(
     for y in range(height):
         for x in range(width):
             if not land[y, x]:
-                depth = np.clip(-float(elev[y, x]) / 1400.0, 0, 1)
-                base = np.array([35, 89, 112], dtype=np.float32) * (1 - depth) + np.array([7, 30, 45], dtype=np.float32) * depth
-                rgb[y, x] = base
+                rgb[y, x] = np.array(WATER_RGB, dtype=np.float32)
                 continue
             base = np.array(palette.get(str(biome[y, x]), palette["grassland"]), dtype=np.float32)
             dry = 1 - min(1.0, float(precip[y, x]) / 1200.0)
@@ -579,6 +579,30 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         for y in range(V2_HEIGHT)
     ])
     lake_mask, lakes = _find_inland_lakes(v2_land, v2_elev, polity_p, V2_WIDTH, V2_HEIGHT)
+    for body in _enclosed_water_bodies(v2_land, V2_WIDTH, V2_HEIGHT):
+        unassigned = [(x, y) for x, y in body if not lake_mask[y, x]]
+        if len(unassigned) < 3:
+            continue
+        body = unassigned
+        levels = [float(v2_elev[y, x]) for x, y in body]
+        level = max(levels) + .3
+        cells = [[x, y] for x, y in sorted(body, key=lambda item: (item[1], item[0]))]
+        lakes.append({
+            "id": f"LK{len(lakes) + 1:02d}",
+            "center": [
+                round(sum(x for x, _ in body) / len(body)),
+                round(sum(y for _, y in body) / len(body)),
+            ],
+            "lowest": [min(body, key=lambda item: v2_elev[item[1], item[0]])[0],
+                       min(body, key=lambda item: v2_elev[item[1], item[0]])[1]],
+            "level_m": round(level, 1),
+            "depth_m": round(max(1.2, min(12.0, level - min(levels) + .8)), 2),
+            "spill_height_m": 110.0,
+            "origin": "enclosed",
+            "cells": cells,
+        })
+        for x, y in body:
+            lake_mask[y, x] = True
     hydro_parent, by_lake, _ = _endorheic_catchments(
         v2_land, v2_elev, lake_mask, lakes, v2_parent, V2_WIDTH, V2_HEIGHT
     )
@@ -754,7 +778,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         },
         "world_summary": {
             "land_hexes": int(polity_land.sum()),
-            "ocean_hexes": int((~v2_land).sum()),
+            "ocean_hexes": int((~v2_land & ~lake_mask).sum()),
             "lake_hexes": int(lake_mask.sum()),
             "lake_count": len(lakes),
             "land_area_km2": round(float(polity_land.sum() * V2_CELL_AREA_KM2)),
@@ -780,16 +804,18 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         },
         "rendering": {
             "river_depth_stops": DEPTH_STOPS,
+            "water_color": WATER_COLOR,
             "lake_depth_stops": [
                 [1.0, "#93e4e8"],
                 [4.0, "#5bc6d1"],
                 [8.0, "#319fb2"],
                 [12.0, "#1c6b80"],
             ],
-            "lake_color": "#4fc0cd",
-            "endorheic_tint": "#63c9b4",
-            "road_color": "#c6a065",
-            "bridge_color": "#88949b",
+            "lake_color": WATER_COLOR,
+            "endorheic_tint": WATER_COLOR,
+            "road_color": "#a56245",
+            "road_strong_color": "#c07a55",
+            "bridge_color": "#6f7f86",
         },
         "polities": polities,
         "tiles": tiles,
@@ -801,6 +827,37 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
     }
     validate_v2(world)
     return world
+
+
+def _enclosed_water_bodies(
+    land: np.ndarray,
+    width: int,
+    height: int,
+    minimum_cells: int = 3,
+) -> list[list[tuple[int, int]]]:
+    """Water components that do not touch the map border are inland water."""
+    water = ~land
+    seen = np.zeros_like(land, dtype=bool)
+    bodies = []
+    for y, x in np.argwhere(water):
+        if seen[y, x]:
+            continue
+        stack = [(int(x), int(y))]
+        seen[y, x] = True
+        cells = []
+        touches_border = False
+        while stack:
+            cx, cy = stack.pop()
+            cells.append((cx, cy))
+            if cx in (0, width - 1) or cy in (0, height - 1):
+                touches_border = True
+            for nx, ny in worldgen.neighbors(cx, cy, width, height):
+                if water[ny, nx] and not seen[ny, nx]:
+                    seen[ny, nx] = True
+                    stack.append((nx, ny))
+        if not touches_border and len(cells) >= minimum_cells:
+            bodies.append(cells)
+    return bodies
 
 
 def _find_inland_lakes(

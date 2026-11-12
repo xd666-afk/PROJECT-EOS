@@ -1064,7 +1064,7 @@ POST /api/agents/budget
 - 图层：卫星、政治、海拔、降水、资源、交通。
 - 卫星图层叠加所有国家的领土色与边界；v2 世界会先绘制 576×432 连续地形纹理，再叠加 144×108 六边形网格。政治图层显示更强的国家染色。
 - 河流由 `buildRiverChains()` 按下游关系构建从河源到河口的连续链，`sampleRiver()` 用 Catmull-Rom 采样并加入低频横向摆动，`drawRiverNetwork()` 分层绘制河岸、水体和细高光；河宽从源头向下游渐宽。
-- v2 河流按 `river_cells.depth_m` 填充河格，颜色随水深变深；内流河额外叠加轻微青绿色调。湖泊按 `lake_cells.depth_m` 绘制深度梯度。道路按 `road_cells` 填充占格道路/桥梁，不再绘制中心线。v1 世界仍回退旧的弯曲河道和道路线稿。
+- v2 河流与湖泊统一使用 `rendering.water_color`（海水蓝）填充，不再按 `depth_m` 分色；深度、覆盖率与流域仍保留在数据与地块详情中。道路按 `road_cells` 填充陶土红棕色道路格、青灰色桥梁格，不再绘制中心线；颜色由 `road_color/road_strong_color/bridge_color` 驱动。v1 世界仍回退旧的弯曲河道和道路线稿。
 - `shortestLandPath` 必须使用 `landNeighbors`（只返回陆地邻格）；不要与全局 `hexNeighbors(col,row)` 混用，否则道路寻路会全部失败。
 - 国家颜色来自世界 polities；城市、设施图标、道路、施工进度环叠加。
 - 设施图标通过 `BUILD_ICON` 映射到 `/assets/icons/*.png`；图标为透明背景 320×320。
