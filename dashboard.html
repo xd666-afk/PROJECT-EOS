@@ -72,6 +72,53 @@ button.primary:hover{filter:brightness(1.08)}
   background:#0b2029;border:1px solid var(--line);border-radius:9px;padding:12px 14px}
 .save-card b{font-size:12px;display:block}.save-card small{display:block;color:var(--muted);font-size:10px;margin-top:3px}
 .save-actions{display:flex;gap:5px}
+.painter{display:grid;grid-template-columns:198px minmax(0,1fr) 330px;grid-template-rows:auto minmax(0,1fr);
+  gap:10px;padding:12px 14px;background:linear-gradient(145deg,#07171f,#0a202a);height:100%;overflow:hidden}
+.painter-head{grid-column:1/-1;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:9px}
+.painter-head h1{font:500 21px Georgia,serif;margin:0}
+.painter-col{display:flex;flex-direction:column;gap:8px;overflow:auto;min-height:0;padding-right:2px}
+.painter-canvas{position:relative;border:1px solid var(--line);border-radius:12px;background:#06131a;
+  overflow:hidden;min-height:0}
+.painter-canvas canvas{display:block;width:100%;height:100%;cursor:crosshair;touch-action:none}
+@media (max-width:1180px){
+  .painter{grid-template-columns:172px minmax(0,1fr);grid-template-rows:auto minmax(300px,1fr) minmax(190px,38%)}
+  #painterTools{grid-area:2/1/3/2}
+  #painterCanvasPanel{grid-area:2/2/3/3}
+  #painterSide{grid-area:3/1/4/3;flex-direction:row;flex-wrap:wrap;overflow:auto}
+  #painterSide .painter-card{flex:1 1 300px;min-width:0}
+  .brush{font-size:10px;padding:4px;gap:4px;white-space:nowrap}
+  .brush i{width:9px;height:9px}
+  .painter-head .painter-note{display:none}
+}
+.painter-card{border:1px solid var(--line);border-radius:11px;background:#0c1f27e6;padding:9px 10px}
+.painter-card h3{margin:0 0 6px;font-size:10px;letter-spacing:1.2px;color:var(--accent)}
+.brush-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.brush{display:flex;align-items:center;gap:5px;padding:4px 5px;border:1px solid var(--line);
+  border-radius:7px;background:var(--panel);font-size:10.5px;cursor:pointer;text-align:left;color:var(--ink)}
+.brush.on{border-color:var(--accent);background:var(--panel-3)}
+.brush i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+.brush span{color:var(--faint);font-size:9px;margin-left:auto}
+.painter-note{color:var(--muted);font-size:10.5px;line-height:1.55}
+.march-days{font:600 25px/1.1 Georgia,serif;color:var(--accent)}
+.march-days small{font-size:11px;color:var(--muted);font-family:inherit;letter-spacing:.4px}
+.mini-row{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--muted);
+  border-bottom:1px dashed #1f3a44;padding:3px 0}
+.mini-row:last-child{border-bottom:0}
+.mini-row b{color:var(--ink);font-weight:600;text-align:right}
+.painter-warn{color:var(--bad);font-size:11px;line-height:1.5}
+.pin-chip{display:inline-flex;gap:5px;align-items:center;border:1px solid var(--line-2);
+  border-radius:20px;padding:2px 8px;font-size:10.5px;color:var(--muted);background:#0b1e26}
+.pin-chip input,.pin-chip select{background:transparent;border:0;color:var(--ink);font-size:11px;width:auto}
+.country-slot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;padding:4px 6px;border:1px solid var(--line);
+  border-radius:7px;background:var(--panel);font-size:11px}
+.slot-stack{display:grid;gap:4px;min-width:0}
+.country-slot select{flex:1 1 72px;min-width:0;max-width:100%}
+.country-slot i{width:10px;height:10px;border-radius:3px;flex:none}
+.country-slot button{flex:none;padding:2px 6px;font-size:10px}
+.country-slot.on{border-color:var(--accent)}
+.country-slot i{width:10px;height:10px;border-radius:50%;flex:none}
+.country-slot span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .modal-head h2{font-size:18px}.menu .sigil{width:44px;height:44px}
 .end-modal{position:fixed;inset:0;z-index:55;background:
   radial-gradient(circle at 50% 30%,#193c45aa,transparent 55%),#030c11e8;
@@ -118,6 +165,16 @@ button.primary:hover{filter:brightness(1.08)}
 .tech-node .unlocks i{font-style:normal;color:var(--tc);font-size:8px;border:1px solid #36505a;border-radius:4px;padding:1px 4px}
 .tech-node .tech-state{position:absolute;right:7px;bottom:5px;color:var(--faint);font-size:8px}
 .tech-node.available .tech-state{color:var(--accent)}
+.tech-node .unlocks i.unit{color:var(--ink);border-color:color-mix(in srgb,var(--uc,#888) 65%,#36505a)}
+.tech-node .unlocks i.unit::before{content:"";display:inline-block;width:6px;height:6px;border-radius:2px;
+  background:var(--uc,#888);margin-right:3px;vertical-align:0}
+.tech-node .unlocks i.gateless{color:var(--faint);border-style:dashed}
+.tech-index{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.tech-index .mil-card{background:linear-gradient(180deg,#0c232d,#081920)}
+.tech-index .unlock-note{display:flex;flex-wrap:wrap;gap:3px;margin-top:5px}
+.tech-index .unlock-note i{font-style:normal;font-size:8.5px;color:var(--muted);border:1px solid #36505a;
+  border-radius:4px;padding:1px 5px}
+.tech-index tr.gated td{opacity:.5}
 .tech-legend{display:flex;gap:12px;color:var(--muted);font-size:9px;margin-top:8px}
 .tech-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:4px}
 .diplo-list{display:flex;flex-direction:column;gap:7px}
@@ -144,10 +201,22 @@ button.primary:hover{filter:brightness(1.08)}
 .mil-buttons button{font-size:9.5px;padding:3px 7px;min-height:30px}
 .war-row{display:flex;justify-content:space-between;align-items:center;gap:8px;border:1px solid #5d3a38;
   background:#241819;border-radius:6px;padding:6px 7px;margin-bottom:5px;font-size:10px}
+.unit-table{width:100%;border-collapse:collapse;margin:8px 0 2px;font-size:9.5px}
+.unit-table th{text-align:left;color:var(--muted);font-weight:500;font-size:9px;padding:3px 4px;border-bottom:1px solid var(--line-2)}
+.unit-table td{padding:4px;border-bottom:1px solid #16303a;vertical-align:top}
+.unit-table tr:last-child td{border-bottom:none}
+.unit-table tr.dim td{opacity:.42}
+.unit-table td small{display:block;color:var(--muted);font-size:8.5px;line-height:1.4;margin-top:2px}
+.unit-table td small.mut{color:#5d7a85}
+.unit-table button{font-size:9px;padding:2px 6px;min-height:24px;margin-left:4px}
+.unit-chip{display:inline-block;width:7px;height:7px;border-radius:2px;background:var(--uc,#888);margin-right:4px}
 .city-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
 .city-card{border:1px solid var(--line);border-radius:9px;padding:10px;background:#0b2029}
 .city-head{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
 .city-head b{font-size:12px}.city-head small{display:block;color:var(--muted);font-size:9px;margin-top:2px}
+.siege-strip{margin:7px 0;padding:6px 8px;border:1px solid #4a3230;border-radius:7px;background:#161016}
+.siege-meter .bar i{background:var(--c,#e18a7c)}
+.pill.siege{border-color:var(--c,#e18a7c);color:#f4d3c8;background:rgba(225,138,124,.12);margin-right:4px}
 .city-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin:7px 0}
 .city-stat small{display:block;color:var(--faint);font-size:8px}.city-stat b{font-size:11px;font-weight:500}
 .city-buildings{display:flex;flex-wrap:wrap;gap:3px;margin:5px 0}
@@ -213,6 +282,21 @@ button.primary:hover{filter:brightness(1.08)}
 .notify-badge{position:absolute;right:-5px;top:-5px;min-width:16px;height:16px;padding:0 4px;border-radius:9px;
   background:var(--bad);color:#fff;font-size:8px;font-weight:700;display:none;place-items:center;line-height:16px;text-align:center}
 .notify-badge.show{display:block}
+.rail button{position:relative}
+.deck-dot{position:absolute;top:4px;right:5px;min-width:13px;height:13px;padding:0 3px;border-radius:8px;
+  background:var(--bad);color:#fff;font:700 8px/13px system-ui;text-align:center;display:none;
+  box-shadow:0 0 0 2px #07171e}
+.deck-dot.show{display:block}
+.threat-stack{display:flex;flex-direction:column;gap:5px;margin:0 0 8px}
+.threat-card{position:relative;display:block;text-align:left;padding:7px 8px;border:1px solid #6d3b39;
+  border-left:3px solid var(--bad);border-radius:8px;background:#2a1618;color:#e7d4d2;font-size:9px;line-height:1.45}
+.threat-card b{color:#ffe4de;font-weight:650}
+.threat-card small{display:block;color:#c2a29e;font-size:8.5px}
+.threat-card .when{display:block;margin-top:3px;color:#ffd9cf;font-weight:700;font-size:9.5px;
+  font-variant-numeric:tabular-nums}
+.threat-card.critical{border-color:#b4524a;background:#371714;animation:threatPulse 1.8s ease-in-out infinite}
+.threat-card:hover{border-color:var(--bad)}
+@keyframes threatPulse{0%,100%{box-shadow:0 0 0 0 #db867c44}50%{box-shadow:0 0 0 4px #db867c14}}
 .panel-toggle{display:flex;gap:3px;margin-left:6px;padding-left:7px;border-left:1px solid #35525d}
 .panel-toggle button{min-height:28px;font-size:9px;padding:2px 7px;border:0;background:transparent;color:var(--faint)}
 .panel-toggle button.on{color:var(--accent);background:var(--panel-3)}
@@ -261,6 +345,7 @@ body.right-panel-open .notice-stack{right:354px}
 .tag{font-size:8px;border:1px solid var(--line);border-radius:4px;padding:1px 4px;color:var(--muted)}
 .tag.llm{color:var(--accent);border-color:color-mix(in srgb,var(--accent) 55%,transparent)}
 .tag.player{color:var(--good);border-color:#4c7256}
+.tag.threat{color:#ffd9cf;border-color:#a8483f;background:#331614;white-space:nowrap;font-weight:700}
 .player-banner{margin:5px 2px 8px;padding:8px 9px;border:1px solid #4c7157;
   border-radius:7px;background:#10281f;color:#cbe3cf;font-size:10px;line-height:1.5}
 .player-banner b{display:block;color:#9fd3ab;font-size:10.5px;margin-bottom:2px}
@@ -353,6 +438,7 @@ body.right-panel-open .notice-stack{right:354px}
 .road-thumb i::before,.road-thumb i::after{content:"";position:absolute;top:-3px;width:7px;height:9px;
   background:#d8b476;border-radius:2px}.road-thumb i::before{left:0}.road-thumb i::after{right:0}
 .build-option:last-child{border-bottom:0}
+.build-option.solo{grid-template-columns:1fr}
 .build-option b{display:block;font-size:10.5px;font-weight:600}
 .build-option small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
 .build-option button{min-height:30px;min-width:48px;font-size:9.5px}
@@ -364,6 +450,43 @@ body.right-panel-open .notice-stack{right:354px}
 .settle-check span{font-size:8px;color:var(--faint)}
 .settle-check.ok span{color:#9fc873}
 .settle-check.bad span{color:#e18a7c}
+.garrison-card{border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#0b2029}
+.garrison-row{display:grid;grid-template-columns:7px 1fr auto;gap:7px;align-items:center;
+  padding:6px 8px;border-bottom:1px solid #1f3843}
+.garrison-row:last-child{border-bottom:0}
+.garrison-row i{width:7px;height:7px;border-radius:50%}
+.garrison-row b{display:block;font-size:10px;font-weight:600}
+.garrison-row small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
+.garrison-row.me{background:#0d2732}
+.garrison-row button{min-height:26px;font-size:9px}
+.camp-card{border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#0b2029;margin-top:6px}
+.camp-head{display:flex;justify-content:space-between;align-items:center;gap:8px;
+  padding:6px 8px;border-bottom:1px solid #1f3843;background:#0d2732}
+.camp-head b{font-size:10px}
+.camp-head small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
+.camp-note{padding:6px 8px;font-size:9px;color:var(--warn)}
+.camp-list{display:flex;flex-direction:column}
+.camp-row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;
+  padding:6px 8px;border-bottom:1px solid #1f3843}
+.camp-row:last-child{border-bottom:0}
+.camp-row.on{background:#12303a}
+.camp-row b{display:block;font-size:9.5px;font-weight:600}
+.camp-row small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
+.camp-row button{min-height:26px;font-size:9px;white-space:nowrap}
+.camp-price{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:5px 8px;
+  border-top:1px solid #1f3843;font-size:9px;color:var(--muted)}
+.receipt-card{border:1px solid var(--line);border-radius:7px;overflow:hidden;background:#0b2029}
+.receipt-row{display:grid;grid-template-columns:34px 1fr auto;gap:7px;align-items:center;
+  padding:6px 8px;border-bottom:1px solid #1f3843;font-size:9.5px}
+.receipt-row:last-child{border-bottom:0}
+.receipt-row .rd{color:var(--faint);font-variant-numeric:tabular-nums;font-size:8.5px}
+.receipt-row b{display:block;font-size:9.5px;font-weight:600}
+.receipt-row small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
+.receipt-row.ok{border-left:2px solid #8fc17c}
+.receipt-row.bad{border-left:2px solid var(--bad);background:#241a1a}
+.receipt-state{font-size:8.5px;white-space:nowrap}
+.receipt-state.ok{color:var(--good)}
+.receipt-state.bad{color:var(--bad)}
 .hint{color:var(--faint);font-size:9.5px;line-height:1.5;padding:2px 0}
 .event-list{display:flex;flex-direction:column;gap:4px}
 .event{display:grid;grid-template-columns:38px 1fr;gap:6px;background:#0b2029;border-left:2px solid #3e5c67;
@@ -527,6 +650,7 @@ body.right-panel-open .notice-stack{right:354px}
       <button class="primary" id="continueBtn">继续游戏 <small id="continueMeta">读取最近存档</small></button>
       <button id="loadMenuBtn">载入存档 <small id="saveCount">0 个存档</small></button>
       <button id="newWorldMenuBtn">新建世界 <small>随机地图与自定义国家</small></button>
+      <button id="painterMenuBtn">手绘地图 <small>自己画世界，实时算行军</small></button>
       <button id="menuAgentsBtn">AI 席位 <small>逐国选择模型</small></button>
     </div>
   </div>
@@ -536,6 +660,27 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="load-head"><h1>载入存档</h1><button id="loadBackBtn">返回主菜单</button></div>
   <div class="save-list" id="saveList"></div>
 </div>
+<div class="screen painter" id="painterScreen" hidden>
+  <div class="painter-head">
+    <h1>手绘世界</h1>
+    <span class="painter-note" style="max-width:400px">涂地形、画河流与道路，再用「都城」落国家。右侧随时回答：从这一格打到那一格要走几天。</span>
+    <span style="flex:1"></span>
+    <label class="pin-chip">地形模板<select id="painterPreset">
+      <option value="continent">整块大陆</option>
+      <option value="twin">双城海峡</option>
+      <option value="archipelago">群岛</option>
+      <option value="river">大河谷地</option>
+      <option value="blank">空白（全海）</option>
+    </select></label>
+    <label class="pin-chip">存档名称<input id="painterSaveName" maxlength="50" placeholder="自动" size="8"></label>
+    <label class="pin-chip">开局<span id="painterYearWrap"><input id="painterYear" type="number" value="800" min="1" max="800" style="width:48px"><select id="painterEra" style="border:0;background:transparent;color:var(--ink)"><option value="BCE">公元前</option><option value="CE">公元</option></select></span></label>
+    <button id="painterBackBtn">返回菜单</button>
+    <button class="primary" id="painterStartBtn">用这张地图开局</button>
+  </div>
+  <div class="painter-col" id="painterTools"></div>
+  <div class="painter-canvas" id="painterCanvasPanel"><canvas id="painterCanvas"></canvas></div>
+  <div class="painter-col" id="painterSide"></div>
+</div>
 <div class="app" id="app" hidden>
   <nav class="rail" id="primaryRail" aria-label="一级导航">
     <div class="rail-brand"><span>E</span></div>
@@ -544,7 +689,7 @@ body.right-panel-open .notice-stack{right:354px}
     <button data-deck="city" title="城市与规划"><b>城</b><span>城市</span></button>
     <button data-deck="tech" title="科技树"><b>科</b><span>科技</span></button>
     <button data-deck="diplo" title="外交"><b>外</b><span>外交</span></button>
-    <button data-deck="military" title="军事"><b>军</b><span>军事</span></button>
+    <button data-deck="military" title="军事"><b>军</b><span>军事</span><i class="deck-dot" id="militaryDot">0</i></button>
     <button data-deck="ai" title="AI 席位与档案"><b>AI</b><span>AI</span></button>
     <div class="rail-gap"></div>
     <div class="rail-note">PROJECT EOS</div>
@@ -580,6 +725,7 @@ body.right-panel-open .notice-stack{right:354px}
     <aside class="left" id="worldLeft">
       <div class="side-head"><span>世界列国 · 点击选择</span><button id="collapseLeft">收起</button></div>
       <div class="scroll">
+        <div class="threat-stack" id="worldThreats" hidden></div>
         <div class="player-banner" id="playerBanner" hidden></div>
         <div class="country-list" id="countries"></div>
         <div class="sect" style="margin-top:8px"><span>建设进度</span><span id="jobCount">0 项</span></div>
@@ -650,8 +796,10 @@ body.right-panel-open .notice-stack{right:354px}
       <button data-tech-filter="bronze_metallurgy">科技线</button>
       <button data-tech-filter="writing">政治线</button>
       <button data-tech-filter="agriculture">经济线</button>
+      <button data-tech-filter="military">军工解锁</button>
     </div>
     <div class="tech-grid" id="techGrid"></div>
+    <div class="tech-index" id="techIndex" hidden></div>
     <div class="hint" id="techHint"></div>
   </div>
 </div>
@@ -664,6 +812,7 @@ body.right-panel-open .notice-stack{right:354px}
     <div class="deck-tabs" id="diploTabs">
       <button data-diplo-filter="relations" class="on">邦交关系</button>
       <button data-diplo-filter="incoming">待回应提案</button>
+      <button data-diplo-filter="receipts">外交回执</button>
     </div>
     <div id="diploBody"></div>
   </div>
@@ -676,6 +825,7 @@ body.right-panel-open .notice-stack{right:354px}
     </div>
     <div class="deck-tabs" id="militaryTabs">
       <button data-mil-filter="army" class="on">军队</button>
+      <button data-mil-filter="barracks">兵营</button>
       <button data-mil-filter="war">战争</button>
     </div>
     <div id="militaryBody"></div>
@@ -702,6 +852,7 @@ body.right-panel-open .notice-stack{right:354px}
           <option value="llm">LLM 托管</option>
         </select></div>
       </div>
+      <div id="citySiegeNote" hidden></div>
       <div class="city-detail">
         <canvas id="cityCanvas"></canvas>
         <div class="city-side">
@@ -720,7 +871,7 @@ body.right-panel-open .notice-stack{right:354px}
           <div class="zone-grid" id="cityZonePalette"></div>
           <div class="hint" id="cityZoneHint">住宅提供住房，农业和工矿区提高本地食物/矿业产出，商贸与学术区为全国税收和研究提供加成。</div>
           <h4>城市建造</h4>
-          <div class="build-card" id="cityBuildPalette"><div class="build-option"><span class="hint">选择地块后查看可建设施</span></div></div>
+          <div class="build-card" id="cityBuildPalette"><div class="build-option solo"><span class="hint">选择地块后查看可建设施</span></div></div>
           <div class="hint" id="cityBuildHint"></div>
         </div>
       </div>
@@ -846,7 +997,7 @@ const BIOME_NAMES={ocean:'海洋',alpine:'高山',tundra:'冻原',desert:'沙漠
   savanna:'稀树草原',grassland:'草原',forest:'森林',rainforest:'雨林',wetland:'湿地'};
 const BUILD_NAMES={FARM:'农田',MINE:'矿场',ROAD:'道路',GRANARY:'粮仓',IRRIGATION:'灌溉渠',
   WORKSHOP:'工坊',LIBRARY:'书库',MARKET:'市场',TEMPLE:'神庙',GREAT_GRANARY:'大粮仓',
-  GREAT_FORGE:'大工坊',GREAT_LIBRARY:'大书库'};
+  GREAT_FORGE:'大工坊',GREAT_LIBRARY:'大书库',BARRACKS:'兵营',WALL:'城墙'};
 const BUILD_COLORS={FARM:'#d9b268',MINE:'#b7a18a',ROAD:'#8da4a7',GRANARY:'#c7b36c',
   IRRIGATION:'#67a7a3',WORKSHOP:'#b89a7a',LIBRARY:'#829bc3',MARKET:'#c1a05a',TEMPLE:'#ad8fbe',
   GREAT_GRANARY:'#f5d67d',GREAT_FORGE:'#e0b279',GREAT_LIBRARY:'#9db8e8'};
@@ -868,6 +1019,7 @@ const PERSONALITY_LABELS={aggressive:'激进',neutral:'中立',conservative:'保
 const PERSONALITY_DESC={aggressive:'扩张、军备与威慑优先',neutral:'粮食、财政、军备与外交均衡',conservative:'粮食、稳定、防御与外交优先'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
 let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='country';
+let tileStrikes=null,tileStrikeKey='';
 let terrainImage=null,terrainReady=false,terrainUrl=null;
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
 let hoveredTile=null;
@@ -876,6 +1028,19 @@ function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 function tileKey(col,row){return col+','+row;}
 function getTile(col,row){return WORLD?.tileMap?.[tileKey(col,row)];}
 function countryMeta(id){return WORLD?.polities?.find(p=>p.id===id);}
+function unitName(id){return STATE?.unit_specs?.[id]?.label||id||'部队';}
+function unitLossText(units){const list=Object.entries(units||{});return list.length?list.map(([id,n])=>`${unitName(id)}×${n}`).join('、'):'无减员';}
+function unitRelationText(u){
+  const specs=STATE?.unit_specs||{},counters=u?.counters||{},wins=[],loses=[];
+  for(const [rival,ratio] of Object.entries(counters)){
+    const name=specs[rival]?.label||rival;
+    if(ratio>0)wins.push(name);else loses.push(name);
+  }
+  const parts=[];
+  if(wins.length)parts.push('克制 '+wins.join('、'));
+  if(loses.length)parts.push('被克 '+loses.join('、'));
+  return parts.join(' · ')||'无特殊克制';
+}
 function countryColor(id){return countryMeta(id)?.color||COUNTRY_COLORS[id]||'#aaa';}
 function fmtNum(n,d=1){return Number(n??0).toLocaleString(undefined,{maximumFractionDigits:d,minimumFractionDigits:d});}
 function fmtInt(n){return Number(n??0).toLocaleString();}
@@ -890,6 +1055,7 @@ function resize(){
   const dpr=Math.min(window.devicePixelRatio||1,2),w=mapPanel.clientWidth,h=mapPanel.clientHeight;
   canvas.width=Math.max(1,Math.floor(w*dpr));canvas.height=Math.max(1,Math.floor(h*dpr));
   canvas.style.width=w+'px';canvas.style.height=h+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(!$('painterScreen').hidden){painterFit();renderPainter();return;}
   if(WORLD)fitMap();else render();
 }
 function fitMap(){
@@ -908,9 +1074,9 @@ function fitMap(){
   }
   render(true);
 }
-function hexPath(x,y,r=.98){ctx.beginPath();for(let i=0;i<6;i++){
+function hexPath(x,y,r=.98,c=ctx){c.beginPath();for(let i=0;i<6;i++){
   const a=(60*i-30)*Math.PI/180,xx=x+r*Math.cos(a),yy=y+r*Math.sin(a);
-  if(i===0)ctx.moveTo(xx,yy);else ctx.lineTo(xx,yy);}ctx.closePath();}
+  if(i===0)c.moveTo(xx,yy);else c.lineTo(xx,yy);}c.closePath();}
 function dynamicOwnerMap(){
   const owners={};
   if(STATE)for(const [cid,c] of Object.entries(STATE.countries))for(const [col,row] of (c.tiles||[]))owners[col+','+row]=cid;
@@ -1015,6 +1181,98 @@ function drawRoadNetwork(scale,strong=false){
     const {cell,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
     hexPath(x,y,.84);
     ctx.fillStyle=bridge?'#7d8f98':(strong?'#e0bd7b':'#c9a46b');ctx.fill();
+  }
+}
+function marchBreakdown(route){
+  const rules=STATE?.movement_specs||{},costs=rules.biome_cost||{};
+  const roads=new Set(roadEntityCells().map(cell=>tileKey(cell.col,cell.row)));
+  const owners=STATE?dynamicOwnerMap():{};
+  const mix=new Map();let cost=0,roadSteps=0;
+  for(let step=1;step<(route||[]).length;step++){
+    const tile=getTile(route[step][0],route[step][1]);
+    if(!tile||!tile[2])continue;
+    const key=tileKey(route[step][0],route[step][1]);
+    const road=roads.has(key),hostile=owners[key]&&owners[key]!==selectedCountry;
+    cost+=(road?Number(rules.road_cost):Number(costs[tile[3]]||0))+(hostile?Number(rules.hostile_cost)||0:0);
+    if(road)roadSteps++;
+    const name=BIOME_NAMES[tile[3]]||tile[3];
+    const label=(road?`道路·${name}`:name)+(hostile?'·敌土':'');
+    mix.set(label,(mix.get(label)||0)+1);
+  }
+  const steps=Math.max(1,(route||[]).length-1);
+  return {cost,roadShare:Math.round(roadSteps/steps*100),
+    text:[...mix.entries()].sort((a,b)=>b[1]-a[1]).map(([name,n])=>`${name}${n}`).join(' ')};
+}
+function drawMarchRoute(army,cid,scale){
+  const order=army.march,route=order?.route;
+  if(!route||route.length<2)return;
+  const color=countryColor(cid)||'#fff';
+  const polyline=points=>{
+    ctx.beginPath();
+    for(let i=0;i<points.length;i++){
+      const x=cx(points[i]),y=cy(points[i]);
+      if(i)ctx.lineTo(x,y);else ctx.moveTo(x,y);
+    }
+    ctx.stroke();
+  };
+  const at=Math.max(0,Math.min(route.length-1,order.index??0));
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=color;
+  ctx.globalAlpha=.7;ctx.lineWidth=Math.max(.1,.22/scale);polyline(route.slice(0,at+1));
+  ctx.globalAlpha=.85;ctx.lineWidth=Math.max(.08,.17/scale);ctx.setLineDash([.4,.28]);
+  polyline(route.slice(at));ctx.setLineDash([]);
+  const end=route[route.length-1],x=cx(end),y=cy(end);
+  hexPath(x,y,.6);ctx.globalAlpha=.26;ctx.fillStyle=color;ctx.fill();
+  ctx.globalAlpha=.95;ctx.lineWidth=Math.max(.05,.13/scale);ctx.strokeStyle=color;ctx.stroke();
+  if(order.purpose==='ATTACK'){
+    ctx.globalAlpha=1;ctx.fillStyle='#ffe9a8';ctx.font=`600 ${.62}px system-ui`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('⚔',x,y+.02);
+  }
+  ctx.globalAlpha=1;ctx.restore();
+}
+function threatColumn(row){
+  const armies=STATE?.countries?.[row.attacker]?.armies||[];
+  const army=armies.find(item=>item.army_id===row.army_id);
+  const order=army?.march;
+  return order?.route?.length>1?{route:order.route,index:order.index??0}:null;
+}
+function drawThreatMarkers(scale){
+  const grouped=STATE?.incoming_threats||{},focused=threatRealm();
+  for(const victim of Object.keys(grouped)){
+    const mine=victim===focused;
+    for(const row of grouped[victim]||[]){
+      // Every invasion paints red, but the realm on screen is the one that keeps full
+      // opacity: an alert about a neighbour is context, an alert about us is an alarm.
+      const sharp=mine||row.capital,alpha=mine?1:(row.capital?.55:.3);
+      const column=threatColumn(row);
+      if(column){
+        const at=Math.max(0,Math.min(column.route.length-1,column.index));
+        ctx.save();ctx.lineCap='round';ctx.lineJoin='round';
+        ctx.strokeStyle='#ef6b5e';ctx.globalAlpha=sharp?.9:.32;
+        ctx.lineWidth=Math.max(.1,.22/scale);ctx.setLineDash([.5,.34]);
+        ctx.beginPath();
+        for(let i=at;i<column.route.length;i++){
+          const x=cx(column.route[i]),y=cy(column.route[i]);
+          if(i===at)ctx.moveTo(x,y);else ctx.lineTo(x,y);
+        }
+        ctx.stroke();ctx.restore();
+      }
+      const x=cx([row.tile.col,row.tile.row]),y=cy([row.tile.col,row.tile.row]);
+      ctx.save();
+      hexPath(x,y,1.04);ctx.fillStyle='#ef6b5e';ctx.globalAlpha=sharp?.22:.08;ctx.fill();
+      ctx.globalAlpha=alpha;ctx.strokeStyle='#ff8175';
+      ctx.lineWidth=Math.max(.11,.26/scale);hexPath(x,y,1.04);ctx.stroke();
+      ctx.beginPath();ctx.arc(x+.58,y-.56,.36,0,Math.PI*2);
+      ctx.fillStyle='#7d2a22';ctx.globalAlpha=mine?1:.5;ctx.fill();
+      ctx.strokeStyle='#ffd9cf';ctx.lineWidth=Math.max(.04,.09/scale);ctx.stroke();
+      ctx.fillStyle='#ffe9e3';ctx.font=`700 ${.46}px system-ui`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText(String(row.days_left),x+.58,y-.54);
+      if(row.capital){
+        ctx.fillStyle='#ff9d92';ctx.font=`700 ${.68}px system-ui`;
+        ctx.fillText('⚠',x-.02,y-.86);
+      }
+      ctx.restore();
+    }
   }
 }
 function settleConditions(tile){
@@ -1237,7 +1495,8 @@ function hexToRgb(hex){
   return [parseInt(value.slice(0,2),16),parseInt(value.slice(2,4),16),parseInt(value.slice(4,6),16)];
 }
 function riverDepthColor(depth){
-  const stops=(WORLD?.rendering?.river_depth_stops||DEFAULT_RIVER_STOPS)
+  const configured=WORLD?.rendering?.river_depth_stops;
+  const stops=(Array.isArray(configured)&&configured.length?configured:DEFAULT_RIVER_STOPS)
     .map(stop=>[Number(stop[0]),stop[1]]).sort((a,b)=>a[0]-b[0]);
   if(depth<=stops[0][0])return stops[0][1];
   for(let i=1;i<stops.length;i++){
@@ -1304,7 +1563,7 @@ function loadTerrainTexture(url){
 }
 function render(force=false){
   const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
-  const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0)].join('~');
+  const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
   if(!force&&key===renderKey)return;renderKey=key;
   const w=mapPanel.clientWidth,h=mapPanel.clientHeight;ctx.clearRect(0,0,w,h);
   if(!WORLD)return;
@@ -1391,21 +1650,40 @@ function render(force=false){
         ctx.beginPath();ctx.rect(x-.18,y-.18,.36,.36);ctx.fillStyle='#e8ddc4';ctx.fill();
         ctx.strokeStyle=countryColor(cid);ctx.lineWidth=Math.max(.05,.16/scale);ctx.stroke();
       }
-      if(!c.army_position||c.army_strength<=0)continue;
-      const x=cx(c.army_position),y=cy(c.army_position);
-      ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
-      ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=countryColor(cid);
-      ctx.lineWidth=Math.max(.07,.2/scale);ctx.stroke();
-      ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(c.army_strength),x,y+.02);
+      for(const army of c.armies||[]){
+        if(!army.tile||army.strength<=0)continue;
+        const x=cx(army.tile),y=cy(army.tile);
+        ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
+        ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=countryColor(cid);
+        ctx.lineWidth=Math.max(.07,.2/scale);ctx.stroke();
+        ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
+        ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(army.strength),x,y+.02);
+      }
+      for(const army of c.armies||[])drawMarchRoute(army,cid,scale);
     }
   }
-  for(const p of WORLD.polities){
+  for(const p of livePolities()){
     const c=p.capital,x=cx([c.col,c.row]),y=cy([c.col,c.row]);
     ctx.beginPath();ctx.arc(x,y,.6,0,Math.PI*2);ctx.fillStyle=countryColor(p.id)||'#fff';ctx.fill();
     ctx.strokeStyle='#07171e';ctx.lineWidth=.14;ctx.stroke();
     ctx.fillStyle='#fff9ea';ctx.font=`600 ${.72}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y+.03);
   }
+  if(STATE)for(const c of Object.values(STATE.countries)){
+    for(const city of c.cities||[]){
+      const ledger=city.siege;
+      if(!ledger)continue;
+      const x=cx(city.center),y=cy(city.center),threshold=Number(ledger.threshold)||1;
+      const pct=Math.max(0,Math.min(1,(Number(ledger.progress)||0)/threshold));
+      ctx.save();
+      ctx.setLineDash([.22,.16]);ctx.beginPath();ctx.arc(x,y,.78,0,Math.PI*2);
+      ctx.strokeStyle=countryColor(ledger.attacker)||'#e18a7c';
+      ctx.lineWidth=Math.max(.09,.16/scale);ctx.globalAlpha=.85;ctx.stroke();
+      ctx.setLineDash([]);ctx.beginPath();ctx.arc(x,y,.78,-Math.PI/2,-Math.PI/2+Math.PI*2*pct);
+      ctx.strokeStyle='#fff2bc';ctx.globalAlpha=1;ctx.lineWidth=Math.max(.1,.2/scale);ctx.stroke();
+      ctx.restore();
+    }
+  }
+  if(STATE)drawThreatMarkers(scale);
   if(selectedTile){
     const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
     ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
@@ -1415,14 +1693,18 @@ function render(force=false){
 }
 function updateMapLegend(){
   const items={
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),['道路','#c9a46b'],...(WORLD?WORLD.polities.map(p=>[p.name+'领土',p.color]):[])],
-    political:WORLD?WORLD.polities.map(p=>[p.name,p.color]):[],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(WORLD?.river_cells?.length?[['浅水','#83cfdd'],['深水','#153e57']]:[['河流','#4f9fba']]),['道路','#c9a46b'],...livePolities().map(p=>[p.name+'领土',p.color])],
+    political:livePolities().map(p=>[p.name,p.color]),
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c']],
     rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f']],
     resources:[['粮食','#d8c165'],['金属','#b9c5ce'],['木材','#56a276'],['石料','#b6a99d'],['牧草','#b6b77c']],
     routes:[['道路','#e5c07b'],['河流','#5babc7'],['贸易联系','#d4a856']]
   };
-  $('mapLegend').innerHTML=(items[mapMode]||[]).map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
+  const marching=STATE&&Object.values(STATE.countries).some(c=>(c.armies||[]).some(a=>a.march));
+  const besieged=STATE&&Object.values(STATE.countries).some(c=>(c.cities||[]).some(x=>x.siege));
+  const list=(items[mapMode]||[]).concat(marching?[['行军路线（虚线未走完）','#f2ead8']]:[],
+    besieged?[['围城封锁圈（亮弧=已啃的墙）','#fff2bc']]:[]);
+  $('mapLegend').innerHTML=list.map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
 }
 function nextPlanning(){
   if(!STATE)return 0;const interval=90;return ((Math.floor(STATE.day/interval)+1)*interval)-STATE.day;
@@ -1453,17 +1735,118 @@ function renderTop(){
     banner.hidden=false;banner.innerHTML=`<b>治理权 · ${esc(STATE.player_country)}</b>你正在接管该国。AI 决策已暂停，点击己方地块即可建造。`;
   }else banner.hidden=true;
 }
+function livePolities(){
+  return (WORLD?.polities||[]).filter(p=>!STATE||STATE.countries[p.id]);
+}
+function focusTile(col,row){
+  selectedTile=[col,row];renderRight();render(true);showDetailTab();
+}
+function threatSignature(){
+  const grouped=STATE?.incoming_threats||{};
+  return Object.keys(grouped).map(id=>`${id}=${(grouped[id]||[])
+    .map(row=>`${row.army_id}>${row.tile.col},${row.tile.row}@${row.days_left}${row.capital?'*':''}`).join('/')}`).join('~');
+}
+// The alarm tracks the realm on screen, so the dot and left stack cannot read nil while the deck below reads one route.
+function threatRealm(){
+  return STATE?.countries?.[selectedCountry]?selectedCountry
+    :(STATE?.player_country&&STATE.countries[STATE.player_country]?STATE.player_country:null);
+}
+function threatRows(id){
+  const realm=id||threatRealm();
+  if(!realm)return [];
+  return (STATE?.incoming_threats||{})[realm]||[];
+}
+function threatWhere(row){
+  if(row.capital)return '都城';
+  if(row.city)return `城池 ${row.city}`;
+  return `地块 (${row.tile.col},${row.tile.row})`;
+}
+function routDoomed(row){return !!row&&!!row.rout&&row.rout.garrison&&row.rout.garrison.fate==='annihilated'}
+function threatCard(row){
+  const undefended=row.defenders<=0;
+  return `<button class="threat-card${row.capital?' critical':''}" data-threat="${row.tile.col},${row.tile.row}">
+    <b>${esc(row.attacker_name||row.attacker)}</b> ${esc(row.army_id)} · ${row.strength} 人${row.purpose==='ATTACK'?' 进攻':' 行军'}
+    <small>→ ${esc(threatWhere(row))}</small>
+    <small>${undefended?'该处没有我方守军':`我方到场 ${row.defenders} 支`} · 对方抵达预计只折 ${fmtNum(row.attacker_loss,0)} 人</small>
+    ${routDoomed(row)?'<span class="key-state missing">守军败则全歼（兵营在此）</span>':''}
+    <span class="when">还剩 ${row.days_left} 天行军 · 抵达于 ${esc(row.arrival_date)}</span></button>`;
+}
+function tileIncoming(tile){
+  const grouped=STATE?.incoming_threats||{};
+  return Object.keys(grouped).flatMap(id=>grouped[id]||[])
+    .filter(row=>row.tile.col===tile.col&&row.tile.row===tile.row);
+}
+function tileIncomingCard(tile){
+  const rows=tileIncoming(tile);
+  if(!rows.length)return '';
+  const doomed=rows.some(routDoomed);
+  return `<div class="sect"><span>边警 · 有敌军正开向这一格</span><span>${rows.length} 路</span></div>
+    <div class="threat-stack">${rows.map(threatCard).join('')}
+    ${doomed?`<div class="camp-note">这一格是本国兵营：守军一旦打败就整军遣散，先想清楚是否解围。</div>`:''}
+    <div class="hint">这一格是它的落脚格：抵达当日结算，我方在周围 ${STATE?.military_specs?.mass_radius||1} 格内的待命军队才会到场应战。守军为空时对方几乎不折兵就能站上来。</div></div>`;
+}
+function bindThreats(root){
+  for(const card of (root||document).querySelectorAll('[data-threat]')){
+    card.onclick=()=>{
+      const [col,row]=card.dataset.threat.split(',').map(Number);
+      focusTile(col,row);
+    };
+  }
+}
+function renderThreats(){
+  const host=document.getElementById('worldThreats');
+  if(!host)return;
+  const rows=threatRows();
+  if(!rows.length){host.hidden=true;host.innerHTML='';return}
+  host.hidden=false;
+  const doomed=rows.some(routDoomed);
+  host.innerHTML=`<div class="sect"><span>边警 · 敌军正开向我国</span><span>${rows.length} 路</span></div>`
+    +rows.map(threatCard).join('')
+    +(doomed?`<div class="camp-note">其中一路打的是本国兵营：守军在那里打败就整军遣散。</div>`:'')
+    +`<div class="hint">天数与抵达日期读的是行军账本本身：对方每天按地形与道路成本推进，路线中途有格子易主会当场中止。`
+    +`都城一格若被围下，整座城连同全部领土、国库与粮仓一并易主。</div>`;
+  bindThreats(host);
+}
+function updateMilitaryDot(){
+  const dot=document.getElementById('militaryDot');
+  if(!dot)return;
+  const rows=threatRows();
+  const capital=rows.some(row=>row.capital);
+  dot.textContent=rows.length>9?'9+':String(rows.length);
+  dot.classList.toggle('show',rows.length>0);
+  dot.title=rows.length
+    ?`${rows.length} 路敌军正开向我国领土${capital?'，其中一路打的是都城':''}：最快一支还剩 ${rows[0].days_left} 天行军（${rows[0].arrival_date}）`
+    :'没有敌军开向我国领土';
+}
+function healSelection(){
+  if(!STATE)return;
+  if(selectedCountry&&!STATE.countries[selectedCountry]){
+    selectedCountry=STATE.player_country&&STATE.countries[STATE.player_country]
+      ?STATE.player_country:(STATE.leader&&STATE.countries[STATE.leader]
+        ?STATE.leader:Object.keys(STATE.countries)[0]||null);
+    selectedTile=null;
+  }
+}
 function renderCountries(){
   if(!STATE)return;
-  $('countries').innerHTML=WORLD.polities.map(p=>{
+  const alerts=STATE.incoming_threats||{};
+  $('countries').innerHTML=livePolities().map(p=>{
     const c=STATE.countries[p.id],agent=STATE.agents?.[p.id]||{};
     const controlled=STATE.player_country===p.id,llm=agent.mode==='openai_compatible';
     const tag=controlled?'<span class="tag player">玩家</span>':(llm?'<span class="tag llm">AI</span>':'<span class="tag">AI</span>');
+    const threatened=(alerts[p.id]||[]).length;
     return `<button class="country ${p.id===selectedCountry?'selected':''}" data-country="${p.id}" style="--c:${countryColor(p.id)}">
-      <span><b>${esc(p.name)}</b><small>粮 ${fmtNum(c.food,0)} · 财 ${fmtNum(c.treasury,0)} · ${esc(PERSONALITY_LABELS[c.personality]||'中立')} · 设施 ${Object.keys(c.buildings).length}</small></span>${tag}
+      <span><b>${esc(p.name)}</b><small>粮 ${fmtNum(c.food,0)} · 财 ${fmtNum(c.treasury,0)} · ${esc(PERSONALITY_LABELS[c.personality]||'中立')} · 设施 ${Object.keys(c.buildings).length}</small></span>
+      ${threatened?`<span class="tag threat" title="${threatened} 路敌军正开向该国领土">警 ${threatened}</span>`:''}${tag}
     </button>`;
   }).join('');
+  const dead=Object.entries(STATE.eliminated||{});
+  const footer=dead.length?`<div class="sect" style="margin-top:8px"><span>已被吞并</span><span>${dead.length} 国</span></div>
+    <div class="hint">${dead.map(([id,day])=>`${esc(countryMeta(id)?.name||id)}（覆灭于第 ${day} 日）`).join(' · ')}</div>`:'';
+  $('countries').insertAdjacentHTML('beforeend',footer);
   for(const b of document.querySelectorAll('#countries .country'))b.onclick=()=>selectCountry(b.dataset.country);
+  renderThreats();
+  updateMilitaryDot();
   const projects=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
   $('jobCount').textContent=`${projects.length} 项`;
   $('activities').innerHTML=projects.length?projects.map(p=>{
@@ -1476,9 +1859,431 @@ function renderCountries(){
     </div>`;
   }).join(''):'<div class="nojobs">当前没有在建工程</div>';
 }
+const STRIKE_NOTES={
+  NO_COMMAND:'观战视角只读：接管一个国家后才能下令进攻。',
+  NO_OWNER:'这一格没有主权：夺地拿不到领土，但扎在上面的敌军营地照样能就地打击，行军令也能落下来。',
+  OWN_TERRITORY:'这是本国领土：只看驻军，不能对自己下令进攻。',
+  NOT_AT_WAR:'必须先向这一格的主人宣战，军队才接得到攻城令。',
+  NO_ARMY:'本国没有可下令的待命军队：都在途或未编成。',
+  FOREIGN_GROUND:'这一格是别国领土：军队穿得过去，行军令却不能落在里面——要打它请用进攻令或「就地打击」。',
+  SEA:'这是海面：陆军到不了，也驻不下。',
+};
+function tileGarrisonAt(col,row){
+  const found=[];
+  for(const [id,country] of Object.entries(STATE?.countries||{})){
+    for(const army of country.armies||[]){
+      if(army.tile&&army.tile[0]===col&&army.tile[1]===row)found.push({...army,country_id:id});
+    }
+  }
+  return found.sort((a,b)=>(a.country_id===STATE.player_country?0:1)-(b.country_id===STATE.player_country?0:1)
+    ||String(a.army_id).localeCompare(String(b.army_id)));
+}
+function tilePrice(tile){
+  const held=tileStrikes;
+  return held&&held.tile&&held.tile.col===tile.col&&held.tile.row===tile.row?held:null;
+}
+function garrisonRow(army){
+  const id=army.country_id,own=id===STATE.player_country;
+  const roster=Object.entries(army.units||{}).map(([u,n])=>`${unitName(u)}×${n}`).join('、')||'空编';
+  const status=army.march?'在途行军':(army.strength>0?(army.recruiting?'募兵中':'待命'):'未编成');
+  return `<div class="garrison-row${own?' me':''}"><i style="background:${countryColor(id)}"></i>
+    <div><b style="color:${countryColor(id)}">${esc(countryMeta(id)?.name||id)} · ${esc(army.army_id)}</b>
+    <small>${army.strength} 支 · 战力 ${fmtNum(army.power,2)} · ${esc(roster)} · ${status}${army.barracks?' · 驻兵营':''}</small></div>
+    ${own?`<button data-pick-army="${esc(army.army_id)}" class="key-state ${selectedArmy===army.army_id?'ok':'missing'}">${selectedArmy===army.army_id?'已选为下令对象':'选为下令对象'}</button>`:''}</div>`;
+}
+function tileGarrison(tile,price){
+  const mine=STATE.player_country,onTile=price?price.garrison:tileGarrisonAt(tile.col,tile.row);
+  return `<div class="sect"><span>驻军</span><span>${onTile.length} 支</span></div>
+    <div class="garrison-card">${onTile.map(garrisonRow).join('')
+      ||`<div class="hint">这一格没有军队驻扎${mine?'：可用兵营募兵，或令其他格的军队行军至此。':'。'}</div>`}</div>`;
+}
+function tileTributeNote(price){
+  if(!price||!price.building)return '';
+  const rival=countryMeta(price.owner)?.name||price.owner;
+  const levy=price.tribute;
+  if(!levy)return `<div class="build-option solo"><div><small class="mut">这一格是 ${esc(rival)} 的${esc(BUILD_NAMES[price.building]||price.building)}：`
+    +`这类设施不分归属，攻占它不会带来贡金。</small></div></div>`;
+  const atCap=levy.owed+1e-9>=levy.cap;
+  return `<div class="build-option solo"><div><b>攻占此格可得贡金</b>
+    <small>这一格有 ${esc(rival)} 的${esc(levy.label)}：夺下后 ${levy.days} 天内每日抽取其日收入的 ${(levy.share*100).toFixed(0)}%（约 ${fmtNum(levy.daily,3)}/日）。</small>
+    <small class="mut">对该国的贡金合计上限 ${(levy.cap*100).toFixed(0)}%，已计 ${fmtNum(levy.owed*100,0)}%${atCap?'——再占同样的建筑不再增加':''}。</small></div></div>`;
+}
+function cityAtTile(owner,col,row){
+  return (STATE?.countries?.[owner]?.cities||[]).find(c=>c.center&&c.center[0]===col&&c.center[1]===row)||null;
+}
+function tileIsCenter(tile){return !!cityAtTile(tile.owner,tile.col,tile.row)}
+function siegeBadge(city){
+  const ledger=city&&city.siege;
+  if(!ledger)return '';
+  const who=countryMeta(ledger.attacker)?.name||ledger.attacker;
+  return `<span class="pill siege" style="--c:${countryColor(ledger.attacker)}">被围 · ${esc(who)} ${siegeDate(ledger)}</span>`;
+}
+function siegeTable(){return STATE?.military_specs?.siege||{}}
+function siegeRing(){return Number(siegeTable().blockade_radius)||1}
+function siegeDate(ledger){
+  if(!ledger)return '——';
+  if(ledger.days_left==null)return '圈内没有军队：账不推进';
+  return ledger.days_left<=0?'即日城破':`${ledger.days_left} 日城破`;
+}
+function siegeBar(ledger){
+  const threshold=Number(ledger?.threshold)||0,progress=Number(ledger?.progress)||0;
+  const pct=threshold>0?Math.max(0,Math.min(100,progress/threshold*100)):0;
+  return `<div class="siege-meter" style="--c:${countryColor(ledger?.attacker)||'#e18a7c'}">
+    <div class="bar"><i style="width:${pct}%"></i></div>
+    <div class="split"><span>围城进度 · 每日 ${fmtNum(ledger?.daily,3)}</span>
+      <b>${fmtNum(progress,2)} / ${fmtNum(threshold,2)} · ${siegeDate(ledger)}</b></div></div>`;
+}
+function siegeArmies(ledger){
+  const ring=(ledger.armies||[]).map(id=>`<span class="key-state ok">${esc(id)}</span>`).join(' ')||'圈内没有本国军队';
+  const guard=(ledger.garrison||[]).length?`圈内有 ${esc(countryMeta(ledger.defender)?.name||ledger.defender)} 守军 ${ledger.garrison.length} 支`:'圈内没有守军接战';
+  return `<div class="split"><span>封锁圈 ${ring}</span><b>${esc(guard)}</b></div>`;
+}
+function tileSiegeCard(price){
+  if(!price.city_center)return '';
+  const mine=STATE.player_country,table=siegeTable();
+  const held=price.siege_taken,ledger=held||price.siege;
+  const head=`<div class="sect"><span>围城账</span><span>${esc(ledger?.name||'城池中心格')}</span></div>`;
+  if(!ledger)return `${head}<div class="build-option solo"><span class="hint">这座城还没有围城账：把军队开进中心格周围 ${siegeRing()} 格封锁圈，抵达当日即开账——中心格打的不是会战，是每天啃一口墙。</span></div>`;
+  const ours=ledger.attacker===mine,home=ledger.defender===mine;
+  const status=held
+    ?`<b>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)} 已先围住这座城</b>`
+    :(ledger.open
+      ?`${ours?'我方封锁中':'本国正被围'} · 日 ${ledger.started_day} 起账`
+      :'尚未开账：以下按此刻站在圈里的军队预告');
+  const walls=ledger.walls
+    ?`城墙把守方分量抬高 ${fmtNum(table.wall_bonus,2)} 倍`
+    :'这一格还没有城墙：在主城中心建成 WALL 才会加厚守方分量';
+  return `${head}<div class="build-card">
+    <div class="build-option solo"><div><b>${esc(ledger.name)} · ${status}</b>
+      <small>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)} 攻 ${fmtNum(ledger.attack_power,2)} vs `
+      +`${esc(countryMeta(ledger.defender)?.name||ledger.defender)} 守 ${fmtNum(ledger.defense_power,2)} · `
+      +`${ours?'我方':'围方'}成数 ${(ledger.share*100).toFixed(0)}%</small>
+      <small class="mut">${esc(walls)}</small></div></div>
+    <div style="padding:6px 8px">${siegeBar(ledger)}${siegeArmies(ledger)}</div>
+    <div class="build-option solo"><span class="hint">攻方成数 = 圈内兵力 ÷（圈内兵力 + 圈内守军 + 城墙分量），账满 ${fmtNum(ledger.threshold,2)} 即整座易主：`
+      +`土地、人口、建筑与贡金一起换手，守方稳定 -${fmtNum(table.stability_loss,0)}，双方每日各加 ${fmtNum(table.exhaustion_per_day,2)} 战争疲惫。`
+      +`${home?` 城墙每被啃掉一分，本国求和的门槛就降 ${fmtNum(table.peace_pressure,0)}：解围要把圈里的兵打掉或议和，硬拼野战不会让进度停下。`:''}</span></div>
+  </div>`;
+}
+function campUnitRow(option,report,isPlayer){
+  const on=option.unit===report.unit;
+  const room=Math.min(Number(option.batch)||0,Number(report.room)||0);
+  return `<div class="camp-row${on?' on':''}">
+    <div><b>${esc(option.label)}${on?' · 练兵目标':''}</b>
+      <small>${fmtNum(option.power,2)} 攻 · ${fmtNum(option.defense,2)} 防 · ${fmtNum(option.upkeep,3)}/日维护 · ${fmtNum(option.cost_treasury,1)} 财政 + ${fmtNum(option.cost_food,1)} 粮 · 全国编制 ${option.have}/${option.max_count}</small>
+      <small class="mut">${esc(option.reason)}${on?` · 本营本回合还能收 ${room} 支`:''}</small></div>
+    ${isPlayer?`<button data-camp-target="${esc(option.unit)}" data-army="${esc(report.army_id||'')}" ${report.army_id?'':'disabled'}>${on?'已设为目标':'设为练兵目标'}</button>`:''}</div>`;
+}
+function barracksPanel(report,options,isPlayer){
+  if(!report)return '';
+  const price=Number(report.price)||0,progress=Number(report.progress)||0;
+  const pct=price>0?Math.max(0,Math.min(100,progress/price*100)):(report.recruiting?100:0);
+  const list=options||[],target=list.find(o=>o.unit===report.unit)||null;
+  const room=Number(report.room)||0;
+  const batch=Math.min(Number(target?.batch)||0,room);
+  const stalled=!!report.stall;
+  const where=`(${report.tile[0]},${report.tile[1]})`;
+  return `<div class="camp-card">
+    <div class="camp-head">
+      <div><b>兵营 ${where}</b>
+        <small>${report.army_id
+          ?`${esc(report.army_id)} 在此领饷，练「${esc(report.label)}」· 累计练成 ${report.raised} 支`
+          : '这一格的军饷账本上没有军队：把一支待命军队行军至此才会开始练兵'}</small></div>
+      ${isPlayer&&report.army_id
+        ?`<button data-camp-toggle="${esc(report.army_id)}" data-on="${report.recruiting?0:1}">${report.recruiting?'停募':'开募'}</button>`:''}</div>
+    ${stalled?`<div class="camp-note">${esc(report.stall_label||report.stall)}</div>`:''}
+    <div style="padding:6px 8px;border-bottom:1px solid #1f3843">
+      <div class="split"><span>练兵进度 · 日饷 ${fmtNum(report.wage,2)}</span>
+        <b>${fmtNum(progress,1)} / ${fmtNum(price,1)} 饷</b></div>
+      <div class="bar"><i style="width:${pct}%"></i></div>
+      <div class="split"><span>${stalled?'出兵':'下一支新兵'}</span>
+        <b>${stalled?'本回合停摆':(report.days_left==null?'即将练成':`约 ${report.days_left} 日练成`)}</b></div>
+      <div class="split"><span>本营定额 · 单价 ${fmtNum(price,1)} 财政 + ${fmtNum(report.food_cost,1)} 粮</span>
+        <b>${report.strength} / ${report.capacity} 支${room?`，还能收 ${room} 支`:'，已满'}</b></div>
+    </div>
+    <div class="camp-list">${list.map(o=>campUnitRow(o,report,isPlayer)).join('')}</div>
+    ${isPlayer&&report.army_id?`<div class="camp-price"><span>立即用财政招募</span>
+      <button data-camp-recruit="${esc(report.army_id)}" data-unit="${esc(report.unit)}" data-size="${batch}"
+        ${batch>0&&target&&target.can_recruit?'':'disabled'}>${batch>0?`募 ${batch} 支`:'条件不足'}</button></div>`:''}
+  </div>`;
+}
+function tileBarracksCard(tile,owned){
+  if(!owned||!STATE.player_country)return '';
+  const c=STATE.countries[STATE.player_country];
+  const report=(c.barracks||[]).find(r=>r.tile[0]===tile.col&&r.tile[1]===tile.row);
+  if(!report)return '';
+  return `<div class="sect"><span>兵营募兵</span><span>${report.recruiting?'领饷练兵中':'已停募'}</span></div>`
+    +barracksPanel(report,c.recruit_options||[],true);
+}
+function bindCampControls(){
+  const refresh=()=>{if(!$('militaryModal').hidden)renderMilitary();renderRight();};
+  for(const b of document.querySelectorAll('[data-camp-target]'))b.onclick=()=>{
+    if(!b.dataset.army){showToast('这座兵营还没有领饷的军队',true);return;}
+    submitPlayerAction({type:'MILITARY',operation:'SET_RECRUIT_UNIT',army_id:b.dataset.army,unit:b.dataset.campTarget},'练兵目标已设定').then(refresh);
+  };
+  for(const b of document.querySelectorAll('[data-camp-toggle]'))b.onclick=()=>
+    submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.campToggle,recruiting:b.dataset.on==='1'},'募兵开关已更新').then(refresh);
+  for(const b of document.querySelectorAll('[data-camp-recruit]'))b.onclick=()=>
+    submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.unit,strength:Number(b.dataset.size),army_id:b.dataset.campRecruit},'募兵令已下达').then(refresh);
+}
+const RECEIPT_ACTIONS={BUILD:'建设',SETTLE:'建城',ALLOCATE_WORKERS:'劳动力',SET_TAX:'税率',
+  SET_RESEARCH:'研究',SET_POLICY:'政策',TRADE:'贸易',DIPLOMACY:'外交',MILITARY:'军令',
+  SET_CITY_FOCUS:'城市方针',SET_CITY_ZONE:'城市分区',SET_CITY_BUDGET:'城市预算',NO_OP:'空令'};
+const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
+  SET_RECRUITING:'募兵开关',SET_RECRUIT_UNIT:'练兵目标',GIFT:'赠礼',PROPOSE_PACT:'提议协定',
+  ACCEPT_PACT:'接受协定',REJECT_PACT:'拒绝协定',DECLARE_WAR:'宣战',PROPOSE_PEACE:'请求议和',
+  ACCEPT_PEACE:'接受议和',REJECT_PEACE:'拒绝议和',OFFER:'出价',ACCEPT:'成交',REJECT:'回绝',CANCEL:'撤单'};
+function receiptDetail(action){
+  if(!action)return '';
+  const parts=[];
+  const push=v=>{if(v!=null&&v!=='')parts.push(v)};
+  push(action.army_id||action.proposal_id||action.city_id);
+  if(action.unit)push(`「${unitName(action.unit)}」`);
+  if(action.tile)push(`(${action.tile.col},${action.tile.row})`);
+  if(action.tile&&action.target){
+    const walled=cityAtTile(action.target,action.tile.col,action.tile.row);
+    if(walled)push(`围 ${walled.name}`);
+  }
+  if(action.target)push(countryMeta(action.target)?.name||action.target);
+  if(action.strength!=null)push(`${action.strength} 支`);
+  if(action.recruiting!=null)push(action.recruiting?'开募':'停募');
+  if(action.building)push(BUILD_NAMES[action.building]||action.building);
+  if(action.rate!=null)push(`税率 ${Math.round(action.rate*100)}%`);
+  if(action.field)push(RESEARCH_LABELS[action.field]||action.field);
+  if(action.priority)push(POLICY_LABELS[action.priority]||action.priority);
+  if(action.pact)push(action.pact==='TRADE'?'贸易协定':action.pact);
+  if(action.focus)push(String(action.focus));
+  if(action.zone)push(String(action.zone));
+  if(action.budget)push(String(action.budget));
+  if(action.amount!=null)push(`${action.amount} 财政`);
+  if(action.offer_food)push(`出价 ${fmtNum(action.offer_food,1)} 粮`);
+  if(action.request_treasury)push(`索要 ${fmtNum(action.request_treasury,1)} 财政`);
+  return parts.join(' · ');
+}
+function receiptRow(r){
+  const kind=RECEIPT_ACTIONS[r.action_type]||r.action_type||'命令';
+  const op=RECEIPT_OPERATION_LABELS[r.operation]||r.operation||'';
+  const ok=!!r.accepted;
+  return `<div class="receipt-row ${ok?'ok':'bad'}"><span class="rd">日 ${r.day}</span>
+    <div><b>${esc(kind)}${op?` · ${esc(op)}`:''}</b>
+      <small>${esc(receiptDetail(r.action))}</small>
+      <small class="mut">${esc(r.reason_text||'')} ${esc(ok?'':(r.reason_code||''))}</small></div>
+    <span class="receipt-state ${ok?'ok':'bad'}">${ok?'已执行':'被拒 '+esc(r.reason_code||'')}</span></div>`;
+}
+function receiptCard(rows,emptyText){
+  const list=(rows||[]).slice().reverse();
+  return `<div class="receipt-card">${list.map(receiptRow).join('')
+    ||`<div class="build-option solo"><span class="hint">${esc(emptyText)}</span></div>`}</div>`;
+}
+function receiptFilter(rows,types){
+  return (rows||[]).filter(r=>types.includes(r.action_type));
+}
+function ledgerRow(row){
+  const what=row.kind==='TRADE'?'贸易往来':'协定提案';
+  const dir=row.direction==='incoming'?'对方来文':'我方发出';
+  const good=row.status==='ACCEPTED'||row.status==='ACTIVE'||row.status==='PENDING';
+  const tail=row.days_left!=null?`剩 ${row.days_left} 天到期`
+    :(row.resolved_day!=null?`日 ${row.resolved_day} 定案`
+      :(row.status==='EXPIRED'?'到期未回应':(row.status==='REJECTED'?'对方当面回绝':(row.status==='BROKEN'?'战争作废':'——'))));
+  return `<div class="receipt-row ${good?'ok':'bad'}"><span class="rd">日 ${row.created_day}</span>
+    <div><b>${dir} · ${what}</b>
+      <small>${esc(countryMeta(row.counterparty)?.name||row.counterparty)} · ${esc(row.proposal_id)}</small>
+      <small class="mut">${tail}${row.offer_food?` · 出价 ${fmtNum(row.offer_food,1)} 粮`:''}${row.request_treasury?` · 索要 ${fmtNum(row.request_treasury,1)} 财政`:''}</small></div>
+    <span class="receipt-state ${good?'ok':'bad'}">${esc(row.status_label||row.status)}</span></div>`;
+}
+function tileStrikeCard(tile,price){
+  const mine=STATE.player_country;
+  if(!mine||!tile.owner)return '';
+  if(tile.owner===mine)return price&&price.city_center?tileSiegeCard(price):'';
+  const rival=countryMeta(tile.owner)?.name||tile.owner;
+  const center=!!price&&price.city_center;
+  const head=`<div class="sect"><span>${center?'围这一座城':'攻打这一格'}</span><span>${esc(rival)}</span></div>`;
+  if(!price)return `${head}<div class="hint">正在按结算引擎核算这一格的驻军与行军报价……</div>`;
+  const strikes=price.strikes||[];
+  const ring=strikes.filter(row=>row.can_attack).length;
+  const rows=strikes.map(row=>{
+    const where=row.can_attack
+      ?(center?`已在封锁圈内：下令当日开围城账，不打会战`:'已在这一格的周围六格：下令当日直接会战')
+      :(row.reachable
+        ?`行军 ${row.days} 天 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当日${center?'开围城账':'开战'}`
+        :(center?`走不进这座城的封锁圈：先从边缘把圈里的一格夺下来`:'没有一条命令能走到这一格旁：先把军队分段调上前线'));
+    return `<div class="build-option"><div><b>${esc(row.army_id)}</b><small>${where}</small>
+      <small class="mut">到场 ${row.mass} 支 · 战力系数 ${fmtNum(row.mass_share,2)}</small>${routStrikeLine(row.rout)}</div>
+      <button data-strike="${esc(row.army_id)}" ${row.reachable?'':'disabled'}>${
+        center?(row.can_attack?'用这支军队开围':'开赴封锁圈'):row.can_attack?'用这支军队攻打':'开赴并攻打'}</button></div>`;
+  }).join('');
+  const note=`<div class="build-option solo"><span class="hint">${esc(STRIKE_NOTES[price.reason]||'本国暂时没有能打到这一格的军队。')}</span></div>`+
+    (price.reason==='NOT_AT_WAR'?`<div class="build-option"><div><b>向 ${esc(rival)} 宣战</b><small>宣战后这一格的报价与进攻令才会开放</small></div><button data-declare-war-tile>宣战</button></div>`:'');
+  return `${head}<div class="build-card">
+    <div class="build-option solo"><div><b>${center?`中心格周围 ${siegeRing()} 格封锁圈内有本国军队`:`这一格周围六格内有本国军队`} ${ring} 支</b>
+    <small>${price.at_war?'报价来自结算引擎：到场军队数与战力系数即会战实际使用的数字。':'尚未交战。'}</small></div></div>
+    ${tileSiegeCard(price)}
+    ${tileTributeNote(price)}
+    ${rows||note}</div>`;
+}
+// Both cards below read the same two frames `/api/tile_strikes` computes for every land hex:
+// `march` prices the road to this tile for each waiting column, `field` prices the fight with
+// whatever rival camps are standing on it. Borders slow an army and no longer stop one, so the
+// panel says so with the engine's own cost table instead of hiding the road behind 「无主地」.
+function hostilePaceText(){
+  const mv=STATE?.movement_specs||{};
+  return mv.hostile_cost==null?'':`别国领土每格再加 ${fmtNum(mv.hostile_cost,2)} 点`;
+}
+const MARCH_REFUSALS={
+  ALREADY_THERE:'已驻此格：这一格就是它现在的驻地',
+  SEA:'海域到不了',
+  ENCLAVED:'与本岛之间只有海',
+};
+function marchRowLine(row,cap){
+  if(row.reason==='ALREADY_THERE')return MARCH_REFUSALS.ALREADY_THERE;
+  if(row.reachable)return `出发 (${row.from.col},${row.from.row}) · ${row.days} 天 · ${fmtNum(row.cost,2)} 成本`;
+  if(row.reason==='ORDER_LIMIT')return `一条命令走不到：这一格要 ${fmtNum(row.cost_needed,1)} 点 / ${row.days_needed} 天，上限 ${fmtNum(cap,0)} 点——先在中途驻一脚，再下第二段令`;
+  return MARCH_REFUSALS[row.reason]||'走不到这一格';
+}
+function marchRowButton(row){
+  if(row.reason==='ALREADY_THERE')return '';
+  if(row.reachable)return `<button data-march-army="${esc(row.army_id)}">行军至此</button>`;
+  return `<button disabled>${row.reason==='ORDER_LIMIT'?'分段下令':'到不了'}</button>`;
+}
+function tileMarchCard(tile,price){
+  const mine=STATE.player_country;
+  if(!mine)return '';
+  const frame=price&&price.march,rows=frame?(frame.rows||[]):[];
+  const where=frame&&frame.owner?esc(countryMeta(frame.owner)?.name||frame.owner):'无主地';
+  const waiting=rows.filter(row=>row.reachable&&row.reason!=='ALREADY_THERE').length;
+  const head=`<div class="sect"><span>行军至此</span><span>${frame?`${waiting} 支可落脚 · ${where}`:`${tile.col},${tile.row}`}</span></div>`;
+  if(!price||!frame)return `${head}<div class="hint">正在按结算引擎核算每一支待命军队走到这一格的天数与成本……</div>`;
+  const cap=Number(frame.cap)||0;
+  const body=rows.map(row=>{
+    const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
+    return `<div class="build-option"><div><b>${esc(row.army_id)} ${key}</b>
+      <small>${marchRowLine(row,cap)}</small>
+      <small class="mut">${row.strength} 支${row.expedition?' · 远征过境（沿途经过别国领土）':''}</small></div>
+      ${marchRowButton(row)}</div>`;
+  }).join('');
+  const note=`<div class="build-option solo"><span class="hint">${esc(STRIKE_NOTES[frame.reason]||'本国暂时没有能开到这格的待命军队。')}</span></div>`;
+  const pace=rows.length?`<div class="hint">行军是下单，不是瞬移：单日推进 ${fmtNum(frame.daily_budget,1)} 点成本，${[hostilePaceText(),`单条命令上限 ${fmtNum(cap,0)} 点：超了就分两段下令`].filter(Boolean).join('，')}。穿得过去不等于驻得下——落点只能是己方或无主的格子，别国领土要用进攻令。</div>`:'';
+  return `${head}<div class="build-card">${body||note}</div>${pace}`;
+}
+function fieldStrikeRow(frame,row,tile){
+  const where=row.can_attack?'军队已在这顶营帐旁边：下令当日直接会战'
+    :(row.reachable
+      ?`行军 ${row.days} 天 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当日开战`
+      :'没有一条命令能走到这顶营帐旁：先把军队分段调上前线');
+  const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
+  const guard=row.unopposed?'对方营里没有军队接战':`对方到场 ${Number(row.guards)||0} 支`;
+  return `<div class="build-option"><div><b>${esc(row.army_id)} ${key}</b><small>${where}</small>
+    <small class="mut">我方到场 ${row.mass} 支 · 战力系数 ${fmtNum(row.mass_share,2)} · ${guard} · 攻方折 ${fmtInt(row.attacker_loss)} 人 · 守方折 ${fmtInt(row.defender_loss)} 人</small>
+    ${routStrikeLine(row.rout)}</div>
+    <button data-field-strike="${esc(row.army_id)}" data-field-target="${esc(frame.target)}" ${row.reachable?'':'disabled'}>${
+      row.can_attack?'就地打击':'开赴并打击'}</button></div>`;
+}
+function fieldFrameCard(frame,tile){
+  const mine=STATE.player_country;
+  const who=esc(countryMeta(frame.target)?.name||frame.target_name||frame.target);
+  const ground=!tile.owner?'无主地':(tile.owner===mine?'本国领土'
+    :`${esc(countryMeta(tile.owner)?.name||tile.owner)} 的领土`);
+  const camps=(frame.armies||[]).map(id=>esc(id)).join('、')||'——';
+  const head=`<div class="build-option solo"><div><b>${who} 的营地 · ${camps}</b>
+    <small>${frame.strength} 支 · 战力 ${fmtNum(frame.power,2)} · 营盘扎在${ground}上，这一格并不属 ${who}</small>
+    <small class="mut">野战：打赢只歼其军、边界不动；要夺地就去打 ${who} 自己的格子</small></div></div>`;
+  const rows=(frame.strikes||[]).map(row=>fieldStrikeRow(frame,row,tile)).join('');
+  const note=`<div class="build-option solo"><span class="hint">${frame.at_war
+    ?'本国暂时没有能打到这顶营帐的军队：都在途或未编成。'
+    :`还未与 ${who} 交战：宣战后军队才接得到这道打击令。这一格不是 ${who} 的领土，所以打赢只歼其军、边界不动。`}</span></div>`+
+    (!frame.at_war?`<div class="build-option"><div><b>向 ${who} 宣战</b><small>宣战后这一顶营帐的报价与打击令才会开放</small></div><button data-field-war="${esc(frame.target)}">宣战</button></div>`:'');
+  return `<div class="build-card">${head}${rows||note}</div>`;
+}
+function tileFieldCard(tile,price){
+  const frames=(price&&price.field)||[];
+  if(!STATE.player_country||!frames.length)return '';
+  return `<div class="sect"><span>就地打击 · 敌营在此格</span><span>${frames.length} 顶营帐</span></div>`
+    +frames.map(frame=>fieldFrameCard(frame,tile)).join('')
+    +`<div class="hint">营地扎在哪一格就打在哪一格：这一格不属对方时结算的是野战，歼其军而边界不动，对方在途的军队也照旧走它的路。天数、成本、到场兵力与战损都出自结算引擎的同一本账。</div>`;
+}
+function routHexText(cell){return cell?`(${cell.col},${cell.row})`:''}
+function routSideText(side,label,barracksLost,settled){
+  if(!side)return '';
+  if(side.fate==='annihilated'){
+    const all=side.deaths==null?'':` ${fmtInt(side.deaths)} 人`;
+    return `${label}${barracksLost?(settled?'兵营被毁则全歼':'兵营在此，败则全歼')
+      :(settled?'无路可退，整军覆没':'败则无路可退，整军覆没')}${all}`;
+  }
+  const men=[side.deaths==null?'':`折 ${fmtInt(side.deaths)}`,
+    side.survivors==null?'':`留 ${fmtInt(side.survivors)}`].filter(Boolean).join(' ');
+  if(!men)return '';
+  const hex=side.retreat?`，退至 ${routHexText(side.retreat)}`:'';
+  return `${label}${settled?`溃退 · ${men}`:`败则${men}`}${hex}`;
+}
+function routStrikeLine(rout){
+  if(!rout)return '';
+  const parts=[routSideText(rout.attacker,'我方'),routSideText(rout.garrison,'守方',rout.barracks_lost)].filter(Boolean);
+  return parts.length?`<small class="mut">城域溃退账${rout.city?` · ${esc(rout.city)}`:''}：${parts.join('｜')}</small>`:'';
+}
+function routEventLine(rout){
+  if(!rout)return '';
+  const attack=rout.side==='attacker';
+  const text=routSideText(routLoserSide(rout),attack?'攻方':'守方',!attack&&rout.barracks_lost,true);
+  return text?` · ${rout.city?`${esc(rout.city)}城域，`:''}${text}`:'';
+}
+// A priced fight hands over the book as an attacker/garrison pair; a settled one hands over
+// one merged block with the broken columns inside it. Both are the same numbers, so both are
+// read the same way here, and anything the engine did not say stays unsaid.
+function routLoserSide(rout){
+  const named=rout.side==='attacker'?rout.attacker:rout.garrison;
+  if(named)return named;
+  const columns=rout.columns||[];
+  if(rout.deaths==null&&rout.survivors==null)return null;
+  const fates=columns.map(row=>row.fate).filter(Boolean);
+  const exits=columns.filter(row=>row.retreat);
+  return {deaths:rout.deaths,survivors:rout.survivors,
+    fate:fates.length&&fates.every(value=>value===fates[0])?fates[0]:null,
+    retreat:exits.length===1?exits[0].retreat:null};
+}
+function tributeCap(){
+  return ((STATE?.military_specs?.capture_tribute_cap||0)*100).toFixed(0);
+}
+function tributeLedger(id){
+  const t=STATE?.countries?.[id]?.tribute;
+  if(!t||!(t.paid?.length||t.collected?.length))return '';
+  const row=(peer,verb,line,sign)=>`<div class="garrison-row"><i style="background:${countryColor(peer)}"></i>
+    <div><b style="color:${countryColor(peer)}">${esc(countryMeta(peer)?.name||peer)}</b>
+    <small>${verb} ${(line.share*100).toFixed(0)}% 日收入 ≈ ${fmtNum(line.daily,3)}/日 · 剩 ${line.days_left} 天 · `
+    +`${esc((line.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'——')}</small></div>
+    <span class="mut">${sign}</span></div>`;
+  const body=[
+    ...(t.collected||[]).map(line=>row(line.from,'收取自',line,`+${fmtNum(line.daily,3)}`)),
+    ...(t.paid||[]).map(line=>row(line.to,'缴给',line,`−${fmtNum(line.daily,3)}`)),
+  ].join('');
+  const net=(t.daily_collected||0)-(t.daily_paid||0);
+  return `<div class="sect"><span>贡金账目</span><span>净 ${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/日</span></div>
+    <div class="garrison-card">${body}</div>
+    <div class="hint">贡金按缴付方当日总收入（税+矿）折算，同一对手合计不超过 ${tributeCap()}%；到期后自动停收，道路等不分归属的设施不产生贡金。</div>`;
+}
+function tributeNetNote(id){
+  const t=STATE?.countries?.[id]?.tribute;
+  if(!t||!(t.paid?.length||t.collected?.length))return '';
+  const net=(t.daily_collected||0)-(t.daily_paid||0);
+  return `<div class="split"><span>占领贡金</span><b>${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/日 · 收 ${fmtNum(t.daily_collected,3)} / 付 ${fmtNum(t.daily_paid,3)}</b></div>`;
+}
+async function loadTileStrikes(col,row,key){
+  try{
+    const r=await fetch(`/api/tile_strikes?col=${col}&row=${row}`,{cache:'no-store'});
+    const data=await r.json();
+    if(tileStrikeKey!==key)return;
+    tileStrikes=data&&data.ok?data.tile:null;
+  }catch(_e){
+    if(tileStrikeKey===key)tileStrikes=null;
+  }
+  renderRight();
+}
+function repriceTile(){
+  tileStrikeKey='';tileStrikes=null;renderRight();
+}
 function renderRight(){
   if(!STATE)return;
   const c=STATE.countries[selectedCountry],meta=countryMeta(selectedCountry),agent=STATE.agents?.[selectedCountry]||{};
+  if(!c)return;
   const llmEvents=STATE.latest_llm_decision?.country_id===selectedCountry?[STATE.latest_llm_decision]:[];
   const decision=llmEvents[0]?.decision;
   const source=agent.mode==='openai_compatible'?`${(agent.provider||'').toUpperCase()} · ${agent.model||''}`:'规则 AI';
@@ -1500,6 +2305,7 @@ function renderRight(){
     <div class="split"><span>存粮 / 仓容</span><b>${fmtNum(c.food)} / ${fmtNum(c.food_capacity,0)}</b></div>
     <div class="bar"><i style="width:${Math.min(100,c.food/Math.max(c.food_capacity,1)*100)}%"></i></div>
     <div class="split"><span>日产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
+    ${tributeNetNote(selectedCountry)}
     <div class="split"><span>人口 / 住房容量</span><b>${fmtInt(c.population)} / ${fmtNum(c.housing,0)}k</b></div>
     <div class="split"><span>城市 / 军队 / 战争疲劳</span><b>${c.cities?.length||0} · ${c.army_strength} · ${fmtNum(c.war_exhaustion,1)}${c.at_war_with?.length?' · 交战中':''}</b></div>
     <div class="split"><span>可开拓边疆</span><b>${frontierTiles(selectedCountry).length} 格 · 前哨 ${(c.outposts||[]).length}/${STATE.expansion?.max_outposts??4}</b></div>
@@ -1511,7 +2317,7 @@ function renderRight(){
     ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>日 ${STATE.latest_llm_decision.day}</small></div>
       <p>${esc(decision.reason||'无说明')}</p><div class="chips">${(decision.actions||[]).map(a=>`<span class="chip">${esc(fmtAction(a))}</span>`).join('')}</div></div>`:''}
     <div class="split"><span>建设队列</span><b>${c.projects} 项</b></div>
-    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option"><span class="hint">暂无在建工程</span></div>'}</div>
+    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
     ${STATE.player_country===selectedCountry?`
       <div class="sect"><span>国策命令</span><span>即时生效</span></div>
       <div class="manage">
@@ -1559,6 +2365,11 @@ function renderRight(){
     };
   }
 
+  const strikeKey=selectedTile?`${selectedTile[0]},${selectedTile[1]},${STATE.day},${STATE.player_country||''}`:'';
+  if(strikeKey!==tileStrikeKey){
+    tileStrikeKey=strikeKey;tileStrikes=null;
+    if(strikeKey&&STATE.player_country)loadTileStrikes(selectedTile[0],selectedTile[1],strikeKey);
+  }
   const tile=selectedTileData(),b=selectedTile?(buildingAt(selectedTile[0],selectedTile[1])):null;
   if(!tile){
     $('panel-tile').innerHTML='<div class="heading"><div><h2>未选择地块</h2><small>点击地图查看地块详情</small></div></div><div class="hint">地图是主要操作面。选择地块后，这里会显示地形、设施和可建造选项。</div>';
@@ -1593,7 +2404,13 @@ function renderRight(){
       ${tile.roadKind?`<div class="kv"><span>道路</span><b>${tile.roadKind==='bridge'?'桥梁':'道路'}</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
-      ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
+      ${tileIncomingCard(tile)}
+      ${tileGarrison(tile,tilePrice(tile))}
+      ${tileBarracksCard(tile,owned)}
+      ${tileMarchCard(tile,tilePrice(tile))}
+      ${tileStrikeCard(tile,tilePrice(tile))}
+      ${tileFieldCard(tile,tilePrice(tile))}
+      ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
         (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
           <div class="build-card">
             <div class="build-option"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
@@ -1606,6 +2423,32 @@ function renderRight(){
     }
     const settleBtn=$('settleBtn');
     if(settleBtn)settleBtn.onclick=()=>submitPlayerAction({type:'SETTLE',tile:{col:tile.col,row:tile.row}},'新城已建立，城域已划入国界');
+    for(const btn of document.querySelectorAll('[data-strike]')){
+      btn.onclick=()=>submitPlayerAction({
+        type:'MILITARY',operation:'ATTACK',target:tile.owner,army_id:btn.dataset.strike,
+        tile:{col:tile.col,row:tile.row},
+      },tileIsCenter(tile)?'围城令已下达：每天啃一口墙，账满整座易主':'对这一格的进攻令已下达').then(repriceTile);
+    }
+    const declareTile=document.querySelector('[data-declare-war-tile]');
+    if(declareTile)declareTile.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:tile.owner},'战争状态已建立').then(repriceTile);
+    for(const btn of document.querySelectorAll('[data-march-army]')){
+      btn.onclick=()=>submitPlayerAction({
+        type:'MILITARY',operation:'MARCH',tile:{col:tile.col,row:tile.row},army_id:btn.dataset.marchArmy,
+      },'行军令已下达').then(repriceTile);
+    }
+    for(const btn of document.querySelectorAll('[data-field-strike]')){
+      btn.onclick=()=>submitPlayerAction({
+        type:'MILITARY',operation:'ATTACK',target:btn.dataset.fieldTarget,army_id:btn.dataset.fieldStrike,
+        tile:{col:tile.col,row:tile.row},
+      },'打击令已下达：野战只歼其军，边界不动').then(repriceTile);
+    }
+    for(const btn of document.querySelectorAll('[data-field-war]')){
+      btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:btn.dataset.fieldWar},'战争状态已建立').then(repriceTile);
+    }
+    for(const btn of document.querySelectorAll('[data-pick-army]')){
+      btn.onclick=()=>{selectedArmy=btn.dataset.pickArmy;renderRight();renderMilitary();};
+    }
+    bindCampControls();
   }
 
   const events=STATE.recent_events.map(formatEvent).filter(Boolean).slice(-70).reverse();
@@ -1652,11 +2495,26 @@ function formatEvent(e){
     case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
     case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
-    case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募军队，规模 ${e.strength}`,'action'];
-    case 'army_marched':return[d,`<b>${esc(e.country_id)}</b> 行军至 (${e.tile.col},${e.tile.row})`,'action'];
-    case 'army_desertion':return[d,`<b>${esc(e.country_id)}</b> 军饷不足，军队规模降至 ${e.strength}`,'hazard'];
+    case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募 ${e.amount} 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
+    case 'march_ordered':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.purpose==='ATTACK'?`向 <b>${esc(e.target)}</b> 的 (${e.objective?.col},${e.objective?.row}) 进攻`:`行军至 (${e.tile.col},${e.tile.row})`} · ${e.tiles} 段 / 成本 ${fmtNum(e.cost,1)} / ${e.days} 天${e.expedition?' · 远征过境':''}`,'action'];
+    case 'army_arrived':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 抵达 (${e.tile.col},${e.tile.row})${e.fought?'，当日开战':e.reason?` · ${esc(e.reason)}`:''}`,'action'];
+    case 'march_cancelled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 中止行军：${esc(e.reason)}`,'hazard'];
+    case 'barracks_recruit':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 兵营 (${e.tile.col},${e.tile.row}) 练出 1 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
+    case 'barracks_stalled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id||'兵营')}</b> 兵营 (${e.tile.col},${e.tile.row}) 练不出「${esc(unitName(e.unit))}」：${esc(e.reason)}（进度 ${fmtNum(e.progress,1)} · 日饷 ${fmtNum(e.wage,2)}）`,'hazard'];
+    case 'recruiting_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.recruiting?'开启':'暂停'}兵营募兵`,'action'];
+    case 'recruit_unit_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 练兵目标改为「${esc(unitName(e.unit))}」`,'action'];
+    case 'army_desertion':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 军饷不足，遣散「${esc(unitName(e.unit))}」，军势降至 ${e.strength}`,'hazard'];
     case 'war_declared':return[d,`<b>${esc(e.attacker)}</b> 向 <b>${esc(e.defender)}</b> 宣战`,'hazard'];
-    case 'battle':return[d,`<b>${esc(e.attacker)}</b> 与 <b>${esc(e.defender)}</b> 边境战${e.captured?'，占领一块领土':''}`,'hazard'];
+    case 'battle':{
+      const ground=BIOME_NAMES[e.biome]||'边境';
+      const levy=e.tribute?` · 夺其${esc(e.tribute.label)}，此后 ${e.tribute.days} 日抽其收入 ${(e.tribute.share*100).toFixed(0)}%`:'';
+      return[d,`<b>${esc(e.attacker)} · ${esc(e.attacker_army||'')}</b> 攻 ${esc(fmtNum(e.attacker_power,1))} vs <b>${esc(e.defender)}</b> 守 ${esc(fmtNum(e.defender_power,1))}（${esc(ground)}${e.expedition?' · 远征':''}）${e.captured?`，夺下城池地块 (${e.tile.col},${e.tile.row})`:e.field?'，野战：这一格不属对方，未易主':''}${levy} · 攻方 ${esc(unitLossText(e.attacker_units))}｜守方 ${esc(unitLossText(e.defender_units))}${routEventLine(e.rout)}`,'hazard'];
+    }
+    case 'siege_started':case 'siege_joined':return[d,`<b>${esc(e.attacker)} · ${esc(e.army_id)}</b> ${e.type==='siege_joined'?'加入':'围住'} <b>${esc(e.city)}</b>（${esc(e.defender)}）：圈中 ${e.armies.length} 支 · ${e.walls?'城墙加厚守方':'中心格尚无城墙'} · ${e.days_left==null?'暂无兵力推进':(e.days_left<=0?'即日城破':`约 ${e.days_left} 日城破`)}`,'hazard'];
+    case 'siege_refused':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 的围城令被拒：${esc(e.city_id)} 同时只能被一方围住（现为 <b>${esc(e.attacker)}</b>）`,'action'];
+    case 'siege_lifted':return[d,`<b>${esc(e.city)}</b> 围城解除：${({'peace':'停战生效','ring_empty':'封锁圈已空','captured':'城破易主'})[e.reason]||esc(e.reason)} · 进度停在 ${fmtNum(e.progress,2)}`,'trade'];
+    case 'city_fallen':return[d,`<b>${esc(e.city)}</b> 城破易主：<b>${esc(e.defender)}</b> → <b>${esc(e.attacker)}</b> · ${e.tiles} 格城域 / ${fmtInt(e.population)} 人 / ${esc((e.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无设施')}${(e.tribute||[]).length?` · 此后抽其 ${(e.tribute[0].share*100).toFixed(0)}% 日收入`:''} · ${esc(e.defender)} 稳定降至 ${fmtNum(e.stability,0)}`,'hazard'];
+    case 'realm_annexed':return[d,`<b>${esc(e.attacker)}</b> 吞并 <b>${esc(e.name)}</b>：都城一破整国散架，${e.tiles} 格领土 / ${(e.cities||[]).length} 座城 / ${fmtInt(e.population)} 人 / ${esc((e.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无设施')}整建制易主，抄走财政 ${fmtNum(e.treasury,1)} · 粮草 ${fmtNum(e.food,1)}，其 ${e.armies} 支军队随国消散 · <b>${esc(e.name)}</b> 已不在这张地图上`,'hazard'];
     case 'peace_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议和平`,'trade'];
     case 'peace_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 停战`,'trade'];
     case 'diplomatic_gift':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 赠礼 ${fmtNum(e.amount,1)}，关系升至 ${e.relation}`,'trade'];
@@ -1739,11 +2597,13 @@ async function poll(force=false){
 }
 let lastStateKey='';
 function renderIfChanged(){
-  const key=STATE?[STATE.day,STATE.paused,STATE.mode,STATE.player_country,STATE.finished,selectedCountry,STATE.buildings.length,STATE.projects.map(x=>x.join(',')).join('|')].join('~'):'';
+  const marching=STATE?Object.values(STATE.countries).some(c=>(c.armies||[]).some(a=>a.march))?'m':'-':'';
+  const key=STATE?[STATE.day,STATE.paused,STATE.mode,STATE.player_country,STATE.finished,selectedCountry,STATE.buildings.length,marching,STATE.projects.map(x=>x.join(',')).join('|'),threatSignature()].join('~'):'';
   if(key===lastStateKey)return;lastStateKey=key;
+  healSelection();
   const active=document.activeElement;
   const editingRight=active&&['SELECT','INPUT'].includes(active.tagName)&&active.closest('.right');
-  renderTop();renderCountries();if(!editingRight)renderRight();render();
+  renderTop();renderCountries();if(!editingRight)renderRight();updateMapLegend();render();
   if(STATE?.finished&&!endShown)showEndScreen();
 }
 function showEndScreen(){
@@ -2090,7 +2950,7 @@ async function openDeck(name){
   else if(name==='system')await openPauseMenu();
 }
 
-let nationTab='overview',diploFilter='relations',militaryFilter='army',techFilter='all';
+let nationTab='overview',diploFilter='relations',militaryFilter='army',techFilter='all',selectedArmy=null;
 function openNationDeck(){
   if(!STATE)return;
   const panel=$('panel-country'),host=$('nationOverview');
@@ -2119,7 +2979,8 @@ function renderNationCities(){
   $('nationCities').innerHTML=`<div class="sect"><span>${esc(countryMeta(selectedCountry)?.name||selectedCountry)} 城市</span><span>${c.cities.length} 座 · 点击进入规划</span></div>
     <div class="city-grid">${c.cities.map(city=>`<div class="city-card">
       <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(city.focus_label)} · ${city.managed_by==='ai'?'规则AI托管':city.managed_by==='llm'?'LLM托管':'手动治理'}</small></div>
-        <span class="pill">宜居 ${fmtNum(city.livability,0)}</span></div>
+        <span>${siegeBadge(city)}<span class="pill">宜居 ${fmtNum(city.livability,0)}</span></span></div>
+      ${city.siege?`<div class="siege-strip">${siegeBar(city.siege)}</div>`:''}
       <div class="city-stats">
         <div class="city-stat"><small>人口</small><b>${fmtInt(city.population)}</b></div>
         <div class="city-stat"><small>粮食自给</small><b>${city.food_need>0?fmtSelfSuff(city.food_self_sufficiency):'—'}</b></div>
@@ -2216,10 +3077,9 @@ $('reopenLeft').onclick=()=>setSidePanel('left',true);
 $('reopenRight').onclick=()=>setSidePanel('right',true);
 
 for(const b of document.querySelectorAll('#techTabs [data-tech-filter]'))b.onclick=()=>{
-  const field=b.dataset.techFilter;techFilter=field;
+  techFilter=b.dataset.techFilter;
   for(const x of document.querySelectorAll('#techTabs button'))x.classList.toggle('on',x===b);
-  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))branch.style.display=field==='all'||branch.dataset.techField===field?'':'none';
-  $('techGrid').classList.toggle('single',field!=='all');
+  applyTechFilter();
 };
 for(const b of document.querySelectorAll('#diploTabs [data-diplo-filter]'))b.onclick=()=>{
   const name=b.dataset.diploFilter;diploFilter=name;
@@ -2355,6 +3215,561 @@ $('generateWorldBtn').onclick=async()=>{
     showToast(`新世界已创建 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
   }catch(err){button.disabled=false;$('setupStatus').textContent=`生成失败：${err.message}`;}
 };
+/* ---------------- 手绘地图：画笔、可开局校验、实时行军耗时 ---------------- */
+const PAINTER={w:72,h:54,grid:[],rivers:new Set(),roads:new Set(),countries:[],
+  brushes:[],brushByChar:{},specs:{},tool:'g',hover:null,pinA:null,pinB:null,
+  preview:null,report:null,reportError:null,marchSeq:0,scale:1,offX:0,offY:0,
+  cssWidth:0,cssHeight:0,painting:false,lastStroke:'',placeIndex:null,loaded:false,
+  reportTimer:0,marchTimer:0,coreTiles:16};
+const painterCanvas=$('painterCanvas'),painterCtx=painterCanvas.getContext('2d');
+const pKey=(col,row)=>col+','+row;
+const pCoord=key=>key.split(',').map(Number);
+function pTile(col,row){
+  if(col<0||row<0||col>=PAINTER.w||row>=PAINTER.h)return null;
+  return PAINTER.grid[row][col];
+}
+function pHash(col,row){const v=Math.sin(col*127.1+row*311.7)*43758.5453;return v-Math.floor(v);}
+function pPaint(col,row,char){
+  const line=PAINTER.grid[row];
+  if(!line||line[col]===char)return false;
+  PAINTER.grid[row]=line.slice(0,col)+char+line.slice(col+1);
+  if(char==='o'){
+    PAINTER.rivers.delete(pKey(col,row));
+    PAINTER.roads.delete(pKey(col,row));
+    for(const country of PAINTER.countries)
+      if(country.capital&&country.capital[0]===col&&country.capital[1]===row)country.capital=null;
+  }
+  return true;
+}
+const PAINTER_PRESETS={
+  blank:()=>'o',
+  continent:(col,row,w,h)=>{
+    const edge=Math.min(col,row,w-1-col,h-1-row);
+    if(edge<3)return 'o';
+    if(edge<5)return pHash(col,row)<.35?'m':'g';
+    if(Math.abs(col-(w*.72+5*Math.sin(row/4.5)))<1.6)return 'l';
+    const band=row/h,roll=pHash(col,row);
+    if(band<.13)return 'c';
+    if(band<.3)return roll<.58?'g':'f';
+    if(band<.5)return roll<.6?'g':(roll<.85?'f':'m');
+    if(band<.7)return roll<.45?'v':(roll<.72?'t':'d');
+    return roll<.4?'d':(roll<.68?'t':'g');
+  },
+  twin:(col,row,w,h)=>{
+    const inBridge=row>h*.42&&row<h*.6;
+    if(Math.abs(col-w/2)<2.4&&!inBridge)return 'o';
+    const edge=Math.min(col,row,w-1-col,h-1-row);
+    if(edge<2)return 'o';
+    const band=row/h,roll=pHash(col,row);
+    if(band<.16)return roll<.7?'c':'t';
+    if(band<.46)return roll<.62?'g':'f';
+    if(band<.72)return roll<.5?'v':(roll<.8?'g':'m');
+    return roll<.55?'d':'t';
+  },
+  archipelago:(col,row,w,h)=>{
+    const edge=Math.min(col,row,w-1-col,h-1-row);
+    if(edge<2)return 'o';
+    if(pHash(Math.floor(col/4),Math.floor(row/4))<.55)return 'o';
+    const band=row/h,roll=pHash(col,row);
+    if(band<.15)return roll<.6?'c':'t';
+    if(roll<.28)return 'm';
+    if(roll<.64)return 'g';
+    if(roll<.86)return 'f';
+    return 'l';
+  },
+  river:(col,row,w,h)=>{
+    const edge=Math.min(col,row,w-1-col,h-1-row);
+    if(edge<3)return 'o';
+    const band=row/h,roll=pHash(col,row);
+    if(Math.abs(col-(w*.8))<2.5)return 'l';
+    if(band<.14)return 'c';
+    if(roll<.18)return 'f';
+    if(roll<.72)return 'g';
+    return band>.66?(roll<.85?'d':'t'):'v';
+  },
+};
+function buildPainterPreset(name){
+  const generator=PAINTER_PRESETS[name]||PAINTER_PRESETS.continent;
+  const grid=[],rivers=[],roads=[];
+  for(let row=0;row<PAINTER.h;row++){
+    let line='';
+    for(let col=0;col<PAINTER.w;col++)line+=generator(col,row,PAINTER.w,PAINTER.h);
+    grid.push(line);
+  }
+  if(name!=='blank'&&name!=='archipelago'){
+    const row=Math.floor(PAINTER.h/2);
+    let line=grid[row];
+    for(let col=Math.floor(PAINTER.w*.22);col<Math.floor(PAINTER.w*.74);col++){
+      if(line[col]==='o')continue;
+      line=line.slice(0,col)+'g'+line.slice(col+1);
+      rivers.push([col,row]);
+    }
+    grid[row]=line;
+    for(let step=1;step<9;step++){
+      const up=row-step,down=row+step,col=Math.floor(PAINTER.w*.22)+step*2;
+      if(pTileOn(grid,col,up)!=='o'){grid[up]=grid[up].slice(0,col)+'g'+grid[up].slice(col+1);rivers.push([col,up]);}
+      if(pTileOn(grid,col,down)!=='o'){grid[down]=grid[down].slice(0,col)+'g'+grid[down].slice(col+1);rivers.push([col,down]);}
+    }
+  }
+  if(name==='continent'||name==='river'){
+    const col=Math.floor(PAINTER.w*.42);
+    for(let row=Math.floor(PAINTER.h*.3);row<Math.floor(PAINTER.h*.72);row++)
+      if(pTileOn(grid,col,row)!=='o')roads.push([col,row]);
+  }
+  return {grid,rivers,roads};
+}
+function pTileOn(grid,col,row){
+  if(col<0||row<0||row>=grid.length)return 'o';
+  return grid[row][col]||'o';
+}
+function painterCapitalSpots(count){
+  const spots=[],minimum=Math.max(9,Math.floor(PAINTER.w/6));
+  const rows=Math.max(1,Math.min(count,Math.round(Math.sqrt(count*PAINTER.h/PAINTER.w))));
+  const base=Math.floor(count/rows),extra=count%rows,centres=[];
+  for(let row=0;row<rows;row++){
+    const inRow=base+(row<extra?1:0);
+    for(let index=0;index<inRow;index++)
+      centres.push([Math.round((index+0.5)*PAINTER.w/inRow),Math.round((row+0.5)*PAINTER.h/rows)]);
+  }
+  for(const centre of centres){
+    const spot=painterNearestLand(centre,spots,minimum);
+    if(spot)spots.push(spot);
+  }
+  return spots;
+}
+function painterNearestLand(centre,spots,minimum){
+  const reach=Math.max(PAINTER.w,PAINTER.h);
+  for(let radius=0;radius<=reach;radius++){
+    let best=null,bestScore=Infinity;
+    const test=(col,row)=>{
+      if(pTileOn(PAINTER.grid,col,row)==='o')return;
+      const candidate=[col,row];
+      if(spots.some(spot=>hexDistance(spot,candidate)<minimum))return;
+      const score=hexDistance(centre,candidate);
+      if(score<bestScore){bestScore=score;best=candidate;}
+    };
+    for(let col=centre[0]-radius;col<=centre[0]+radius;col++){test(col,centre[1]-radius);test(col,centre[1]+radius);}
+    for(let row=centre[1]-radius;row<=centre[1]+radius;row++){test(centre[0]-radius,row);test(centre[0]+radius,row);}
+    if(best)return best;
+  }
+  return null;
+}
+function applyPainterPreset(name){
+  const built=buildPainterPreset(name);
+  PAINTER.grid=built.grid;
+  PAINTER.rivers=new Set(built.rivers.map(item=>pKey(item[0],item[1])));
+  PAINTER.roads=new Set(built.roads.map(item=>pKey(item[0],item[1])));
+  const spots=painterCapitalSpots(PAINTER.countries.length);
+  PAINTER.countries.forEach((country,index)=>{country.capital=spots[index]||null;});
+  PAINTER.pinA=null;PAINTER.pinB=null;PAINTER.preview=null;
+  renderPainter();renderPainterTools();queuePainterReport();
+}
+function painterDraft(){
+  return {
+    name:'手绘世界',
+    grid:PAINTER.grid.slice(),
+    rivers:[...PAINTER.rivers].map(pCoord),
+    roads:[...PAINTER.roads].map(pCoord),
+    polities:PAINTER.countries.filter(country=>country.capital).map(country=>({
+      name:country.name,color:country.color,archetype:country.archetype,
+      population:country.population,capital:country.capital,
+    })),
+  };
+}
+function queuePainterReport(){
+  clearTimeout(PAINTER.reportTimer);
+  PAINTER.reportTimer=setTimeout(refreshPainterReport,180);
+}
+async function refreshPainterReport(){
+  if($('painterScreen').hidden)return;
+  try{
+    const r=await fetch('/api/map_preview',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({draft:painterDraft()})});
+    const data=await r.json();
+    PAINTER.report=data.report||null;
+    PAINTER.reportError=data.error||null;
+  }catch(err){PAINTER.report=null;PAINTER.reportError='无法连接本地服务';}
+  renderPainterSide();
+  updatePainterStart();
+  if(PAINTER.pinA&&PAINTER.pinB)refreshPainterMarch(PAINTER.pinB);
+}
+function queuePainterMarch(target){
+  clearTimeout(PAINTER.marchTimer);
+  PAINTER.marchTimer=setTimeout(()=>refreshPainterMarch(target),70);
+}
+async function refreshPainterMarch(target){
+  const start=PAINTER.pinA||(PAINTER.countries.find(country=>country.capital)||{}).capital;
+  if(!start||!target){return;}
+  const seq=++PAINTER.marchSeq;
+  try{
+    const r=await fetch('/api/march_preview',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({draft:painterDraft(),from:start,to:target})});
+    const data=await r.json();
+    if(seq!==PAINTER.marchSeq)return;
+    PAINTER.preview=Object.assign({from:start.slice(),to:target.slice()},data);
+  }catch(err){
+    if(seq===PAINTER.marchSeq)PAINTER.preview=null;
+  }
+  renderPainterSide();
+  renderPainter();
+}
+function painterFit(){
+  const panel=$('painterCanvasPanel');
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  const w=panel.clientWidth,h=panel.clientHeight;
+  PAINTER.cssWidth=w;PAINTER.cssHeight=h;
+  painterCanvas.width=Math.max(1,Math.floor(w*dpr));
+  painterCanvas.height=Math.max(1,Math.floor(h*dpr));
+  painterCanvas.style.width=w+'px';painterCanvas.style.height=h+'px';
+  painterCtx.setTransform(dpr,0,0,dpr,0,0);
+  const bw=Math.sqrt(3)*(PAINTER.w+1),bh=1.5*(PAINTER.h+1);
+  PAINTER.scale=Math.max(.2,Math.min((w-12)/bw,(h-12)/bh));
+  PAINTER.offX=(w-bw*PAINTER.scale)/2+Math.sqrt(3)*PAINTER.scale*.5;
+  PAINTER.offY=(h-bh*PAINTER.scale)/2+1.5*PAINTER.scale;
+}
+function painterXY(col,row){
+  return [PAINTER.offX+cx([col,row])*PAINTER.scale,PAINTER.offY+cy([col,row])*PAINTER.scale];
+}
+function painterTileAt(clientX,clientY){
+  const rect=painterCanvas.getBoundingClientRect();
+  const x=(clientX-rect.left-PAINTER.offX)/PAINTER.scale;
+  const y=(clientY-rect.top-PAINTER.offY)/PAINTER.scale;
+  const row=Math.round(y/1.5);
+  let best=null,bestDistance=1.1;
+  for(let rr=row-2;rr<=row+2;rr++){
+    if(rr<0||rr>=PAINTER.h)continue;
+    const col=Math.round(x/Math.sqrt(3)-.5*(rr&1));
+    for(let cc=col-2;cc<=col+2;cc++){
+      if(cc<0||cc>=PAINTER.w)continue;
+      const d=Math.hypot(cx([cc,rr])-x,cy([cc,rr])-y);
+      if(d<bestDistance){best=[cc,rr];bestDistance=d;}
+    }
+  }
+  return best;
+}
+function renderPainter(){
+  if(!PAINTER.loaded)return;
+  const c=painterCtx,scale=PAINTER.scale,r=scale*.98;
+  c.clearRect(0,0,PAINTER.cssWidth,PAINTER.cssHeight);
+  c.fillStyle='#05121a';c.fillRect(0,0,PAINTER.cssWidth,PAINTER.cssHeight);
+  for(let row=0;row<PAINTER.h;row++)for(let col=0;col<PAINTER.w;col++){
+    const char=pTile(col,row)||'o',brush=PAINTER.brushByChar[char]||PAINTER.brushes[0];
+    const [x,y]=painterXY(col,row);
+    hexPath(x,y,r,c);
+    c.fillStyle=brush?brush.color:'#20343c';
+    c.fill();
+    if(PAINTER.rivers.has(pKey(col,row))){
+      hexPath(x,y,r*.62,c);c.fillStyle='#49a6d8';c.fill();
+    }
+  }
+  c.lineWidth=Math.max(1.2,scale*.34);c.strokeStyle='#c9b189';
+  for(const key of PAINTER.roads){
+    const [col,row]=pCoord(key);
+    const [x,y]=painterXY(col,row);
+    c.beginPath();c.moveTo(x-scale*.42,y);c.lineTo(x+scale*.42,y);c.stroke();
+    c.beginPath();c.moveTo(x-scale*.2,y-row%2*scale*.36);c.lineTo(x+scale*.2,y+row%2*scale*.36);c.stroke();
+  }
+  const preview=PAINTER.preview;
+  if(preview&&preview.route&&preview.route.length>1){
+    const usable=preview.ok&&preview.single_order;
+    c.lineWidth=Math.max(1.4,scale*.3);
+    c.strokeStyle=preview.ok?(usable?'#f2e6c8':'#e6c07a'):'#d98b7f';
+    c.setLineDash(preview.ok?[]:[scale*.42,scale*.3]);
+    c.beginPath();
+    preview.route.forEach((coord,index)=>{
+      const [x,y]=painterXY(coord[0],coord[1]);
+      if(index===0)c.moveTo(x,y);else c.lineTo(x,y);
+    });
+    c.stroke();c.setLineDash([]);
+  }
+  for(const country of PAINTER.countries){
+    if(!country.capital)continue;
+    const [x,y]=painterXY(country.capital[0],country.capital[1]);
+    hexPath(x,y,r*.92,c);c.lineWidth=Math.max(1,scale*.2);c.strokeStyle=country.color;c.stroke();
+    c.beginPath();c.arc(x,y,scale*.3,0,Math.PI*2);c.fillStyle=country.color;c.fill();
+    if(scale>6){c.fillStyle='#08161c';c.font=`600 ${Math.round(scale*.42)}px system-ui`;
+      c.textAlign='center';c.textBaseline='middle';
+      c.fillText(slotLetter(PAINTER.countries.indexOf(country)),x,y+.5);}
+  }
+  const pins=[['A',PAINTER.pinA],['B',PAINTER.pinB]];
+  if(preview&&preview.route&&preview.route.length)pins.push(['A',preview.from]);
+  for(const [label,coord] of pins){
+    if(!coord)continue;
+    const [x,y]=painterXY(coord[0],coord[1]);
+    c.beginPath();c.arc(x,y,scale*.52,0,Math.PI*2);
+    c.fillStyle=label==='B'?'#d6aa5d':'#6bacc1';c.fill();
+    c.lineWidth=1;c.strokeStyle='#04121a';c.stroke();
+    c.fillStyle='#06141b';c.font=`700 ${Math.round(scale*.56)}px system-ui`;
+    c.textAlign='center';c.textBaseline='middle';c.fillText(label,x,y+.5);
+  }
+  if(PAINTER.hover){
+    const [x,y]=painterXY(PAINTER.hover[0],PAINTER.hover[1]);
+    hexPath(x,y,r,c);c.lineWidth=Math.max(1,scale*.16);c.strokeStyle='#f2ead8';c.stroke();
+  }
+}
+function slotLetter(index){return String.fromCharCode(65+index);}
+function renderPainterTools(){
+  const brushes=PAINTER.brushes.map(b=>`<button class="brush ${PAINTER.tool===b.char?'on':''}" data-painter-tool="${b.char}">
+    <i style="background:${b.color}"></i>${b.label}<span>${b.land?fmtNum(b.march_cost,1):'—'}</span></button>`).join('');
+  const special=[['river','河流','#49a6d8'],['road','道路','#c9b189'],
+    ['capital','都城','#d6aa5d'],['measure','测距','#8fbf7f']].map(([key,label,color])=>
+    `<button class="brush ${PAINTER.tool===key?'on':''}" data-painter-tool="${key}">
+      <i style="background:${color}"></i>${label}</button>`).join('');
+  const slots=PAINTER.countries.map((country,index)=>`<div class="country-slot">
+      <i style="background:${country.color}"></i>
+      <input data-painter-name="${index}" value="${esc(country.name)}" maxlength="24" style="flex:1 1 68px;min-width:0;background:transparent;border:0;color:var(--ink);font-size:11px">
+      <select data-painter-archetype="${index}" style="flex:1 1 76px;min-width:0;font-size:10px;background:transparent;border:0;color:var(--muted)">
+        ${Object.entries(setupArchetypes).map(([key,label])=>`<option value="${key}" ${key===country.archetype?'selected':''}>${esc(label)}</option>`).join('')}
+      </select>
+      <button data-painter-place="${index}" title="在这格落都">${country.capital?`(${country.capital.join(',')})`:'落都'}</button>
+      <button data-painter-remove="${index}" ${PAINTER.countries.length<=2?'disabled':''}>×</button>
+    </div>`).join('');
+  $('painterTools').innerHTML=`
+    <div class="painter-card"><h3>地形画笔</h3><div class="brush-grid">${brushes}</div>
+      <div class="painter-note" style="margin-top:6px">数字是每格行军成本；道路格一律 ${fmtNum(PAINTER.specs.road_cost,2)}。</div></div>
+    <div class="painter-card"><h3>工具</h3><div class="brush-grid">${special}</div></div>
+    <div class="painter-card"><h3>国家与都城</h3><div class="slot-stack">${slots}</div>
+      <button data-painter-addcountry style="margin-top:5px" ${PAINTER.countries.length>=12?'disabled':''}>+ 添加国家</button></div>
+    <div class="painter-card"><h3>快捷操作</h3>
+      <div style="display:grid;gap:4px">
+        <button data-painter-clear="rivers">清除全部河流</button>
+        <button data-painter-clear="roads">清除全部道路</button>
+        <button data-painter-capitals>按地形重排都城</button>
+      </div>
+      <div class="painter-note" style="margin-top:6px">按住拖动涂画；地形改成海洋会同时抹掉该格的河流、道路与都城。</div></div>`;
+}
+function painterMarchCard(){
+  const preview=PAINTER.preview,specs=PAINTER.specs;
+  if(!preview)return `<div class="painter-card"><h3>行军耗时</h3>
+    <div class="painter-note">悬停地图即可看到从都城出发的行军天数；选「测距」工具点两格能量任意两点。</div></div>`;
+  const days=preview.days==null?'—':`${preview.days} 天`;
+  const cost=preview.cost==null?'—':`${fmtNum(preview.cost,1)} 成本`;
+  const mix=preview.terrain_mix?Object.entries(preview.terrain_mix).map(([k,v])=>`${k}×${v}`).join(' '):'';
+  const crossings=(preview.crossings||[]).map(item=>`${item.name} ${item.tiles} 格`).join('、')||'无国家领土';
+  const rows=[
+    ['路线',`${preview.from.join(',')} → ${preview.to.join(',')}`],
+    ['直线距离',`${fmtNum(preview.straight_km,0)} km · ${preview.hex_distance} 格`],
+    ['行军成本',`${cost} · 单条命令上限 ${fmtNum(preview.maximum_order_cost,1)} 点：超了就分两段下令`],
+    ['途经地形',mix||'—'],
+    ['道路占比',preview.road_share!=null?`${Math.round(preview.road_share*100)}%`:'—'],
+    ['过境领土',crossings],
+  ].map(([label,value])=>`<div class="mini-row"><span>${label}</span><b>${esc(value)}</b></div>`).join('');
+  const banner=preview.error?`<div class="painter-warn">${esc(preview.error)}</div>`
+    :preview.reason?`<div class="painter-warn">${esc(preview.reason)}</div>`
+    :preview.hint?`<div class="painter-warn">${esc(preview.hint)}</div>`:'';
+  return `<div class="painter-card"><h3>行军耗时</h3>
+    <div class="march-days">${days}<small>　${cost}　${preview.single_order?'一条命令可达':'需分段下令'}</small></div>
+    <div style="margin-top:5px">${rows}</div>${banner}
+    <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
+      <button data-painter-pin-a>起点设为此格</button><button data-painter-pin-b>终点设为此格</button>
+      <button data-painter-clearpins>清除标记</button></div>
+    <div class="painter-note" style="margin-top:5px">数字来自引擎同一份成本表：每天 ${fmtNum(specs.daily_budget,1)} 点移动力，道路 ${fmtNum(specs.road_cost,2)}，最慢地形 ${fmtNum(Math.max(...Object.values(specs.biome_cost||{a:1})),1)}。${specs.hostile_cost==null?'绘制预览只按地形与道路定价，这一份成本表还没有敌土减速可读；开局后穿过别国领土才另加价。':`绘制预览只按地形与道路定价，开局后穿过别国领土的那一格还会再加 ${fmtNum(specs.hostile_cost,2)} 点。`}</div></div>`;
+}
+function painterReportCard(){
+  const report=PAINTER.report;
+  if(!report)return `<div class="painter-card"><h3>开局校验</h3>
+    <div class="painter-warn">${esc(PAINTER.reportError||'正在计算…')}</div></div>`;
+  const biomes=Object.entries(report.biomes||{}).map(([k,v])=>`${k} ${v}`).join(' · ');
+  const countries=report.countries.map(country=>`<div class="mini-row">
+      <span>${esc(country.name)} · ${esc(country.archetype_label)}</span>
+      <b style="color:${country.openable?'var(--good)':'var(--bad)'}">${country.core_tiles}/${country.core_tiles_required} 格 · ${esc(country.dominant_biome_label)}</b></div>`).join('');
+  const warnings=(report.warnings||[]).map(text=>`<div class="painter-warn">${esc(text)}</div>`).join('');
+  return `<div class="painter-card"><h3>开局校验</h3>
+    <div class="mini-row"><span>陆地 / 海洋</span><b>${fmtInt(report.land_tiles)} / ${fmtInt(report.ocean_tiles)}（${Math.round(report.land_share*100)}%）</b></div>
+    <div class="mini-row"><span>河流 / 道路</span><b>${report.river_tiles} 格 / ${report.road_tiles} 格</b></div>
+    <div class="mini-row"><span>单格面积</span><b>${fmtNum(report.cell_area_km2,0)} km²</b></div>
+    <div class="mini-row"><span>地形构成</span><b>${esc(biomes)}</b></div>
+    <div style="margin-top:5px">${countries}</div>${warnings}
+    <div class="painter-note" style="margin-top:5px">每国自动扩张 ${PAINTER.coreTiles} 格连通核心领土；地形会派生出海拔、气温、降水与灾害，同一张图每次算出的结果一致。</div></div>`;
+}
+function renderPainterSide(){
+  $('painterSide').innerHTML=painterMarchCard()+painterReportCard();
+}
+function updatePainterStart(){
+  const button=$('painterStartBtn');
+  const missing=PAINTER.countries.filter(country=>!country.capital).length;
+  const report=PAINTER.report;
+  let blocked=missing>0||!report||!report.ok;
+  if(!blocked){button.textContent='用这张地图开局';}
+  else if(missing)button.textContent=`先为 ${missing} 国落都`;
+  else if(PAINTER.reportError)button.textContent='先修正地图问题';
+  else if(report&&!report.ok)button.textContent='核心领土不足';
+  else button.textContent='等待校验…';
+  button.disabled=blocked;
+}
+function painterAction(target){
+  const tool=target.closest('[data-painter-tool]');
+  if(tool){PAINTER.tool=tool.dataset.painterTool;renderPainterTools();return;}
+  const place=target.closest('[data-painter-place]');
+  if(place){PAINTER.tool='capital';PAINTER.placeIndex=Number(place.dataset.painterPlace);renderPainterTools();
+    showToast('点击地图上的陆地放置都城');return;}
+  const rename=target.closest('[data-painter-name]');if(rename)return;
+  const arch=target.closest('[data-painter-archetype]');if(arch)return;
+  const add=target.closest('[data-painter-addcountry]');
+  if(add){
+    if(PAINTER.countries.length>=12)return;
+    const used=new Set(PAINTER.countries.map(country=>country.color.toLowerCase()));
+    const color=SETUP_PALETTE.find(item=>!used.has(item.toLowerCase()))||'#c9c9c9';
+    const taken=new Set(PAINTER.countries.map(country=>country.name));
+    const letter=PAINTER.countries.map((_,index)=>String.fromCharCode(65+index))
+      .concat(Array.from({length:12},(_,index)=>String.fromCharCode(65+index)))
+      .find(item=>!taken.has(`国家${item}`));
+    PAINTER.countries.push({name:`国家${letter||'新'}`,
+      color,archetype:'river_valley',population:20000,capital:null});
+    renderPainterTools();queuePainterReport();return;
+  }
+  const remove=target.closest('[data-painter-remove]');
+  if(remove){
+    if(PAINTER.countries.length<=2)return;
+    PAINTER.countries.splice(Number(remove.dataset.painterRemove),1);
+    renderPainterTools();renderPainter();queuePainterReport();return;
+  }
+  const clear=target.closest('[data-painter-clear]');
+  if(clear){
+    if(clear.dataset.painterClear==='rivers')PAINTER.rivers.clear();else PAINTER.roads.clear();
+    renderPainter();queuePainterReport();return;
+  }
+  const resort=target.closest('[data-painter-capitals]');
+  if(resort){
+    const spots=painterCapitalSpots(PAINTER.countries.length);
+    PAINTER.countries.forEach((country,index)=>{country.capital=spots[index]||null;});
+    renderPainterTools();renderPainter();queuePainterReport();return;
+  }
+  if(target.closest('[data-painter-pin-a]')&&PAINTER.hover){PAINTER.pinA=PAINTER.hover.slice();renderPainter();}
+  else if(target.closest('[data-painter-pin-b]')&&PAINTER.hover){PAINTER.pinB=PAINTER.hover.slice();renderPainter();}
+  else if(target.closest('[data-painter-clearpins]')){PAINTER.pinA=null;PAINTER.pinB=null;PAINTER.preview=null;renderPainter();renderPainterSide();}
+}
+$('painterTools').addEventListener('click',e=>painterAction(e.target));
+$('painterTools').addEventListener('input',e=>{
+  const name=e.target.closest('[data-painter-name]');
+  if(name){PAINTER.countries[Number(name.dataset.painterName)].name=name.value.trim()||'无名之国';queuePainterReport();return;}
+  const arch=e.target.closest('[data-painter-archetype]');
+  if(arch){PAINTER.countries[Number(arch.dataset.painterArchetype)].archetype=arch.value;queuePainterReport();}
+});
+$('painterSide').addEventListener('click',e=>painterAction(e.target));
+function painterStroke(col,row){
+  const tool=PAINTER.tool,key=pKey(col,row);
+  let changed=false;
+  if(tool==='river'||tool==='road'){
+    if((pTile(col,row)||'o')==='o'){showToast('河流与道路只能画在陆地上',true);return false;}
+    const set=tool==='river'?PAINTER.rivers:PAINTER.roads;
+    if(set.has(key))set.delete(key);else set.add(key);
+    changed=true;
+  }else if(tool==='capital'){
+    return painterPlaceCapital(col,row);
+  }else if(tool==='measure'){
+    return false;
+  }else{
+    changed=pPaint(col,row,tool);
+    if(changed&&tool==='o'){PAINTER.rivers.delete(key);PAINTER.roads.delete(key);}
+  }
+  if(changed){renderPainter();queuePainterReport();}
+  return changed;
+}
+function painterPlaceCapital(col,row){
+  if((pTile(col,row)||'o')==='o'){showToast('都城必须落在陆地上',true);return false;}
+  const existing=PAINTER.countries.findIndex(country=>
+    country.capital&&country.capital[0]===col&&country.capital[1]===row);
+  if(existing>=0&&PAINTER.placeIndex===null){
+    PAINTER.countries[existing].capital=null;
+    showToast(`${PAINTER.countries[existing].name} 的都城已移除`);
+  }else{
+    const tooClose=PAINTER.countries.find(country=>country.capital&&hexDistance(country.capital,[col,row])<4);
+    if(tooClose){showToast(`距离 ${tooClose.name} 的都城不足 4 格`,true);return false;}
+    const chosen=PAINTER.placeIndex===null
+      ?PAINTER.countries.findIndex(country=>!country.capital):PAINTER.placeIndex;
+    const index=chosen>=0?chosen:0;
+    PAINTER.countries[index].capital=[col,row];
+    PAINTER.placeIndex=null;
+    showToast(`${PAINTER.countries[index].name} 都城已落在 (${col},${row})`);
+  }
+  renderPainterTools();renderPainter();queuePainterReport();
+  return true;
+}
+painterCanvas.addEventListener('pointerdown',e=>{
+  const coord=painterTileAt(e.clientX,e.clientY);
+  if(!coord)return;
+  painterCanvas.setPointerCapture(e.pointerId);
+  if(PAINTER.tool==='measure'){
+    if(!PAINTER.pinA||PAINTER.pinB){PAINTER.pinA=coord.slice();PAINTER.pinB=null;}
+    else PAINTER.pinB=coord.slice();
+    PAINTER.preview=null;renderPainter();renderPainterSide();
+    refreshPainterMarch(PAINTER.pinB||coord);
+    return;
+  }
+  PAINTER.painting=true;
+  PAINTER.lastStroke=pKey(coord[0],coord[1]);
+  painterStroke(coord[0],coord[1]);
+});
+painterCanvas.addEventListener('pointermove',e=>{
+  const coord=painterTileAt(e.clientX,e.clientY);
+  const previous=PAINTER.hover;
+  PAINTER.hover=coord;
+  if(PAINTER.painting&&coord){
+    const key=pKey(coord[0],coord[1]);
+    if(key!==PAINTER.lastStroke){PAINTER.lastStroke=key;painterStroke(coord[0],coord[1]);}
+  }else{
+    const locked=!!PAINTER.pinB;
+    const start=PAINTER.pinA||(PAINTER.countries.find(country=>country.capital)||{}).capital;
+    if(!locked&&start&&coord)queuePainterMarch(coord);
+  }
+  if(!PAINTER.painting&&(!previous||!coord||previous[0]!==coord[0]||previous[1]!==coord[1]))renderPainter();
+});
+window.addEventListener('pointerup',()=>{PAINTER.painting=false;});
+painterCanvas.addEventListener('pointerleave',()=>{PAINTER.hover=null;renderPainter();});
+$('painterPreset').onchange=()=>applyPainterPreset($('painterPreset').value);
+$('painterBackBtn').onclick=()=>showOnlyScreen('menu');
+$('painterYear').oninput=()=>{
+  const bce=$('painterEra').value==='BCE';
+  $('painterYear').max=bce?800:500;
+  if(Number($('painterYear').value)>(bce?800:500))$('painterYear').value=bce?800:500;
+};
+$('painterEra').onchange=()=>{PAINTER.lastYear=null;$('painterYear').oninput();};
+$('painterStartBtn').onclick=async()=>{
+  const button=$('painterStartBtn');
+  const missing=PAINTER.countries.filter(country=>!country.capital).length;
+  if(missing){showToast(`还有 ${missing} 个国家未落都城`,true);return;}
+  button.disabled=true;
+  const bce=$('painterEra').value==='BCE',year=Number($('painterYear').value||800);
+  try{
+    const r=await fetch('/api/new_game',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({draft:painterDraft(),start_year:bce?(1-year):year,
+        save_name:$('painterSaveName').value.trim()||null})});
+    const data=await r.json();
+    if(!data.ok)throw new Error(data.error||'开局失败');
+    await startSession();
+    showToast(`手绘世界已开局 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
+  }catch(err){
+    showToast(`开局失败：${err.message}`,true);
+    button.disabled=false;updatePainterStart();
+  }
+};
+async function openPainter(){
+  try{
+    const r=await fetch('/api/setup',{cache:'no-store'});
+    const data=await r.json();
+    setupArchetypes=data.archetypes||{};
+    setupDefaults=data.countries||[];
+    setupCoreTiles=data.core_tiles||16;
+    PAINTER.coreTiles=data.core_tiles||16;
+    const draft=data.draft||{};
+    PAINTER.w=draft.width||72;PAINTER.h=draft.height||54;
+    PAINTER.brushes=draft.brushes||[];
+    PAINTER.brushByChar={};
+    for(const brush of PAINTER.brushes)PAINTER.brushByChar[brush.char]=brush;
+    PAINTER.specs={daily_budget:draft.daily_budget,road_cost:draft.road_cost,
+      maximum_order_cost:draft.maximum_order_cost,biome_cost:draft.biome_cost||{},
+      hostile_cost:draft.hostile_cost??STATE?.movement_specs?.hostile_cost??null};
+    if(!PAINTER.loaded){
+      PAINTER.countries=setupDefaults.map(item=>({...item,capital:null}));
+      applyPainterPreset('continent');
+      PAINTER.loaded=true;
+    }
+    showOnlyScreen('painter');
+    renderPainterTools();renderPainterSide();updatePainterStart();
+    requestAnimationFrame(()=>{painterFit();renderPainter();});
+  }catch(err){showToast('无法载入绘制配置',true);}
+}
 function agentStatusText(a){
   if((a.mode||'mock')==='mock')return '规则 AI（无模型调用）';
   if(a.last_test){
@@ -2515,6 +3930,7 @@ function nextFrame(){
 function showOnlyScreen(name){
   $('menuScreen').hidden=name!=='menu';
   $('loadScreen').hidden=name!=='load';
+  $('painterScreen').hidden=name!=='painter';
   $('app').hidden=name!=='game';
 }
 async function refreshSaves(){
@@ -2632,6 +4048,7 @@ $('loadBackBtn').onclick=()=>{
   else showOnlyScreen('menu');
 };
 $('newWorldMenuBtn').onclick=openNewWorld;
+$('painterMenuBtn').onclick=openPainter;
 $('menuAgentsBtn').onclick=()=>{if(gameLoaded)openAgents();};
 $('gameMenuBtn').onclick=()=>openDeck('system');
 $('resumeGameBtn').onclick=closePauseMenu;
@@ -2667,7 +4084,8 @@ function renderCities(){
   $('citySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.cities.length} 座城市 · 全国人口 ${fmtInt(country.population)}`;
   $('cityGrid').innerHTML=country.cities.map(city=>`<div class="city-card">
     <div class="city-head"><div><b>${esc(city.name)}</b><small>${city.tiles} 格城域 · ${esc(BIOME_NAMES[city.dominant_biome]||city.dominant_biome)} · ${city.managed_by==='ai'?'规则AI托管':city.managed_by==='llm'?'LLM托管':'手动治理'}</small></div>
-      <span class="pill">${esc(city.focus_label)}</span></div>
+      <span>${siegeBadge(city)}<span class="pill">${esc(city.focus_label)}</span></span></div>
+    ${city.siege?`<div class="siege-strip">${siegeBar(city.siege)}${siegeArmies(city.siege)}</div>`:''}
     <div class="city-stats">
       <div class="city-stat"><small>人口</small><b>${fmtInt(city.population)}</b></div>
       <div class="city-stat"><small>住房</small><b>${fmtNum(city.housing,0)}k</b></div>
@@ -2723,6 +4141,10 @@ function openCityDetail(cityId){
 function renderCityDetail(){
   const city=currentCity();if(!city)return;
   const isPlayer=STATE.player_country===selectedCountry;
+  const siege=$('citySiegeNote'),ledger=city.siege;
+  siege.hidden=!ledger;
+  siege.innerHTML=ledger?`<div class="siege-strip">${siegeBadge(city)}${siegeBar(ledger)}${siegeArmies(ledger)}
+    <div class="hint">围城不打会战：<b>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)}</b> 的 ${(ledger.armies||[]).length} 支军队站在中心格周围 ${siegeRing()} 格里，每天啃掉 ${fmtNum(ledger.daily,3)}，账满整座城连地带人换手。解围要么打掉圈里的军队、夺走那一格，要么签停战。</div></div>`:'';
   $('cityGovernanceSelect').hidden=!isPlayer;
   $('cityGovernanceSelect').value=city.managed_by;
   $('cityFoodInfo').innerHTML=city.food_need>0
@@ -2803,10 +4225,10 @@ function renderCityDetail(){
   const player=STATE.countries[STATE.player_country];
   const canBuild=isPlayer&&city.managed_by==='manual';
   if(!selected){
-    $('cityBuildPalette').innerHTML='<div class="build-option"><span class="hint">选择地块后查看可建设施</span></div>';
+    $('cityBuildPalette').innerHTML='<div class="build-option solo"><span class="hint">选择地块后查看可建设施</span></div>';
     $('cityBuildHint').textContent='';
   }else if(!canBuild){
-    $('cityBuildPalette').innerHTML='<div class="build-option"><span class="hint">这座城市不是手动治理</span></div>';
+    $('cityBuildPalette').innerHTML='<div class="build-option solo"><span class="hint">这座城市不是手动治理</span></div>';
     $('cityBuildHint').textContent=isPlayer?'收回手动治理后才能在城市内直接建造。':'观战模式只能查看。';
   }else{
     const [col,row]=selected.coord,key=col+','+row;
@@ -2860,38 +4282,211 @@ async function closeMilitary(){
 }
 function renderMilitary(){
   if(!STATE)return;
-  const c=STATE.countries[selectedCountry],isPlayer=STATE.player_country===selectedCountry;
+  const c=STATE.countries[selectedCountry];
+  if(!c)return;
   const wars=c.at_war_with||[];
-  const others=WORLD.polities.filter(p=>p.id!==selectedCountry);
+  const others=livePolities().filter(p=>p.id!==selectedCountry);
   const warTargets=others.filter(p=>!wars.includes(p.id));
-  const position=c.army_position?`${c.army_position[0]},${c.army_position[1]}`:'无';
+  const alerts=threatRows();
+  const isPlayer=STATE.player_country===selectedCountry;
+  const specs=STATE.unit_specs||{},milRules=STATE.military_specs||{},mv=STATE.movement_specs||{};
+  const bar=milRules.barracks||{},tech=c.technology||{};
+  const armies=c.armies||[];
+  if(!armies.some(a=>a.army_id===selectedArmy))selectedArmy=armies.length?armies[0].army_id:null;
+  const mover=armies.find(a=>a.army_id===selectedArmy)||null;
   const selected=selectedTile?`${selectedTile[0]},${selectedTile[1]}`:'未选择地块';
-  $('militarySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 军队维护费每天 ${fmtNum(c.military_upkeep,3)} 财政`;
+  const unlocked=id=>{const need=specs[id]?.required_technology;return !need||(tech[need.field]||0)>=need.level;};
+  const cityName=t=>{const city=(c.cities||[]).find(item=>item.center&&item.center[0]===t[0]&&item.center[1]===t[1]);return city?city.name:'';};
+  const marchable=!!(mover&&!mover.march&&mover.strength>0&&mover.tile);
+  $('militarySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${armies.length} 支军队 · 军队维护费每天 ${fmtNum(c.military_upkeep,3)} 财政`;
+  const quotes=STATE.campaign_quotes||{};
+  const camps=Object.values(c.buildings||{}).filter(b=>b==='BARRACKS').length;
+  const armyCap=c.army_cap||milRules.maximum_strength||0;
+  const columnRows=id=>{
+    const quote=quotes[id]||{},options=quote.options||[];
+    if(!options.length){
+      const waiting=armies.filter(a=>!a.march&&a.strength>0&&a.tile).length;
+      return `<div class="hint">${waiting
+        ?`本国没有一支待命军队能在 ${fmtNum(mv.maximum_order_cost,0)} 点的单条命令上限内抵达 <b>${esc(countryMeta(id)?.name||id)}</b> 的边境：先把军队调上前线分段推进，或把路修过去。`
+        :`本国没有可下令的待命军队：都在途或未编成，等抵达当日再下令。`}</div>`;
+    }
+    const rows=options.map(o=>{
+      const sameGate=o.objective&&quote.objective&&o.objective.col===quote.objective.col&&o.objective.row===quote.objective.row;
+      const gate=o.march_target?`${o.march_target.col},${o.march_target.row}`:'';
+      const waitingOthers=armies.filter(a=>!a.march&&a.strength>0&&a.tile&&a.army_id!==o.army_id
+        &&`${a.tile[0]},${a.tile[1]}`!==gate).length;
+      return `<tr>
+        <td><b>${esc(o.army_id)}</b>${sameGate?'':'<small class="mut">另一路：打不同缺口</small>'}</td>
+        <td><b>${o.days} 天</b><small>${fmtNum(o.cost,2)} 成本${o.expedition?' · 远征过境':''}</small></td>
+        <td><small>集结 (${o.march_target?.col},${o.march_target?.row}) → 攻城 (${o.objective?.col},${o.objective?.row})</small>
+          <small class="mut">到场 ${o.mass||1} 支 · 战力系数 ${fmtNum(o.mass_share||1,2)}</small></td>
+        <td>${isPlayer?`<button data-attack-army="${id}" data-army="${esc(o.army_id)}">这一路进攻</button>`+
+          (waitingOthers&&gate?`<button data-mass="${esc(gate)}" data-lead="${esc(o.army_id)}">其余向此集结</button>`:''):''}</td></tr>`;
+    }).join('');
+    return `<table class="unit-table"><thead><tr><th>可下令军队</th><th>行军报价</th><th>集结 / 缺口</th><th>下令</th></tr></thead><tbody>${rows}</tbody></table>`;
+  };
+  const siegeRows=id=>{
+    const table=milRules.siege||{},rows=(quotes[id]||{}).siege||[],marches=(quotes[id]||{}).siege_marches||[];
+    const threshold=Number(table.fall_threshold)||1;
+    const body=rows.map(r=>{
+      const pct=Math.max(0,Math.min(100,(Number(r.progress)||0)/threshold*100)),held=!!r.taken_by;
+      return `<tr${held?' class="dim"':''}>
+        <td><b>${esc(r.name||r.city_id)}</b><small>中心 (${r.center.col},${r.center.row}) · ${r.open?'围城账已在走':'尚未开账：按圈内军队预告'}</small>
+          <small class="mut">${esc(countryMeta(id)?.name||id)} ${r.walls?'有城墙':'无城墙'} · 我方成数 ${((Number(r.share)||0)*100).toFixed(0)}%</small></td>
+        <td>${(r.armies||[]).map(a=>esc(a)).join('、')||'——'}<small class="mut">${(r.armies||[]).length} 支在圈里</small></td>
+        <td><div class="bar"><i style="width:${pct}%"></i></div><small>${fmtNum(r.progress,2)} / ${fmtNum(threshold,2)}</small></td>
+        <td>${held?`<span class="key-state missing">被 ${esc(countryMeta(r.taken_by)?.name||r.taken_by)} 抢先围住</span>`
+          :`<b>${r.days_left==null?'圈内暂无兵力':(r.days_left<=0?'即日城破':`${r.days_left} 日城破`)}</b>`}</td>
+        <td>${isPlayer&&!held?(r.armies||[]).map(a=>`<button data-siege-city="${id}" data-army="${esc(a)}" data-center="${r.center.col},${r.center.row}">令 ${esc(a)} 开围</button>`).join(''):''}</td></tr>`;
+    }).join('');
+    const marchBody=marches.map(r=>{
+      const stuck=r.days_left==null;
+      return `<tr>
+        <td><b>${esc(r.name||r.city_id)}</b><small>中心 (${r.center.col},${r.center.row}) · ${r.walls?'有城墙':'无城墙'}</small>
+          <small class="mut">尚未开账：我方成数 ${((Number(r.share)||0)*100).toFixed(0)}%</small></td>
+        <td><b>${esc(r.army_id)}</b><small>落脚 (${r.camp?.col},${r.camp?.row})</small></td>
+        <td><b>${r.days} 天</b><small>${fmtNum(r.cost,2)} 成本${r.expedition?' · 远征过境（沿途经过别国领土）':''}</small></td>
+        <td>${stuck?`<span class="key-state missing">这一支单独啃不动</span>`
+          :`<small>抵达后围 ${r.days_left} 日 · 全程约 ${Number(r.days)+Number(r.days_left)} 日城破</small>`}</td>
+        <td>${isPlayer?`<button data-siege-march="${id}" data-army="${esc(r.army_id)}" data-center="${r.center.col},${r.center.row}">开赴并开围</button>`:''}</td></tr>`;
+    }).join('');
+    if(!rows.length&&!marches.length)return `<div class="hint">本国既没有军队站在 <b>${esc(countryMeta(id)?.name||id)}</b> 任何城池中心的封锁圈里，也没有一支待命军队能在一条命令内走到某面墙的落脚格：中心格不打会战，先把军队（或道路）开到中心格周围 ${Number(table.blockade_radius)||1} 格里——行军令只落在己方或无主的格子上，别国领土的那一格得用进攻令开进去。</div>`;
+    const ledger=rows.length?`<div class="sect"><span>围城战线 · ${esc(countryMeta(id)?.name||id)}</span><span>${rows.length} 面墙</span></div>
+      <table class="unit-table"><thead><tr><th>被围城池</th><th>封锁圈军队</th><th>围城进度</th><th>预计城破</th><th>下令</th></tr></thead><tbody>${body}</tbody></table>
+      <div class="hint">数字来自每日结算的同一本账：进度每天走 ${fmtNum(table.daily_progress,2)} × 我方成数（圈内兵力 ÷（圈内兵力 + 圈内守军 + 城墙 ${fmtNum(table.wall_bonus,2)} 分量）），账满 ${fmtNum(threshold,2)} 整座易主。一座城同时只有一方围得，被抢开的墙只能先去打圈里的格。</div>`:'';
+    const march=marches.length?`<div class="sect"><span>可开赴的城墙 · ${esc(countryMeta(id)?.name||id)}</span><span>${marches.length} 路</span></div>
+      <table class="unit-table"><thead><tr><th>城墙</th><th>开赴的军队</th><th>行军报价</th><th>抵达之后</th><th>下令</th></tr></thead><tbody>${marchBody}</tbody></table>
+      <div class="hint">这些墙还没有本国军队围着：<b>下令后军队按这条路线开进封锁圈，抵达当日自动开围</b>，天数与成数用的是同一本围城账——只是「抵达后 N 日」从进城那天才算。道路能穿过任何陆地格，敌土只是每格另加 ${fmtNum(mv.hostile_cost,2)} 点减速；这一路走的是进攻令，落脚格只要不在对方领土里就行——对面若把城墙格围得严严实实，得先用会战夺下一格城缘。<code>strike_columns</code> 之内的每一路各带一支军队，两路可以分打两面墙。</div>`:'';
+    return ledger+march;
+  };
   const warRows=wars.length?wars.map(id=>`<div class="war-row"><span>与 <b>${esc(countryMeta(id)?.name||id)}</b> 交战中</span>
-    ${isPlayer?`<span><button data-attack="${id}">边境进攻</button><button data-peace="${id}">请求和平</button></span>`:''}</div>`).join(''):'<div class="hint">当前没有战争。</div>';
+    ${isPlayer?`<span><button data-attack="${id}">下令进攻</button><button data-peace="${id}">请求和平</button></span>`:''}</div>${columnRows(id)}${isPlayer?siegeRows(id):''}`).join(''):'<div class="hint">当前没有战争。</div>';
+  const unitRows=(c.recruit_options||[]).map(o=>{
+    const id=o.unit,u=specs[id]||{};
+    const have=Number(o.have)||0;
+    const terrain=Object.entries(u.terrain||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${v.toFixed(2)}`).join(' ');
+    const canRecruit=isPlayer&&o.can_recruit&&(Number(o.batch)||0)>0;
+    return `<tr${have?'':' class="dim"'}>
+      <td><i class="unit-chip" style="--uc:${o.color||u.color||''}"></i><b>${esc(o.label)}</b><small>${esc(unitRelationText(u))}</small>${terrain?`<small class="mut">地形 ${esc(terrain)}</small>`:''}</td>
+      <td>${have}/${o.max_count}</td>
+      <td>${fmtNum(o.power,2)} / ${fmtNum(o.defense,2)}</td>
+      <td>${fmtNum(o.upkeep,3)}</td>
+      <td>${fmtNum(o.cost_treasury,1)}·${fmtNum(o.cost_food,1)}</td>
+      <td><span class="key-state ${canRecruit?'ok':'missing'}">${esc(o.reason)}</span>
+        ${canRecruit?`<button data-recruit="${id}" data-size="${o.batch}">招募 ${o.batch}</button>`:''}</td>
+    </tr>`;
+  }).join('');
+  const armyRows=armies.length?armies.map(a=>{
+    const m=a.march,span=Math.max(1,(m?.route||[]).length-1);
+    const walked=m?Math.max(0,Math.min(1,(m.index||0)/span)):0;
+    const info=m?marchBreakdown(m.route):null;
+    const price=Number(specs[a.preferred_unit||bar.default_unit]?.cost?.treasury)||0;
+    const rosterText=Object.entries(a.units||{}).map(([id,n])=>`${unitName(id)}×${n}`).join('、')||'空编';
+    const tags=[a.tile?cityName(a.tile)?`<small>城池 ${esc(cityName(a.tile))}</small>`:'':'<small>尚无驻地</small>',
+      a.barracks?'<small>驻兵营</small>':'',m?'':`<small class="mut">${a.strength>0?'待命':'未编成'}</small>`].join('');
+    const recruit=a.barracks
+      ?`<span class="key-state ${a.recruiting?'ok':'missing'}">${a.recruiting?'募兵中':'已停募'}</span>`+
+        (isPlayer?`<button data-recruiting="${a.army_id}" data-on="${a.recruiting?0:1}">${a.recruiting?'停募':'开募'}</button>`:'')+
+        `<select data-recruit-unit="${a.army_id}"${isPlayer?'':' disabled'}>${Object.keys(specs).filter(unlocked).map(id=>`<option value="${id}"${(a.preferred_unit||bar.default_unit)===id?' selected':''}>${esc(specs[id].label)}</option>`).join('')}</select>`+
+        `<small class="mut">进度 ${fmtNum(a.progress,2)} / ${price||'—'}</small><div class="bar"><i style="width:${price?Math.min(100,a.progress/price*100):0}%"></i></div>`
+      :'<span class="mut">不在兵营，开关无效</span>';
+    const march=m?`<b>${m.purpose==='ATTACK'?'进攻':'行军'} → (${m.destination[0]},${m.destination[1]})</b>
+      <small>剩 ${m.days_left} 天 · 余程 ${fmtNum(m.remaining,2)}/${fmtNum(m.cost,2)} · 已走 ${Math.round(walked*100)}%</small>
+      <small class="mut">${m.target?`${esc(countryMeta(m.target)?.name||m.target)} · `:''}${m.expedition?'远征过境':'己方或中立通道'} · 道路 ${info.roadShare}%</small>
+      ${info.text?`<small class="mut">路线 ${esc(info.text)}</small>`:''}
+      <div class="bar"><i style="width:${walked*100}%"></i></div>`:'<span class="mut">待命，可下令</span>';
+    return `<tr${a.strength>0?'':' class="dim"'}>
+      <td>${isPlayer?`<button data-army-pick="${a.army_id}" class="key-state ${a.army_id===selectedArmy?'ok':'missing'}">${a.army_id===selectedArmy?'已选':'选为下令对象'}</button>`:`<b>${esc(a.army_id)}</b>`}</td>
+      <td><b>${a.tile?`(${a.tile[0]},${a.tile[1]})`:'—'}</b>${tags}</td>
+      <td><b>${a.strength} 支 · ${fmtNum(a.power,2)}</b><small>${esc(rosterText)}</small></td>
+      <td>${recruit}</td>
+      <td>${march}</td></tr>`;
+  }).join(''):'<tr><td colspan="5" class="mut">还没有军队。手动招募或让兵营练兵都会编成军队。</td></tr>';
+  const campReports=c.barracks||[],campOptions=c.recruit_options||[];
+  const campRows=campReports.map(r=>barracksPanel(r,campOptions,isPlayer)).join('');
+  const campStalled=campReports.filter(r=>r.stall&&r.stall!=='PAUSED').length;
+  const milReceipts=receiptFilter(c.receipts,['MILITARY']);
+  const milRejected=milReceipts.filter(r=>!r.accepted);
+  const campEventTypes=['barracks_recruit','barracks_stalled','recruiting_changed','recruit_unit_changed','army_desertion','army_recruited'];
+  const campEventRows=(STATE.recent_events||[]).filter(e=>e.country_id===selectedCountry&&campEventTypes.includes(e.type))
+    .slice(-10).reverse().map(formatEvent).filter(Boolean);
   $('militaryBody').innerHTML=`<div class="mil-grid">
     <div class="mil-card" data-mil-sect="army"><h3>王国军势</h3>
-      <div class="mil-stat"><span>军队规模</span><b>${c.army_strength}</b></div>
-      <div class="mil-stat"><span>驻扎地块</span><b>${position}</b></div>
+      <div class="mil-stat"><span>军队规模 / 战力</span><b>${c.army_strength} · ${fmtNum(c.army_power,2)}</b></div>
+      <div class="mil-stat"><span>兵营 / 全国编制上限</span><b>${camps} 座 · ${armyCap} 支</b></div>
       <div class="mil-stat"><span>每日维护</span><b>${fmtNum(c.military_upkeep,3)}</b></div>
       <div class="mil-stat"><span>战争疲劳</span><b>${fmtNum(c.war_exhaustion,1)}</b></div>
+      <div class="mil-stat"><span>下令军队</span><b>${mover?esc(mover.army_id):'无'}</b></div>
       <div class="mil-stat"><span>已选地块</span><b>${selected}</b></div>
-      ${isPlayer?`<div class="mil-buttons"><button data-recruit="1">招募 1</button><button data-recruit="2">招募 2</button>
-        <button data-march="1" ${selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
+      <table class="unit-table"><thead><tr><th>军队</th><th>驻地</th><th>兵力 / 战力</th><th>兵营募兵</th><th>行军</th></tr></thead>
+      <tbody>${armyRows}</tbody></table>
+      ${isPlayer?`<div class="mil-buttons"><button data-march="1" ${marchable&&selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
+      <table class="unit-table"><thead><tr><th>兵种</th><th>编制</th><th>攻/防</th><th>日维护</th><th>费/粮</th><th>状态</th></tr></thead>
+      <tbody>${unitRows}</tbody></table>
+      <div class="hint">战力按兵种逐个结算：编制数量 × 兵种战力 × 对敌军构成的克制修正 × 交战地块地形修正，再乘装备水平与稳定度；防守方另有驻守加成。军饷断供时最先遣散最贵的兵种。<b>兵营每营只练 ${bar.garrison_capacity} 支的固定定额，能练几支取决于本国修了几座</b>：上限 ${armyCap} 支就是常备额与在营运兵营的定额之和。</div>
+    </div>
+    <div class="mil-card" data-mil-sect="army"><h3>募兵与军令回执</h3>
+      <div class="mil-stat"><span>最近命令 / 被拒</span><b>${milReceipts.length} 条 · ${milRejected.length} 条被拒</b></div>
+      ${receiptCard(milReceipts,'还没有下过军令：募兵、行军、进攻都会在这里留下成与败。')}
+      <div class="mil-stat" style="margin-top:8px"><span>兵营练成 / 停摆</span><b>${campEventRows.length} 条</b></div>
+      <div class="event-list">${campEventRows.map(e=>`<div class="event ${e[2]}"><span class="ed">日 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">兵营还没有动静</div>'}</div>
+      <div class="hint">每条命令都由结算引擎当场审核，成与败、被拒的原因都写在这里；被拒的命令不会改状态，也不会扣钱。兵营每天练不练得出兵，看「兵营」页那一格的停摆原因。</div>
+    </div>
+    <div class="mil-card" data-mil-sect="barracks"><h3>兵营募兵</h3>
+      <div class="mil-stat"><span>兵营 / 每营定额</span><b>${camps} 座 · ${bar.garrison_capacity} 支</b></div>
+      <div class="mil-stat"><span>每日军饷 / 停摆兵营</span><b>${fmtNum(bar.daily_cost,2)} 财政每营 · ${campStalled} 座停摆</b></div>
+      ${campRows||`<div class="hint">本国还没有兵营：修一座兵营，把待命军队行军进去，再开募就会每天扣饷练兵。</div>`}
+      <div class="hint">一座兵营同时只给<b>一支</b>驻军领饷练兵，每营定额 ${bar.garrison_capacity} 支；想同时练更多就再修兵营，或把军队分驻到不同兵营。练兵进度条走的是你在下表里选的兵种：点兵种右侧「设为练兵目标」即可换。停摆原因由结算引擎给出，面板只照搬，不猜。</div>
+    </div>
+    <div class="mil-card" data-mil-sect="war"><h3>边警 · 敌军正开向我国</h3>
+      ${alerts.length?`
+      <div class="mil-stat"><span>在途敌军 / 最快一支</span><b>${alerts.length} 路 · 还剩 ${alerts[0].days_left} 天行军</b></div>
+      <div class="mil-stat"><span>打都城 / 落在无守军缺口</span><b>${alerts.filter(row=>row.capital).length} 路 · ${alerts.filter(row=>!row.defenders).length} 处</b></div>
+      ${alerts.map(threatCard).join('')}`:'<div class="mini-empty">当前没有敌军开向我国领土。</div>'}
+      <div class="hint">天数与抵达日期直接读结算引擎的行军账本：对方每天按地形与道路成本推进，路线中途被切断当场就从这张表上消失，所以这里写的日子就是它真会打到的日子。<b>「我方到场 N 支」只算缺口 ${milRules.mass_radius||1} 格内的待命军队</b>：那一格站着人，对方抵达当日就要打会战；一格都没有，对方几乎不折兵就踏过去。想回防就点这一格选中它，再在「王国军势」里点「行军至已选地块」。<b>都城中心格被围下，整座城连同该国全部领土、国库与粮仓一并易主</b>，该国当场灭国。</div>
     </div>
     <div class="mil-card" data-mil-sect="war"><h3>战争状态</h3>${warRows}
       ${isPlayer&&warTargets.length?`<div class="mil-buttons"><select id="warTarget">${warTargets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button data-declare-war>宣战</button></div>`:''}
-      <div class="hint">战斗是战略级边境结算：进攻需要双方领土接壤。胜利可占领一块边境领土；军事维护费是后期财政出口。</div>
+      <div class="hint">宣战之后，「下令进攻」会把所选军队的行军单排到敌国边缘城池：军队每天按地形与道路成本推进，抵达当日才结算会战，打赢只夺下那一格、把它并入最近的己方城池。已经在目标旁边的军队当场就开打。<b>城池中心格不打会战：下令打中心就是开围</b>，军队站在封锁圈里每天啃一口墙，账满整座易主，那一本账列在下面「围城战线」里；还没有军队围着时也有一张「可开赴的城墙」表，点它就是把这一支开进封锁圈、抵达当日自动开围。每场战争最多同时报价 ${milRules.strike_columns||1} 路，下表按军队逐条列出各自最快的一条，点「另一路」那一行就能分兵合击。<b>会战只算缺口 ${milRules.mass_radius||1} 格内到场的军队</b>：单独一支只打 ${fmtNum(milRules.minimum_mass_share||0.5,2)} 的力，几座兵营的兵汇到同一格才打满——点「其余向此集结」就把别的待命军队开进这一格。</div>
     </div>
+    ${tributeLedger(selectedCountry)?`<div class="mil-card" data-mil-sect="war"><h3>占领贡金</h3>${tributeLedger(selectedCountry)}
+      <div class="hint">攻占敌国带建筑的格子才会立账：每栋按 ${fmtNum((milRules.capture_tribute_share||0)*100,0)}% 的缴付方日收入抽取，持续 ${milRules.capture_tribute_days||0} 天，对同一对手合计封顶 ${tributeCap()}%。围城账满、整座易主时，城域里换主的建筑按同一条规则立账；道路等不分归属的设施不产生贡金。</div>
+    </div>`:''}
   </div>
-  <div class="hint"><b>行军：</b>先在地图选择己方或中立地块闭合本窗口，再次打开军事面板并点击“行军至已选地块”。单次最多 4 格；敌对领土不能直接行军，需要宣战后从边境进攻。</div>`;
-  for(const b of document.querySelectorAll('[data-recruit]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RECRUIT',strength:Number(b.dataset.recruit)},'招募完成').then(renderMilitary);
-  for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack},'边境战已结算').then(renderMilitary);
+  <div class="hint"><b>行军：</b>先在地图选中一格陆地——本国领土、无主地、乃至别国领土都算，地块卡上的「行军至此」会逐支军队报出天数与成本；选中一支军队后再点「行军至已选地块」，下的就是那一支的令。行军是下单，不是瞬移：单日推进 ${fmtNum(mv.daily_budget,1)} 点成本，道路每格 ${fmtNum(mv.road_cost,2)}（不分归属都算），${Object.entries(mv.biome_cost||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${fmtNum(v,1)}`).join('、')}，${hostilePaceText()}——别国领土只是减速，不是墙。单条命令上限 ${fmtNum(mv.maximum_order_cost,0)} 点：超了就分两段下令。在途军队不能再下令；行军令只能落在己方或无主的格子上，要进别国领土就打进攻令，撞上没有主人的营地就用「就地打击」。</div>`;
+  bindThreats($('militaryBody'));
+  for(const b of document.querySelectorAll('[data-recruit]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.recruit,strength:Number(b.dataset.size),army_id:selectedArmy},'招募完成').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy},'行军令已下达，抵达当日结算战果').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-attack-army]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attackArmy,army_id:b.dataset.army},'这一路的行军令已下达').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-siege-city]'))b.onclick=()=>{
+    const [col,row]=b.dataset.center.split(',').map(Number);
+    submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.siegeCity,army_id:b.dataset.army,
+      tile:{col,row}},'围城令已下达：每天啃一口墙，账满整座易主').then(renderMilitary);
+  };
+  for(const b of document.querySelectorAll('[data-siege-march]'))b.onclick=()=>{
+    const [col,row]=b.dataset.center.split(',').map(Number);
+    submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.siegeMarch,army_id:b.dataset.army,
+      tile:{col,row}},'开赴令已下达：军队按这条路线进城池封锁圈，抵达当日自动开围').then(renderMilitary);
+  };
+  for(const b of document.querySelectorAll('[data-mass]'))b.onclick=async()=>{
+    const [col,row]=b.dataset.mass.split(',').map(Number);
+    const lead=b.dataset.lead;
+    const others=armies.filter(a=>!a.march&&a.strength>0&&a.tile&&a.army_id!==lead
+      &&`${a.tile[0]},${a.tile[1]}`!==`${col},${row}`);
+    if(!others.length){showToast('其余军队要么已在这格，要么在途或未编成',true);return;}
+    for(const army of others)await submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col,row},army_id:army.army_id},'');
+    showToast(`${others.length} 支军队正开赴 (${col},${row}) 集结`);
+    await renderMilitary();
+  };
   for(const b of document.querySelectorAll('[data-peace]'))b.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PEACE',target:b.dataset.peace},'和平提议已发送').then(renderMilitary);
   const declare=document.querySelector('[data-declare-war]');
   if(declare)declare.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:$('warTarget').value},'战争状态已建立').then(renderMilitary);
   const march=document.querySelector('[data-march]');
-  if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]}},'军队已行军').then(renderMilitary);
+  if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]},army_id:selectedArmy},'行军令已下达').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-recruiting]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.recruiting,recruiting:b.dataset.on==='1'},'募兵开关已更新').then(renderMilitary);
+  for(const s of document.querySelectorAll('[data-recruit-unit]'))s.onchange=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUIT_UNIT',army_id:s.dataset.recruitUnit,unit:s.value},'练兵兵种已设定').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-army-pick]'))b.onclick=()=>{selectedArmy=b.dataset.armyPick;renderMilitary();};
+  bindCampControls();
   for(const card of document.querySelectorAll('#militaryBody [data-mil-sect]'))card.style.display=card.dataset.milSect===militaryFilter?'':'none';
 }
 async function openDiplomacy(){
@@ -2908,10 +4503,12 @@ async function closeDiplomacy(){
 }
 function renderDiplomacy(){
   if(!STATE)return;
-  const c=STATE.countries[selectedCountry],dip=c.diplomacy;
+  const c=STATE.countries[selectedCountry];
+  if(!c)return;
+  const dip=c.diplomacy;
   const isPlayer=STATE.player_country===selectedCountry;
   $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 与该国的关系影响贸易接受度和协定提案`;
-  const rows=WORLD.polities.filter(p=>p.id!==selectedCountry).map(p=>{
+  const rows=livePolities().filter(p=>p.id!==selectedCountry).map(p=>{
     const relation=dip.relations[p.id]||0;
     const active=dip.active_pacts?.find(pact=>pact.pact==='TRADE'&&pact.status==='ACTIVE'&&[pact.sender,pact.target].includes(p.id));
     const pending=dip.outgoing_proposals?.find(proposal=>proposal.target===p.id);
@@ -2936,6 +4533,11 @@ function renderDiplomacy(){
     ${isPlayer?`<span><button data-pact-accept="${proposal.proposal_id}">接受</button>
       <button data-pact-reject="${proposal.proposal_id}">拒绝</button></span>`:'<span class="key-state">等待回应</span>'}
   </div>`).join('');
+  const ledger=dip.ledger||{};
+  const ledgerAll=[...(ledger.outgoing||[]),...(ledger.incoming||[])]
+    .sort((a,b)=>(a.status!=='PENDING')-(b.status!=='PENDING')||b.created_day-a.created_day);
+  const dipReceipts=receiptFilter(c.receipts,['DIPLOMACY','TRADE']);
+  const dipRejected=dipReceipts.filter(r=>!r.accepted);
   $('diploBody').innerHTML=`<div class="diplo-section" data-diplo-section="relations">
       <div class="diplo-list">${rows}</div>
       <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。有效贸易协定为国家税收提供 +5%。</div>
@@ -2943,6 +4545,14 @@ function renderDiplomacy(){
     <div class="diplo-section" data-diplo-section="incoming" hidden>
       <div class="sect" style="margin-top:2px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>
       ${incoming||'<div class="hint">没有待回应的协定提案。</div>'}
+    </div>
+    <div class="diplo-section" data-diplo-section="receipts" hidden>
+      <div class="sect" style="margin-top:2px"><span>提案账本</span><span>待回应 ${ledger.pending||0} · 已定案 ${ledger.decided||0}</span></div>
+      <div class="receipt-card">${ledgerAll.map(ledgerRow).join('')
+        ||'<div class="build-option solo"><span class="hint">还没有提案往来：提议协定、出价贸易都会在这里记账。</span></div>'}</div>
+      <div class="sect" style="margin-top:8px"><span>外交与贸易命令回执</span><span>${dipReceipts.length} 条 · ${dipRejected.length} 条被拒</span></div>
+      ${receiptCard(dipReceipts,'还没有下过外交命令：赠礼、提议协定、宣战与议和都会留下成与败。')}
+      <div class="hint">提案账本记下每一文的终局：待回应 / 已接受 / 已拒绝 / 已过期 / 已作废。被拒或过期的提案不会自己回来，要再谈就得重新提议；命令被拒时原因由结算引擎给出，面板不猜。</div>
     </div>`;
   for(const sec of document.querySelectorAll('#diploBody [data-diplo-section]'))sec.hidden=sec.dataset.diploSection!==diploFilter;
   for(const btn of document.querySelectorAll('[data-gift]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'GIFT',target:btn.dataset.gift,amount:5},'赠礼已完成').then(renderDiplomacy);
@@ -2962,9 +4572,170 @@ async function closeTechTree(){
   if(techResume)await control('resume');
   techResume=false;setRail('world');
 }
+function techUnlockIndex(){
+  const index={};
+  const collect=(specs,kind)=>{
+    for(const spec of Object.values(specs||{})){
+      const requirement=spec.required_technology;
+      if(!requirement)continue;
+      const key=`${requirement.field}:${requirement.level}`;
+      (index[key]||(index[key]=[])).push({kind,label:spec.label,color:kind==='unit'?spec.color:''});
+    }
+  };
+  collect(STATE.building_specs,'building');
+  collect(STATE.unit_specs,'unit');
+  return index;
+}
+function applyTechFilter(){
+  const indexView=techFilter==='military';
+  $('techGrid').hidden=indexView;
+  $('techIndex').hidden=!indexView;
+  $('techGrid').classList.toggle('single',!indexView&&techFilter!=='all');
+  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))
+    branch.style.display=!indexView&&(techFilter==='all'||branch.dataset.techField===techFilter)?'':'none';
+  if(indexView)renderTechIndex();
+}
+function renderTechIndex(){
+  if(!STATE)return;
+  const country=STATE.countries[selectedCountry];
+  const tech=country.technology||{};
+  const tree=STATE.tech_tree||{},units=STATE.unit_specs||{},buildings=STATE.building_specs||{};
+  const rules=STATE.military_specs||{},bar=rules.barracks||{},barracks=buildings.BARRACKS||{};
+  const mv=STATE.movement_specs||{};
+  const wage=Number(bar.daily_cost)||0;
+  const nodeName=(field,level)=>tree[field]?.levels?.[level-1]?.name||'—';
+  const gate=requirement=>requirement
+    ?`${tree[requirement.field]?.label||requirement.field} L${requirement.level}「${nodeName(requirement.field,requirement.level)}」`
+    :'无需科技前置';
+  const reached=requirement=>!requirement||(tech[requirement.field]||0)>=requirement.level;
+  const stat=(label,value)=>`<div class="mil-stat"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
+  const eraYear=value=>value==null?'纪年不限':`纪年至 ${value<0?`公元前 ${1-value} 年`:`公元 ${value} 年`}`;
+  const unitRows=Object.entries(units).map(([id,spec])=>{
+    const requirement=spec.required_technology,ready=reached(requirement);
+    const terrain=Object.entries(spec.terrain||{}).map(([biome,ratio])=>`${BIOME_NAMES[biome]||biome}${ratio.toFixed(2)}`).join(' ');
+    const days=wage>0?Math.ceil(spec.cost.treasury/wage):null;
+    const camp=id===bar.default_unit?'兵营默认练兵':(ready?'兵营可指定':'先补科技');
+    return `<tr${ready?'':' class="gated"'}>
+      <td><i class="unit-chip" style="--uc:${spec.color}"></i><b>${esc(spec.label)}</b><small>${esc(unitRelationText(spec))}</small>${terrain?`<small class="mut">地形 ${esc(terrain)}</small>`:''}</td>
+      <td>${esc(gate(requirement))}<span class="key-state ${ready?'ok':'missing'}">${ready?'已解锁':'未解锁'}</span></td>
+      <td>${spec.power.toFixed(2)} / ${spec.defense.toFixed(2)}<small>编制上限 ${spec.max_count} 支</small></td>
+      <td>${fmtNum(spec.cost.treasury,0)} 财 · ${fmtNum(spec.cost.food,1)} 粮<small>日维护 ${fmtNum(spec.upkeep_per_day,3)}</small></td>
+      <td>${days?`${days} 日/支`:'—'}<small>${esc(camp)}</small></td></tr>`;
+  }).join('');
+  const buildingRows=Object.entries(buildings).map(([id,spec])=>{
+    const requirement=spec.required_technology,ready=reached(requirement);
+    return `<tr${ready?'':' class="gated"'}>
+      <td><b>${esc(spec.label)}</b><small>${esc(id)}</small></td>
+      <td>${esc(gate(requirement))}</td>
+      <td>${fmtNum(spec.cost,0)} 财 · ${fmtNum(spec.days,0)} 日</td>
+      <td>${spec.max_per_country?`全国 ${spec.max_per_country} 座`:'不设全国上限'}${spec.requires_river?'<small class="mut">需临河</small>':''}<small>${(spec.allowed_biomes||[]).length} 类群系可建</small></td>
+      <td><span class="key-state ${ready?'ok':'missing'}">${ready?'可建':'未解锁'}</span></td></tr>`;
+  }).join('');
+  const eraRows=(STATE.eras||[]).map(era=>{
+    const level=era.min_tech_level;
+    const names=Object.entries(tree).map(([field,branch])=>`${branch.label}L${level}「${nodeName(field,level)}」`).join(' · ');
+    const ready=Object.values(tech).every(value=>(value||0)>=level);
+    return `<tr${ready?'':' class="gated"'}><td><b>${esc(era.short)} · ${esc(era.name)}</b><small>${esc(eraYear(era.max_astronomical_year))}</small></td>
+      <td>三线同时 ≥ L${level}<small>${esc(names)}</small></td>
+      <td><span class="key-state ${ready?'ok':'missing'}">${ready?'已进入':'未达到'}</span></td></tr>`;
+  }).join('');
+  const barracksStats=[
+    ['建造门槛',gate(barracks.required_technology)],
+    ['造价 / 工期',`${fmtNum(barracks.cost,0)} 财 · ${fmtNum(barracks.days,0)} 日`],
+    ['全国兵营数','不设上限 · 数量由本国修建决定'],
+    ['每日军饷',`${fmtNum(wage,2)} 财政 / 在营兵营`],
+    ['营内编制上限',`${bar.garrison_capacity} 支 / 座`],
+    ['默认兵种',`${unitName(bar.default_unit)}（无科技前置）`],
+    ['缺料时进度封顶',`单价的 ${fmtNum((bar.progress_cap_ratio||1)*100,0)}%`]
+  ].map(([label,value])=>stat(label,value)).join('');
+  const armyStats=[
+    ['全国编制上限',`常备 ${rules.maximum_strength} 支起，每座兵营再加 ${bar.garrison_capacity} 支定额`],
+    ['集结折算',`缺口 ${rules.mass_radius} 格内到场军队按兵力占比折算，单独一支保底 ${fmtNum(rules.minimum_mass_share,2)}`],
+    ['单次手动招募',`${rules.recruit_batch_max} 支`],
+    ['攻方 / 守方战损',`${fmtNum((rules.attacker_loss_rate||0)*100,0)}% / ${fmtNum((rules.defender_loss_rate||0)*100,0)}%`],
+    ['驻守固定加成',`+${fmtNum(rules.defense_bonus_flat,2)}`],
+    ['远征系数',fmtNum(rules.expedition_factor,2)],
+    ['装备战力加成',`科技线每级 +${fmtNum((rules.metallurgy_power_per_level||0)*100,0)}%`],
+    ['占领后稳定损失',fmtNum(rules.capture_stability_loss,1)],
+    ['占领贡金',`每栋建筑 ${fmtNum((rules.capture_tribute_share||0)*100,0)}% 缴付方日收入，为期 ${rules.capture_tribute_days||0} 天，同一对手封顶 ${fmtNum((rules.capture_tribute_cap||0)*100,0)}%`],
+    ['免贡设施',(rules.capture_tribute_exempt||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无'],
+    ['贡金对战意',`净贡金每占本方收入 1%，议和闸门移动 ${fmtNum(rules.capture_tribute_resolve||0,1)} 点疲劳`],
+    ['月度战争疲劳',fmtNum(rules.war_exhaustion_per_month,1)],
+    ['议和后关系',fmtNum(rules.peace_relation_reset,0)]
+  ].map(([label,value])=>stat(label,value)).join('');
+  const budget=Math.max(Number(mv.daily_budget)||0,1e-9),orderCap=Math.max(Number(mv.maximum_order_cost)||0,0);
+  const sg=rules.siege||{},wall=buildings.WALL||{};
+  const siegeStats=[
+    ['封锁圈',`中心格周围 ${Number(sg.blockade_radius)||1} 格内的军队才算在场`],
+    ['每日进度',`${fmtNum(sg.daily_progress,2)} × 我方成数，账满 ${fmtNum(sg.fall_threshold,2)} 即城破`],
+    ['城墙分量',`中心格立了城墙时守方加 ${fmtNum(sg.wall_bonus,2)}，成数被压低、城破日推迟`],
+    ['围城疲劳',`围方与被围方每日各 +${fmtNum(sg.exhaustion_per_day,3)}`],
+    ['城破代价',`败方稳定度 −${fmtNum(sg.stability_loss,1)}，整座城连地带人换手，缴到的建筑逐栋立占领贡金`],
+    ['议和位移',`自己的城被啃满时议和闸门减 ${fmtNum(sg.peace_pressure,1)} 点疲劳，城破之前就倾向求和；被啃的是都城则再减 ${fmtNum((rules.annexation||{}).peace_pressure||0,1)} 点，那一格破了国家就不在了`],
+    ['城墙造价 / 工期',`${fmtNum(wall.cost,0)} 财 · ${fmtNum(wall.days,0)} 日 · ${gate(wall.required_technology)}`],
+    ['立墙位置','只能立在城池中心格（on_city_center），落错位置直接回绝'],
+    ['一城一围','同一座城同时只有一方围得；本国第二支军队进圈是加入同一本账，不清零进度']
+  ].map(([label,value])=>stat(label,value)).join('');
+  const rt=rules.rout||{};
+  const routStats=[
+    ['留在场上的成数',`${fmtNum((rt.survivor_rate||0)*100,0)}% · 城域内打败的败方按这个成数留住站在这一格的人，其余战死；远处未参战的营不跟着流血`],
+    ['兵营被毁的成数',`${fmtNum((rt.barracks_lost_survivor_rate||0)*100,0)}% · 输掉的那格正是守方兵营时改按这一成数结算，成数越低越接近全歼、归零则该军就地遣散`],
+    ['后退搜索半径',`${Number(rt.retreat_radius)||1} 格 · 溃退先在这一格周围这一半径内找不属对方的落脚处，找不到再向外找；处处已被对方占死则无路可退、整军覆没`]
+  ].map(([label,value])=>stat(label,value)).join('');
+  const roadCost=Math.max(Number(mv.road_cost)||0,1e-9);
+  const hostile=Number(mv.hostile_cost)||0;
+  const marchStats=[
+    ['单日推进',`${fmtNum(mv.daily_budget,1)} 点成本`],
+    ['道路每格',`${fmtNum(mv.road_cost,2)} 点 · 不分归属`],
+    ['敌土减速',hostile?`别国领土每格再加 ${fmtNum(hostile,2)} 点 · 穿得过去，不是墙`:'不额外计：领土不减速行军'],
+    ['可走与可停','任何陆地格都走得过去；MARCH 的落点仍只能是己方或无主的格子，别国领土用进攻令'],
+    ['单条命令上限',orderCap?`${fmtNum(orderCap,0)} 点：超了就分两段下令（≈ ${fmtNum(orderCap/budget,1)} 天）`:'不设上限'],
+    ['下单与开战','MARCH / ATTACK 只排队，抵达当日才结算'],
+    ['在途军队','不能再下令；沿途易主则就地停下']
+  ].map(([label,value])=>stat(label,value)).join('');
+  const marchRows=Object.entries(mv.biome_cost||{}).sort((a,b)=>a[1]-b[1]).map(([biome,value])=>{
+    const cost=Math.max(Number(value),1e-9);
+    return `<tr><td>${esc(BIOME_NAMES[biome]||biome)}<small>${esc(biome)}</small></td>
+      <td>${fmtNum(cost,2)}</td>
+      <td>${Math.floor(budget/cost)} 格<small>道路 ${Math.floor(budget/roadCost)} 格</small></td>
+      <td>${orderCap?`${Math.floor(orderCap/cost)} 格`:'—'}<small>道路 ${Math.floor(orderCap/roadCost)} 格</small></td></tr>`;
+  }).join('');
+  $('techIndex').innerHTML=`<div class="mil-card"><h3>兵种解锁阶梯</h3>
+    <table class="unit-table"><thead><tr><th>兵种</th><th>解锁门槛</th><th>攻 / 防</th><th>募兵费</th><th>兵营节奏</th></tr></thead>
+    <tbody>${unitRows}</tbody></table>
+    <div class="unlock-note"><i>兵营按日扣饷攒进度，攒够单价出 1 支并扣粮</i><i>国库不足当日不扣饷、不涨进度</i><i>已解锁兵种可用 SET_RECRUIT_UNIT 指定为该营目标</i><i>营内编制上限之上需随军出征</i></div>
+    <div class="hint">战力＝编制数量 × 兵种战力 × 对敌军构成的克制修正 × 交战地块地形修正，再乘装备水平与稳定度；未解锁兵种既不能手动招募，也不能设为兵营练兵目标。</div>
+  </div>
+  <div class="mil-card"><h3>设施解锁门槛</h3>
+    <table class="unit-table"><thead><tr><th>设施</th><th>解锁门槛</th><th>造价 / 工期</th><th>上限</th><th>状态</th></tr></thead>
+    <tbody>${buildingRows}</tbody></table>
+    <div class="hint">门槛取自每个设施自己的 required_technology，与建造审核同一条规则；科技树节点上的标签就是这张表按等级反查的结果。</div>
+  </div>
+  <div class="mil-card"><h3>兵营与募兵常量</h3>${barracksStats}
+    <div class="hint">兵营同时只能有一支军队在此募兵；多座兵营各自扣饷、各自攒进度，是否开募由 SET_RECRUITING 控制。</div>
+  </div>
+  <div class="mil-card"><h3>军队与战争常量</h3>${armyStats}
+    <div class="hint">军饷断供时最先遣散该军中最贵的兵种；议和达成后双方关系直接回到表中的数值，而不是在当前关系上加减。</div>
+  </div>
+  <div class="mil-card"><h3>围城与整城易主常量</h3>${siegeStats}
+    <div class="hint">点城池中心格开的不是会战而是这本账：这里的数字与军事页「围城战线」「可开赴的城墙」、地块卡、城市卡上的城破日同源，都出自服务端那一本围城账。开赴路线能穿过敌土——每格再加 ${fmtNum(mv.hostile_cost,2)} 点减速——但落脚格不会落在对方领土里，城缘六格全是敌土时得先用会战夺下一格。</div>
+  </div>
+  <div class="mil-card"><h3>城域溃退与全歼常量</h3>${routStats}
+    <div class="hint">会战打在对方城域内才走这本账：旷野与无守军的门栅仍是原来的等比例消耗。这里的三个数与地块卡的溃退账、边警的全歼警告、战报里的退路格同源，都读自军事结算那一本溃退账。</div>
+  </div>
+  <div class="mil-card"><h3>行军与道路常量</h3>${marchStats}
+    <table class="unit-table"><thead><tr><th>群系</th><th>每格成本</th><th>单日可走</th><th>单条命令最远</th></tr></thead><tbody>${marchRows}</tbody></table>
+    <div class="hint">最短路按这张表的每格成本加权，道路格一律取 road_cost，${hostile?`走进别国领土的那一格再叠上 hostile_cost ${fmtNum(hostile,2)} 点`:'领土不额外加价'}，所以同一距离走法不同、耗时不同；命令只按当下路网与当下边界定价，路上新建的道路、途中易主的格子都要等下一条命令才生效。想在本格逐支军队看报价，就去地块卡上的「行军至此」。</div>
+  </div>
+  <div class="mil-card"><h3>时代推进</h3>
+    <table class="unit-table"><thead><tr><th>时代</th><th>推进条件</th><th>状态</th></tr></thead><tbody>${eraRows}</tbody></table>
+    <div class="hint">时代由三条线的最低等级决定；世界起始年份只会抬高起点时代，不会替代科技门槛。</div>
+  </div>`;
+}
 function renderTechTree(){
   if(!STATE)return;
   const country=STATE.countries[selectedCountry];
+  const unlocks=techUnlockIndex();
   $('techSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.era.short} · ${country.era.name} · 起点 ${STATE.start_era_index} 级`;
   $('techGrid').innerHTML=Object.entries(STATE.tech_tree).map(([field,definition])=>{
     const level=country.technology[field]||1,next=Math.min(STATE.research_max_level,level+1);
@@ -2976,10 +4747,14 @@ function renderTechTree(){
       const state=node.level<=level?'lit':(node.level===next?'available':'locked');
       const isCurrent=node.level===level;
       const status=node.level<level||node.level===level?'已掌握':(node.level===next?(country.research_field===field?'研究中':'可研究'):'未解锁');
+      const gates=unlocks[`${field}:${node.level}`]||[];
+      const chips=gates.length
+        ?gates.map(g=>`<i class="${g.kind}"${g.color?` style="--uc:${g.color}"`:''}>${g.kind==='unit'?'兵种':'设施'} ${esc(g.label)}</i>`).join('')
+        :'<i class="gateless">仅属性加成</i>';
       return `<div class="tech-node ${state} ${isCurrent?'current':''}" ${node.level===next?`data-tech-field="${field}"`:''}>
-        <div class="tech-node-head"><b>${esc(node.name)}</b><span>${esc(era?.short||'')} · L${node.level}</span></div>
+        <div class="tech-node-head"><b>${esc(node.name)}</b><span>${esc(era?`${era.short} · ${era.name}`:'无时代门槛')} · L${node.level}</span></div>
         <small>${esc(node.effect)}</small>
-        ${node.unlocks?.length?`<div class="unlocks">${node.unlocks.map(u=>`<i>${esc(u)}</i>`).join('')}</div>`:''}
+        <div class="unlocks">${chips}</div>
         <span class="tech-state">${status}</span></div>`;
     }).join('');
     return `<section class="tech-branch" data-tech-field="${field}" style="--tc:${definition.color}">
@@ -2987,9 +4762,8 @@ function renderTechTree(){
       <div class="tech-progress">${country.research_field===field?`当前研究 ${pct.toFixed(0)}% · ${progress.toFixed(1)}/${threshold}`:'未在研究中'}${country.research_field===field?`<div class="bar"><i style="width:${pct}%;background:${definition.color}"></i></div>`:''}</div>
       ${nodes}</section>`;
   }).join('');
-  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">三条科技线全部达到下一等级时，时代自动推进。点击金色节点可以切换当前研究领域；观察模式只能查看。</div>';
-  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))branch.style.display=techFilter==='all'||branch.dataset.techField===techFilter?'':'none';
-  $('techGrid').classList.toggle('single',techFilter!=='all');
+  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">节点上的「设施／兵种」标签由 buildings 与 units 的 required_technology 反查得出，与结算门控同源；虚线标签表示该级只有属性加成。三条线全部达到下一等级时时代自动推进；点击金色节点切换研究领域，「军工解锁」页签列出兵种阶梯、设施门槛与兵营常量，观察模式只能查看。</div>';
+  applyTechFilter();
   for(const node of document.querySelectorAll('[data-tech-field]'))node.onclick=()=>{
     if(!STATE.player_country)return showToast('观战模式只能查看科技树；介入国家后可选择研究',true);
     if(STATE.player_country!==selectedCountry)return showToast('请先接管当前选中的国家',true);
@@ -3008,6 +4782,7 @@ document.addEventListener('keydown',async e=>{
   if(!$('diaryModal').hidden){await closeDeck('diary');return;}
   if(!$('agentsModal').hidden){await closeDeck('ai');return;}
   if(!$('newWorldModal').hidden){$('newWorldModal').hidden=true;return;}
+  if(!$('painterScreen').hidden){$('painterBackBtn').click();return;}
   if(!$('loadScreen').hidden){$('loadBackBtn').click();return;}
   if(pauseOpen)await closePauseMenu();
   else if(gameLoaded)await openPauseMenu();

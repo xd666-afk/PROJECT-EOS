@@ -2,15 +2,14 @@
 from __future__ import annotations
 
 import asyncio
-from collections import deque
 from copy import deepcopy
 from typing import Any
-
-from worldgen import hex_distance, neighbors
 
 from agents.heuristic import HeuristicAgent
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
+from core.content import field_cap
+from core.military import Military
 from core.society import (
     city_static_metrics,
     city_tier,
@@ -18,61 +17,45 @@ from core.society import (
     housing_capacity,
     specialization,
 )
-from core.state import relation_key
+from core.state import (
+    army_payload,
+    barracks_reports,
+    diplomacy_ledger,
+    recruit_options,
+    relation_key,
+    siege_ledger,
+    tribute_payload,
+)
 
 
 def _campaign_options(state, country) -> dict[str, dict[str, Any]]:
-    if country.army_position is None or country.army_strength <= 0:
+    """Attack orders the armies could be given, priced by the settlement's own rules.
+
+    The observation asks `core.military` instead of running a second hop-count model, so
+    the days an agent plans with are the days the engine will actually take. Every realm
+    is priced, not only the ones already at war: reachability is a reason to declare one.
+    """
+    if country.army_strength <= 0:
         return {}
-    owner_by_coord = {
-        coord: entity.country_id
-        for entity in state.countries.values() for coord in entity.tiles
-    }
-    start = country.army_position
-    distance = {start: 0}
-    parent = {start: None}
-    queue = deque([start])
-    staging = {}
-    while queue and len(distance) < 700:
-        current = queue.popleft()
-        for neighbor in state.world.neighbors(*current):
-            tile = state.world.tile(neighbor)
-            if not tile["land"] or neighbor in distance:
-                continue
-            owner = owner_by_coord.get(neighbor)
-            if owner is None or owner == country.country_id:
-                distance[neighbor] = distance[current] + 1
-                parent[neighbor] = current
-                queue.append(neighbor)
-    for target_id, target in state.countries.items():
-        if target_id == country.country_id:
-            continue
-        adjacent_to_army = any(
-            hex_distance((start[0], start[1]), coord) == 1 for coord in target.tiles
-        )
-        best = None
-        for coord in target.tiles:
-            for candidate in state.world.neighbors(*coord):
-                if candidate in distance and (best is None or distance[candidate] < best[0]):
-                    best = (distance[candidate], candidate)
-        reachable = adjacent_to_army or best is not None
-        next_step = None
-        if best is not None and not adjacent_to_army and best[0] > 0:
-            path = []
-            current = best[1]
-            while current is not None:
-                path.append(current)
-                current = parent[current]
-            path.reverse()
-            next_step = path[min(len(path) - 1, min(4, len(path) - 1))]
-        staging[target_id] = {
-            "can_attack": adjacent_to_army,
-            "reachable": reachable,
-            "march_target": (
-                {"col": next_step[0], "row": next_step[1]} if next_step else None
-            ),
-        }
-    return staging
+    return Military(state).strike_options(
+        country.country_id,
+        [other for other in state.countries if other != country.country_id],
+    )
+
+
+def _threat_alerts(state, country_id: str) -> list[dict[str, Any]]:
+    """Which enemy columns are walking onto our own soil, and the day each arrives.
+
+    The alert is the settlement's own clock: `incoming_threats` reads the march orders
+    `march_daily` is paying down, so a column that turns around or has its corridor taken
+    stops being a threat the same day, and one that is quoted at 4 days fights on the 4th.
+    `relief` is the only number a defender cannot read off the attacker's route, and it is
+    what turns an alert into an order — so this is the one caller that pays for the search,
+    and pays it only for the realm being asked.
+    """
+    return Military(state).incoming_threats(
+        with_relief=True, only_victim=country_id
+    ).get(country_id, [])
 
 
 def build_observation(state, country_id: str) -> dict[str, Any]:
@@ -155,11 +138,23 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "specialization": specialty,
             "outposts": len(country.outposts),
             "army_strength": country.army_strength,
+            "army_cap": field_cap(country.buildings.values(), state.config),
+            "army_units": dict(country.army_units),
             "army_position": list(country.army_position) if country.army_position else None,
+            "armies": [army_payload(army, country, state.config) for army in country.armies],
+            "barracks": barracks_reports(country, state.config),
+            "recruit_options": recruit_options(country, state.config),
             "at_war_with": list(country.at_war_with),
             "war_exhaustion": round(country.war_exhaustion, 2),
+            "tribute": tribute_payload(country, state.countries, state.config),
             "cities": [
-                city_static_metrics(city, country, state.world, state.config)
+                {
+                    **city_static_metrics(city, country, state.world, state.config),
+                    # The blockade the settlement is running against this wall, if any.
+                    "siege": siege_ledger(state.countries, country, city, state.config),
+                    # Which wall is the seat: its fall is the whole realm, not one more town.
+                    "capital": state.is_capital(country, city),
+                }
                 for city in country.cities
             ],
         },
@@ -168,6 +163,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             for other_id, other in state.countries.items() if other_id != country_id
         },
         "campaign_options": _campaign_options(state, country),
+        "incoming_threats": _threat_alerts(state, country_id),
         "tiles": tiles,
         "frontier_candidates": frontier,
         "known_countries": sorted(state.countries),
@@ -190,6 +186,9 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
                 proposal for proposal in state.diplomatic_proposals.values()
                 if proposal["sender"] == country_id and proposal["status"] == "PENDING"
             ],
+            "ledger": diplomacy_ledger(
+                country_id, state.diplomatic_proposals, state.trades, state.day_index
+            ),
         },
         "recent_action_feedback": feedback,
         "recent_events": recent_events,
@@ -197,6 +196,9 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "allowed_actions": sorted(PUBLIC_ACTIONS),
             "max_actions_per_decision": state.config["max_actions_per_decision"],
             "buildings": state.config["buildings"],
+            "units": state.config["units"],
+            "military": state.config["military"],
+            "movement": state.config["movement"],
             "research_fields": state.config["research_fields"],
             "policies": sorted(state.config["policies"]),
             "maximum_tax_rate": state.config["maximum_tax_rate"],
@@ -235,11 +237,18 @@ class AgentScheduler:
                 "reason": "Agent failure fallback",
             }, f"{type(exc).__name__}: {exc}"
 
-    def plan(self, engine) -> dict[str, list]:
+    def plan(self, engine, only: set[str] | None = None) -> dict[str, list]:
+        """One round of counsel. `only` narrows the table to the realms called out by an alarm.
+
+        The engine meets every `planning_interval_days`; `Military.alarm_watch` names the
+        realms whose war will not wait that long, and passes their ids here so an invasion
+        costs three decisions instead of the whole board's worth.
+        """
         observations = {
             country_id: build_observation(engine.state, country_id)
             for country_id in engine.state.countries
             if country_id not in self.controlled_by_player
+            and (only is None or country_id in only)
         }
         if not observations:
             return {}

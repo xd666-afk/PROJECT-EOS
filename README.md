@@ -1,18 +1,18 @@
 # Project Eos — 架空大陆世界底座与 v0.2 策略模拟器
 
-状态：**可运行的本地文明模拟垂直切片。已实现公平随机世界、多国 AI（默认四国，支持 2–12 国）、连续地形 + 144×108 细六边形地图、逐日经济、科技与时代、建设、外交、军事、正式胜利条件、城市实体与双视角、城市分区/邻接/宜居度/粮食物流/地方预算、AI/手动/LLM 三种城市治理、激进/中立/保守三种 AI 性格、一级/二级指挥台导航、地图通知气泡、存档槽与动作回放。本地实时指挥台支持观战/介入。97 项 pytest 全绿；长期平衡实验使用 Mock，DeepSeek 已完成小规模真实动作闭环。**
+状态：**可运行的本地文明模拟垂直切片。已实现公平随机世界与玩家手绘世界、多国 AI（默认四国，支持 2–12 国）、连续地形 + 144×108 细六边形地图、逐日经济、科技与时代、建设、外交、兵营规模与募兵、多支军队的真行军与集结加成、按地块查看驻军与按地块下令攻打（点哪一格就打哪一格，行军天数与集结系数预先报价）、夺下敌国建筑后按对方收入的 2% 抽 180 天占领贡金、点城池中心格开围并逐日推进围城账（封锁圈成数 → 账满整座连地带人易主，没围着的墙还能一键开赴封锁圈）、入侵边警（在途敌军在地图上画红警、左栏印对方抵达日期、军事页右上角标红点数）、抵达无守军缺口只折极少数士兵、攻下对方都城即整国并入并抄走其财政与粮草、被围的国家在非议事日也会被警报叫醒议事、点击本国兵营即可为该营选兵募兵并读回今日停摆原因、军事页与外交页直接列出命令回执（成没成、为什么没成）与外交提案终局、正式胜利条件、城市实体与双视角、城市分区/邻接/宜居度/粮食物流/地方预算、AI/手动/LLM 三种城市治理、激进/中立/保守三种 AI 性格、一级/二级指挥台导航、地图通知气泡、存档槽与动作回放。本地实时指挥台支持观战/介入。322 项 pytest 全绿；长期平衡实验使用 Mock，DeepSeek 已完成小规模真实动作闭环。**
 
 > 共同开发请先读 [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md)：环境、架构、动作协议、API、存档/回放、测试与协作规范。
 >
 > 阶段汇总报告：[`PROJECT_EOS_DEVELOPMENT_REPORT.md`](PROJECT_EOS_DEVELOPMENT_REPORT.md)（设计思路、版本演进、最终效果、验证数据与遗留问题）。
 >
-> GitHub 仓库：<https://github.com/xd666-afk/PROJECT-EOS>（默认分支 `main`）
+> GitHub 仓库：<https://github.com/zsmb07/neirong>（默认分支 `main`）
 
 ## 项目目标
 
 为“《文明 VI》式六边形地块 + 《群星》式可暂停实时运行 + AI 管理多个国家”的项目创建独立于大模型的世界状态底座。
 
-当前版本仍是垂直切片，不是完整商业游戏或历史社会模拟。经济使用抽象资源单位；气象是物理启发的程序模型，**不是**完整的数值天气预报 / 全球大气环流模式（GCM）。海军、围城、多军团、城市完整物资库存、城市服务设施、正式动画/音效仍待实现。
+当前版本仍是垂直切片，不是完整商业游戏或历史社会模拟。经济使用抽象资源单位；气象是物理启发的程序模型，**不是**完整的数值天气预报 / 全球大气环流模式（GCM）。海军、多军团、补给线、城市完整物资库存、城市服务设施、正式动画/音效仍待实现（围城与整城易主已在 v0.39 落地：封锁圈 → 每日成数 → 账满整座连地带人换手，但一座城同时只有一本账、只有一方围得，也不模拟援军解围与围城内粮价；v0.40 在其之上补了入侵边警、无守军缺口与都城吞并——红警与抵达日期都从引擎那份 `incoming_threats` 抄、落在无守军目标当日只按 `unopposed_loss_rate` 折兵且不保底 1 人、都城中心格账满就整国并入并抄走财政与粮草，但仍不模拟围城期间的围点打援与城内粮价）。
 
 ## 快速启动
 
@@ -116,7 +116,7 @@ HTTP 接口：
 界面采用双模式布局：
 
 - **观战**：左侧列出四国与实时建设进度，右侧记录 AI 决议、开工、完工、科研、交易和灾害。施工中的地块用进度环标记，完工后变为实心设施点，后续可直接替换为美术图标。
-- **介入**：选择任意国家并接管，AI 会停止替该国决策，游戏自动暂停等待玩家；点击己方地块后，右侧显示建筑的科技要求、全国上限、造价和工期。国家面板还可以即时调整税率、研究领域、政策和劳动力预设，所有请求仍由规则引擎严格审核。
+- **介入**：选择任意国家并接管，AI 会停止替该国决策，游戏自动暂停等待玩家；点击己方地块后，右侧显示建筑的科技要求、全国上限、造价和工期。点任意地块还会列出**站在这格上的军队**（不分归属），点敌方地块则额外给出本国每支待命军队攻打这一格的天数、成本、落脚格与到场系数，可以直接选军队下这道命令。国家面板还可以即时调整税率、研究领域、政策和劳动力预设，所有请求仍由规则引擎严格审核。
 - 顶部资源条跟随当前选中/治理国家；时代名称与视觉组件分离，后续时代可以更换地图材质、色彩和边框主题，而不需要重写布局。
 
 让 ELAR 使用 DeepSeek、其余三国保持 Mock：
@@ -151,6 +151,104 @@ HTTP 接口：
 - 三座奇观——大粮仓、大工坊、大书库——提供全国唯一的高级加成，并作为后期财政出口。
 
 平衡报告与实测数据见 `V0_3_GAMEPLAY_REPORT.md`，最终五年存档为 `runs/eos_v03_final.json`。
+
+## v0.40 入侵边警、无守军缺口与都城吞并
+
+- **对方一下令，我国就知道它哪天踩上来**：`Military.incoming_threats(with_relief=False, only_victim=None)` 把「还在路上、且带着进攻命令」的军队按**落地那一格的主人**分组，一行给 `attacker / army_id / purpose / strength / columns / from / tile / destination / city_id / city / capital / defenders / unopposed / attacker_loss / days_left / arrival_day / arrival_date`。抵达日戳在 `day_index + days_left - 1`——`step_day` 先结算再推进天数，今天下的令花的是今晚的 `daily_budget`——所以它和 `battle` / `city_fallen` 事件上的 `day` 是同一个数：面板印哪天，引擎就打哪天，浏览器一律不重新计时。`with_relief` 才付一次最短路搜索，回答「本国哪支**待命**军队能先站到这一格」（`relief={army_id, days, cost}`，已经站在那格的不算，它已经在 `defenders` 里）；`only_victim` 在定价之前丢掉别国的行，所以逐国观测不会把整张棋盘的回防路搜十几遍。
+- **边警三个出口，一份账**：地图 `drawThreatMarkers` 用红色虚线只画**还没走完**的那一段，目标格套红圈，右上角徽章印剩余天数，`capital` 为真再叠一个 `⚠`；左侧滚动栏 `#worldThreats` 逐行写「还剩 N 天行军 · 抵达于〈日历日〉」与「该处没有我方守军 · 对方抵达预计只折 X 人」；军事按钮右上角 `#militaryDot` 计数（>9 写 `9+`，`title` 给最快一支的倒计时与抵达日）。三处都过 `threatRealm()`，它**优先跟着屏幕上选中的国家**，所以小红点、左栏和军事页的边警卡不可能一个说 0 路、另一个说 1 路。军事页那张边警卡再汇总两行：在途敌军 / 最快一支、打都城 / 落在无守军缺口。世界页点被盯上的那一格，详情侧栏在驻军卡之前插 `tileIncomingCard`；列国列表每行挂「警 N」。
+- **抵达没有守军的缺口几乎不流血**：`core/military.py::_loss_plan(attackers, defenders)` 是会战伤亡的唯一入口。`defenders` 为空 ⇒ 每支进攻军队只按 `military.unopposed_loss_rate`（0.08，会战是 `attacker_loss_rate` 0.32）折损，且 `int(strength × rate)` **不保底 1 人**——一支 4 人的队伍踏上无人格当日折 0 人。同一份数字同时喂结算与报价：`strike_options` / `tile_strikes` 的行带 `guards / unopposed / attacker_loss`，边警的行带同样的三个字段，前端不自己估。内容闸门要求 `0 < unopposed_loss_rate < attacker_loss_rate`：无守军必须明显更便宜，但不能真的零损耗，否则侦察兵也能白拿一格。
+- **打下都城就是吞下整国**：`_fall_city` 把整座城交接完之后判 `state.is_capital(defender, city)`，是都城才再走 `Military._annex(attacker, defender)`——败国的 `tiles`（连建筑）、`outposts`、`cities`、`population` 一次性并入胜方，国库按 `treasury_seizure`、粮仓按 `food_seizure`（两者都是 1.0，即整仓抄走），在研项目当场作废；然后 `state.eliminate(defender, heir=attacker)` 把这个 id 从 `state.countries` 摘掉，并清光它在 `pacts / diplomatic_proposals / trades / levies / at_war_with / siege` 里留下的每一处名字，只留 `state.eliminated[cid] = day` 一枚墓碑。事件 `realm_annexed` 带 `attacker / fallen / name / tiles / cities / buildings / population / treasury / food / armies / projects / stability / day` 全套明细。`ANNEXATION_KEYS` 恰好三个键、两个抄没率钉在 `[0, 1]`，抄不到就是抄不到，胜方不会凭空多出一笔钱。灭国的名字从此不再出现在 AI 的目标表里；面板的世界名单走 `livePolities()`，`healSelection()` 在选中的国家被吞当日把视线迁到接管国。
+- **AI 读的警就是结算的警**：观测顶层新增 `incoming_threats`（`agents/scheduler.py::_threat_alerts` 只对提问国算 `with_relief=True`），`agents/heuristic.py::_defense_orders` 把 `relief.days <= days_left` 的行翻成回防 `MARCH`，**都城行排在最前**、已有守军的缺口不重复调兵、一支军队不会被两条边警下两道令；`_peace_gate` 在自己的城被啃时按 `progress/threshold` 减 `siege.peace_pressure`（10.0），被啃的是都城再按同一比例减 `annexation.peace_pressure`（30.0，靠城市行新增的 `capital` 键判定）；LLM 提示词教同一批键并写明「都城的边警优先于一切其他军令」「同样天数优先挑 `unopposed=true` 的缺口」「都城眼看要破先递求和，别把亡国留到结算日」。
+- **警报叫醒议事（本批修出的管线缺口）**：议事原本每 `planning_interval_days`（90 日）才开一次，而围城只有 `fall_threshold ÷ daily_progress` ≈ 17 日、回防必须在抵达之前下单——A/B 复测发现 128 次议和判断里**没有一次**看见自己被围的城，`annexation.peace_pressure` 与 `_defense_orders` 都成了够不着的码。现在 `core/rules.py::step_day` 在非整点日问一次 `Military.alarm_watch()`：自家城墙正在被啃（`city.siege` 有账）、或有一支在途军队的命令抵达时会开围（边警行带 `city_id`）的那些国家，当天单独议事 `planner.plan(engine, only=alarmed)`；打一格城缘不叫醒任何人，那是会战不是亡国。配套把 `_begin_siege` 改成幂等：只有**开账或新军队入账**才记 `siege_started` / `siege_joined`，否则被围国家天天议事会把同一次开围日记几十遍。效果（默认筑路偏好 3 局 ×3650 日）：会战 35→74、夺城格 30→36、宣战 30→45、议和 22→42、都城吞并 3→1——守方真的回防了，都城因此更难破。
+- 实测闭环（浏览器，`live_server.py --port 8793`，存档「tribute field check」第 388 日，治理国 A 对 D 下 `ATTACK(tile=(68,27))`，正是 D 的都城中心格）：快照 `incoming_threats.D[0]` 给 `city_id=D-C1 / city=国家D都城 / capital=true / defenders=0 / unopposed=true / attacker_loss=0 / days_left=1 / arrival_date=公元前799年1月24日`；把屏幕上的国家切到 D，`#militaryDot` 当场是 `1`，title 写「1 路敌军正开向我国领土，其中一路打的是都城：最快一支还剩 1 天行军（公元前799年1月24日）」，左栏边警卡印「国家A A-A1 · 2 人 进攻 → 都城 / 该处没有我方守军 · 对方抵达预计只折 0 人 / 还剩 1 天行军 · 抵达于 公元前799年1月24日」，军事页边警卡汇总「在途敌军 / 最快一支 1 路 · 还剩 1 天行军」「打都城 / 落在无守军缺口 1 路 · 1 处」，地图上数出 36 个红色 CSS 像素（虚线残段 + 红圈 + 天数徽章），控制台零告警。
+- 长程实测（`run_march_balance.py`，7 场景 × 3 种子 × 3650 日）：都城吞并共 10 次（默认 1 / 无人筑路 2 / 全国筑路 2 / 行军上限 12 那组 0 / 上限 48 1 / 兵营当饭吃 1 / 无人修兵营 3），终局剩余国数 4–6（开局 6 国），最早第 1816 日，单局抄走财政最多 58.0、粮草最多 558.7——赌注抬到整国之后棋盘没有塌方。议和溢价的 A/B（`annexation.peace_pressure` 30.0 vs 0.0，默认场景 3 局）逐字段相同：434 次议和判断里有 17 次看见自己被围的都城、溢价最高减到 28.8 点，却没有一次**单独**改变答案，因为 siege 那一档压力已经先把这些国家推到桌前——这一项是「不至于晚一步」的保险，不是平衡旋钮。数字见 `MARCH_BALANCE_REPORT.md` 第 7 节，停战没有冷却天数这一条已知问题写在第 9 节。
+- 新增 `tests/test_border_alerts.py`（18 项）：在途军队按落地那一格的主人归档、`arrival_day` 就是会战事件所在的那一天、没有进攻命令的军队只是走路不是入侵、无守军缺口只折 `unopposed_loss_rate` 且不保底 1 人、走向都城封锁圈的行标 `capital` 而一格城缘不冒充都城、`_relief` 只答提问国且只报真能赶到的那支、`relief.days <= days_left` 才值得回防、都城行排在城缘行之前、一支军队不被两条边警下两道令、防守方在自己观测里同时读到警与答、快照按受害者分组为面板备齐整张棋盘、存档往返后边警照旧，以及**议事被叫醒**：走向城墙的行军惊动本城主人、打城缘的不惊动、城墙正在被啃的国家当天议事（`Scribe` 记下面对谁议事）、同一支军队重复确认同一本围城账不再写第二条事件。`tests/test_siege.py` 补都城破则整国并入并留下墓碑（38 项），`tests/test_march_balance.py` 补「灭国账与墓碑表对得上」，`tests/test_dashboard_ui.py` 补边警契约字符串与「引擎能建的每一栋建筑在面板上都有中文名」。测试总数 322。
+
+## v0.39 围城与整城易主
+
+- **城池中心格打的不是会战，是一本围城账**：`ATTACK` 的 `tile` 指到中心格就走 `_begin_siege` 而不是 `_battle`——军队必须已经站在中心格周围 `blockade_radius`（默认 1）格的封锁圈里，否则 `NOT_IN_RING`；一座城同时只有一方围得，被别国抢先就记一条 `siege_refused`。同一国第二支进圈是 `siege_joined`，把 `army_id` 追加进同一本账而不清零已有进度。会战照旧只能夺城域边缘格，所以「从边缘的城池打起」这条老规则没有变。
+- **围城只有一个数字来源**：状态只存在被围方的 `CityState.siege = {attacker, armies, progress, started_day}` 里（围方不存副本，旧存档缺这个键读作 `null`），`core/state.py::siege_ledger(countries, defender, city, config, siege=None, at=None)` 派生 `open / armies / garrison / walls / share / progress / daily / days_left …` 共 18 个字段。日结算 `siege_daily`、按格报价 `tile_strikes`、AI 报价 `siege_opportunities` / `siege_marches`、`summary()`、`build_observation()`、面板与地图全部读这一个函数，没有任何一处自己算城破日；显式传 `siege=` 是「还没下单的预告账」（`open=false`），传 `at={army_id: 格}` 是「这支还在路上的军队假如落到这一格」的账。
+- **成数与城破日**：`share = 圈内围方战力 /（围方战力 + 圈内守方防御 + 城墙 `wall_bonus` 1.6 分量）`，每天走 `daily_progress` 0.06 × 成数，账满 `fall_threshold` 1.0 即城破；稳定度**不进成数**（只在城破当日扣 `stability_loss` 8.0），双方每天各加 `exhaustion_per_day` 0.05 战争疲劳，`_peace_gate` 另按 `progress/threshold` 减 `peace_pressure` 10.0——城被啃得越满越早求和。基线（一支满编军队围一座边城）：无守军无墙 17 日、有城墙 20 日、圈内另有 8 支守军 34 日。
+- **城破 = 整座易主**：`_fall_city` 把整片城域、建筑、**人口**一起交给胜方（人随城走，随后对双边 `sync_city_population`），城市对象从败方 `cities` 移进胜方，`managed_by` 归 `ai`，败方扣稳定度，缴到的建筑逐栋走 v0.37 那条 `_tribute` 立占领贡金账，最后合上这本围城账并记 `city_fallen`。解围三种码 `peace / ring_empty / captured` 都进 `siege_lifted` 并带上停在哪儿的进度。
+- **城墙是内容表里的一栋建筑**：`buildings.WALL`（造价 60、工期 90 日、需 `bronze_metallurgy` 3 级、`on_city_center: true` 只能立在中心格，落错位置回 `NOT_CITY_CENTER`）；`core/content.py` 要求 `buildings` 里至少有一栋带 `on_city_center`，`military.siege` 必须恰好是那七个键——缺键、多键、坏值都是 `ContentError` 而不是 `KeyError`。
+- **AI 会开围，也会开赴**：`agents/heuristic.py::_siege_orders` 在会战选路**之前**吃动作额度，先把已经站在圈里的军队翻成开围令，额度有剩才用 `Military.siege_marches` 把待命军队派去还没有人围着的墙；同一支军队不会被下两道令。新通道 `siege_marches` 只报**己方与无主走廊**里走得到的路线（`march_daily` 遇到「下一格已属他国」当日就中止行军，所以必须过境敌土的墙无论怎么定价都到不了，那种墙得先用会战夺一格城缘），并把落脚格用 `at=` 塞进同一本账，报出「行军 N 天 + 抵达后 M 日城破」。LLM 提示词教同一批键。
+- **面板看得见**：世界页点中心格 → 地块卡头改说「围这一座城」并印出围城账（按钮按 `can_attack` 在「用这支军队开围 / 开赴封锁圈」之间切换）；军事页「战争」每个交战国挂两张表——「围城战线」（已经围着的墙，五列：被围城池 / 封锁圈军队 / 围城进度 / 预计城破 / 下令，被别国抢先的行整行灰掉）与「可开赴的城墙」（行军报价 + 「抵达后围 N 日 · 全程约 N+M 日城破」，按钮「开赴并开围」）；城市卡与详情有 `.pill.siege` 与解围提示；地图给被围中心格画围方国家色的封锁圈虚线圈，亮黄实弧按 `progress/threshold` 表示已啃掉的墙；科技页「军工解锁」再加一张「围城与整城易主常量」卡，七个参数与城墙的造价/工期/科技门槛全部从 `military_specs.siege` 与 `building_specs.WALL` 抄，不写死数字。
+- 实测闭环（浏览器，seed 31001 公平世界、第 1806 日接管国家 B）：「军事 → 战争 → 与 国家D 交战中」的「可开赴的城墙 · 国家D 1 路」印「青原城3 中心 (82,29) · 无城墙 · 尚未开账：我方成数 100% / B-A2 落脚 (83,30) / 1 天 3.00 成本 · 只走己方与无主地 / 抵达后围 17 日 · 全程约 18 日城破」；点「开赴并开围」→ `march_ordered` 带 `purpose=ATTACK / objective=[82,29] / destination=[83,30] / expedition=false`，单步 1 天 → `army_arrived` 落在 (83,30) 且同日 `siege_started`，`/api/state` 给 `open=true / armies=["B-A2"] / progress=0.06 / days_left=16`（= 报价 17 天减掉走完那天），那一行同时从「可开赴的城墙」搬进「围城战线」。
+- 长程实测（3 种子 × 1825 日、纯 Mock、逐 25 日采样开赴报价）：seed 31001 与 51003 各打出 `siege_started 1 / siege_joined 1 / siege_lifted{captured} 1 / city_fallen 1`，其中**两次围城都是由一支开赴的军队抵达当日开账**（blockades opened by an arrival 2/2），开赴报价分别出现 8 次（国家 E、4 路）与 8 次（国家 C、4 路）；seed 42002 只打了一场短仗、零围城，符合「没打到城缘就没有墙可围」。三局均无不变量告警（无议和后的围城账、无过期未破的账、无人口漂移），城数 25–27 随整城易主浮动。
+- 新增 `tests/test_siege.py`（37 项）与 `tests/test_march_movement.py` 补 1 项：中心格开围不打会战、`NOT_IN_RING` / `SIEGE_TAKEN` / `siege_refused`、封锁圈才算兵力、账满日 == 预告日、城墙与守军按同一算术减速、解围三种码、一城同时只归一方、同国第二支加入同一本账、城破整座连地带人换手且建筑立贡金、`on_city_center` 与科技闸门、存档往返与无 `siege` 键的旧存档、`at=` 给在途军队按落脚格算抵达当日的账、还在家不算围（`share 0 / days_left null`）、六格全敌土时一行不报且同一道命令被 `NO_PATH` 回绝、报出的行真的抵达并在抵达当日开账、`_siege_orders` 先开围后开赴且一支军队只一道令、`_peace_gate` 在城破前翻求和、LLM 提示词与面板的字符串契约、规则页围城常量卡七个键全从 `military.siege` 抄（写死一个数字就红）、内容闸门拒绝坏 `siege` 表。补的那条 `test_an_expedition_is_priced_but_never_walked` 把一处**已知矛盾**钉在明处：远征路线仍被定价并按 `expedition_factor` 惩罚，但结算在第 1 天就在边境中止它，所以围城的开赴通道刻意只报走得到的路。测试总数 299。
+
+## v0.38 募兵与外交回执
+
+- **点兵营那一格就能选兵**：世界页点本国已建成的兵营，详情侧栏出现「兵营募兵」卡（`tileBarracksCard` → `barracksPanel`）——这一格由哪支军队领饷（`army_id`）、正在练哪个兵种、`progress / price` 进度条、按当日军饷算出的「约 N 日练成」、本营定额 `strength/capacity` 与还剩几个名额；下面是全部兵种的选兵列表，已经是目标的标「练兵目标」，点其他行发 `SET_RECRUIT_UNIT`，点「立即用财政招募」按 `batch = min(全国可募, 本营剩余)` 发 `RECRUIT`，点「停募 / 开募」发 `SET_RECRUITING`。军事页新增「兵营」标签，把接管国每座在营兵营渲染成同一张卡，并汇总「N 座停摆」。
+- **成不成功写在回执里**：`GameState.receipts` 按国家保留最近 `RECEIPT_LIMIT`（12）条命令，`RuleEngine.apply_action` 在审核后原样记一条（`accepted` / `reason_code` / `reason_text` / 规范化后的 `action`），进存档、进快照，**刻意不进 `fingerprint()`**——回执是显示账，同一局面的存档不该因为多记一条回执就算作新状态。军事页「募兵与军令回执」卡与外交页「外交回执」标签是这份账的两个切片。
+- **外交看得到终局**：`core/state.py::diplomacy_ledger` 把 `diplomatic_proposals` 与 `trades` 按收 / 发两端列出 `PENDING / ACCEPTED / ACTIVE / REJECTED / EXPIRED / BROKEN` 六种状态与中文标签，`pending` / `decided` 给汇总数。此前只有「待回应」那半张脸能进面板，被拒的提案掉进事件日志，「我的外交成了没有」就没有答案。
+- **面板说的闸门就是引擎的闸门**：`recruit_options` 的 reason 阶梯改成与 `Military.recruit` 同一顺序（科技 → `ARMY_LIMIT` → `UNIT_LIMIT` → 财政 → 粮食），并把财政 / 粮食按**整批** `batch × 单价` 定价，否则面板写「可招募」、按钮募 4 支却被 `INSUFFICIENT_TREASURY` 回绝。兵营侧同理：`barracks_report` 的 `stall` 与 `barracks_daily` 共用 `recruit_stall / recruit_block / barracks_target / camp_garrison`，七种停摆码一份表，其中 `NO_GARRISON` 只可能出现在两次结算之间（`sync_barracks` 会在结算时给空营房补一支领饷军队），所以它不会刷屏。
+- **UI 实测修出的 bug**：`proposal_row` 的 `counterparty` 在来文一侧写成了读者自己的国家 id，外交账本于是把「玛瑞斯来信」显示成本国名字；修好后补一条双向断言（`test_the_ledger_names_the_other_side_not_the_reader`）钉住收发两端都指向对面那一方。
+- 实测闭环（长程存档 `save_1794496339272_2000`，第 15026 日，接管 ELAR，3 座在营兵营）：兵营卡写「ELAR-A3 在此领饷，练「征召民兵」· 累计练成 0 支」并把停摆原因摊开成「全国编制已满，先修兵营才能扩军」；点「设为练兵目标」→ 回执出现「军令 · 练兵目标 … 已执行」，同一天 `recruit_unit_changed` 事件跟进；再点募兵 → 回执「军令 · 招募 · 被拒 ARMY_LIMIT（军队规模达到上限）」，被拒的命令不扣钱也不改状态；外交页「外交回执」列出 18 行账（待回应 1 · 已定案 126），拒绝 D000068 后该行当场变成「对方来文 · 协定提案 玛瑞斯海湾城邦 · D000068 · 日 15026 定案 · 已拒绝」，过期行显示「到期未回应」。
+- 新增 `tests/test_recruit_receipts.py`（13 项）：兵营进度真的练出那名士兵（`raised` / 编成 / `room` / 事件逐字段）、停摆原因是实时算的不是上次结算的答案、非自愿停工只说一次而 `PAUSED` 保持安静、定额只挡营内军队不挡野战军队、`recruit_options` 的 reason 与引擎 `reason_code` 全表对齐（四种闸门 + 科技门槛回落）、回执有界且与 `action_log` 同序、存档往返且指纹不动、提案全生命周期（PENDING → ACTIVE / REJECTED）、双向 counterparty、到期当日与次日分别断言、贸易与协定同账、三座营三种停摆各归各位、观测与 LLM 提示词读到同一批字段。测试总数 261。
+
+## v0.37 占领贡金
+
+- **夺下带建筑的格子，换到的是对方财政的一小份**：`Military._battle` 在整格易主时把守方那栋建筑交给 `_tribute`，按 `military.capture_tribute_share`（2%）在守方名下记一笔贡金，为期 `capture_tribute_days`（180）天，到期自己停收。给的是年金而不是一次性掠夺，也不是把建筑搬走——建筑照旧被拆掉，贡金就是那份补偿，避免「白得一座粮仓 + 抽对方收入」双重得利。
+- **抽的是缴付方自己的收入**：`core/state.py::tribute_base` 取该国当日 `tax_income + mine_income`（税 + 矿的毛收入，不看净数），`tribute_transfers` 把同一收缴方名下的多笔按 `capture_tribute_cap`（8%）封顶合并。经济越差交得越少，经济越好交得越多，比例始终是那 2%。日结算 `Military.tribute_daily()` 排在 `economy.settle_all` 之后、`march_daily` 之前，划拨额 `min(缴付方国库, 当日应付)`——国库空了就少划，不印新钱；`core/content.py` 用 `0 < share ≤ cap ≤ 0.15` 把「占比应当较小」钉成内容闸门，写进 0.3 直接拒绝载入。
+- **道路不分归属，占了不抽**：`capture_tribute_exempt`（默认 `["ROAD"]`）是结算数据而不是硬编码分支，面板对免贡设施单独说明「这类设施不分归属，攻占它不会带来贡金」。
+- **一份账，三处读**：结算、`summary()` 的 `country.tribute`、`build_observation()`、`GET /api/tile_strikes` 全部走同一个 `tribute_transfers`，所以格子上印的「夺下后 180 天内每日抽取其日收入的 2%（约 0.004/日）」就是当天真的划走的钱；`owed` 字段先告诉玩家对该国已计百分之几、离 8% 封顶还剩多少。
+- **AI 会算这份账**：`agents/heuristic.py::_peace_gate` 把净贡金（收 − 付）按占本方收入的比例折算进议和闸门，每 1% 移动 `capture_tribute_resolve`（25.0）点战争疲劳——收贡的能多打一阵，被抽的更早求和；`llm_adapter.py` 的系统提示同步说明 `country.tribute.collected` 与五个新参数。
+- **面板看得见**：地块卡在敌国建筑格追加「攻占此格可得贡金」明细；军事页「战争状态」之后新增「占领贡金」卡（收取自 / 缴给 · 比例 · 每日金额 · 剩余天数 · 建筑名 · 净收支）；国家页在日产粮之后加一行净贡金；规则页「军队与战争常量」新增 占领贡金 / 免贡设施 / 贡金对战意 三行；会战事件行加「夺其粮仓，此后 180 日抽其收入 2%」。
+- 实测闭环（seed 77777 公平世界、玩家接管国家 A）：点国家 D 的粮仓格 (66,27) → 预览 `{'label': '粮仓', 'share': 0.02, 'days': 180, 'daily': 0.0024, 'cap': 0.08, 'owed': 0}` → 军队推进至 (65,27) 后 `ATTACK` 当日会战 `captured true`，D 名下记账 `[{'to':'A','building':'GRANARY','share':0.02,'days_left':180}]`；此后 D 当日净收入 0.0546、实付 0.0023（国库变化 0.0523），A 等额收到。同日再夺无建筑的 (67,27) → `tribute null`、账本仍一行；点国家 C 的道路格 (107,101) → 只出免贡说明。存档于第 386 日、浏览器「继续游戏」载入后，军事页仍显示「收取自 2% 日收入 ≈ 0.002/日 · 剩 168 天 · 粮仓」，国家页 D 显示「占领贡金 −0.002/日 · 收 0.000 / 付 0.002」。
+- 新增 `tests/test_capture_tribute.py`（17 项）：只有带建筑且非免贡的格子才立账、比例与天数、逐笔叠加与 8% 封顶取最长账单、每日划拨不多不少且守恒、国库见底不产生新钱、到期自动停收、存档往返、`step_day` 真的挂了这一次划拨、按格预告与真实会战逐字段一致、会战事件与双方宫廷短讯、观测账本与五个参数键、`_peace_gate` 三档算术与 `decide()` 层的议和翻转、内容闸门对六种坏配置的拒绝，以及面板与端点的文案契约。顺带修掉内容校验器在 `capture_tribute_days` / `capture_tribute_exempt` 缺失时抛 `KeyError` 而不是 `ContentError` 的问题，以及 `dashboard.html` 里单列 `.build-option` 落进 38px 图标列导致整段文案竖排换行的版式缺陷（新增 `.build-option.solo`）。测试总数 248。
+
+## v0.36 按格驻军与按格下令
+
+- **点任意地块先看驻军**：`Military.tile_strikes(actor, tile)` 返回这一格上「谁站着」——不分归属，把落在该格的全部军队连国家、兵力、战力、编制、待命/募兵中/在途一起给出；自己名下那几支额外带「选为下令对象」，点了就把它设为当前下令军队。无主空地、本国领土、敌国地块都能看，面板不再要求先选中军队才能知道一格的情况。
+- **打哪一格就由哪一格报价**：`ATTACK` 动作新增可选 `tile`，`Military._approach_to` 只为「被点的那一格周围六格里能落脚的格子」算最短路——先在己方/无主走廊里找，找不到就按远征过境再找一次，两条都走不通才报 `NO_PATH`。抵达当日就在这被点的缺口开战（`MarchOrder.objective` 记住玩家点的那一格），不是引擎自动挑的那个缺口。
+- **面板上的价就是结算收的价**：`tile_strikes` 复用同一个 `Movement` 与同一个 `_mass`，所以卡片上印的「行军 N 天 · C 成本 · 到场 N 支 · 战力系数 x.xx」正是命令落地后引擎要付的数；这条契约由测试逐条对齐 `strike_options` 的同一条路线。军队已经在周围六格内时，报价直接给 `days 0 / cost 0.0`，按钮文案换成「用这支军队攻打」，下令当日即会战。
+- **拒绝说清楚原因**：按格报价带 `reason` 码——`NO_COMMAND`（观察者）、`OWN_TERRITORY`、`NO_OWNER`（无主地）、`NOT_AT_WAR`、`CITY_CENTER`（当时：城池中心格不能直接攻打，只打它周围的城域格——**v0.39 起这个码已删除**，点中心格不再被拒，它开的是一本围城账）、`NO_ARMY`（本国没有待命军队）；`NOT_AT_WAR` 那一行直接给出「向 国家X 宣战」按钮，宣战完面板自动重新报价。
+- **新端点 `GET /api/tile_strikes?col=&row=`**：按点击算、不按帧算——给一格定价要跑一次和行军命令同规格的最短路，放进每日快照会让时钟卡住，所以留给点击时机；越界坐标返回明确错误而不是空结果。
+- **AI 保持原来的打法**：`agents/heuristic.py` 继续下不带 `tile` 的 `ATTACK`，先 `MARCH` 把同缺口其余军队聚到集结格、再一起开打。按格逐支进攻在 `_mass` 规则下是自伤，自动挑缺口的老路径由测试钉住不变。
+- 实测闭环（seed 77777 公平世界、玩家接管国家 A）：点敌国缺口 (67,26) → 报价「行军 6 天 · 17.50 成本 → 落脚 (66,26)，到场 1 支 · 战力系数 1.00」→「开赴并攻打」→ 命令 `objective [67,26]`／`destination [66,26]`／`cost 17.5`／`days_left 6`；推进 6 天后 `army_arrived {fought true}`，同一日 `battle {captured true, attacker_share 1.0, defender_share 0.5}`，整城易主。相邻敌格 (66,27) 走「下令当日直接会战」分支，军队位置不变。
+- 新增 `tests/test_tile_strikes.py`（21 项）：驻军报告（观察者/本国/无主/敌国）、各拒绝码、落脚格报价与 `_mass` 一致、按格价与列价一致、点了别的缺口就真的打别的缺口、不可达不编天数、即时会战与行军会战的事件序列、`ATTACK.tile` 的协议校验矩阵、`MarchOrder.objective` 存档往返，以及端点与面板文案的契约。测试总数 231。
+
+## v0.35 兵营规模与战场集结
+
+- **兵营数量不再封顶**：`buildings.BARRACKS` 删掉 `max_per_country`，同一国连建 5 座、9 座都收；工坊等真正的唯一性建筑仍回报 `BUILDING_UNIQUE_LIMIT`，说明放开的是兵营而不是整张表。
+- **每营定额固定**：一座在营兵营每天只练 `military.barracks.garrison_capacity`（4）支，练满就停工——进度停在 `price × progress_cap_ratio` 并回报 `GARRISON_LIMIT`，不会空烧军饷；全国到顶则回报 `ARMY_LIMIT`。
+- **上限随营数走**：`core/content.py::field_cap` = `max(maximum_strength, 在营兵营数 × garrison_capacity)`，即保底 12 支、4 座营 16 支、9 座营 36 支。同一个函数被 `state.summary()` 的 `army_cap` 与 `build_observation()` 共用，面板、AI、结算看到的是同一个数。
+- **集结进结算**：`Military._mass` 按 `military.mass_radius`（1）格统计到场军队（在途的不算，下这道命令的那支抵达当日也不算在途），战力系数 = `minimum_mass_share` 保底 0.5 +（1 − 0.5）× 在场战力 / 全国战力；攻守双方同式，谁没到场谁贴保底。战损按 `_bleed_order` 先从在场军队扣，扣完再补后备，且不引入随机数。
+- **报价先给集结**：`strike_options` 每条路线带 `mass` / `mass_share`，排序改成 `(days, -mass, army_id)`——同样快的两条里，先把兵聚齐的那条排前面；打不到的国家直接 `reachable=false, mass=0, mass_share=null`，不再给一个假系数。
+- **AI 真的会聚兵**：`_strike_choice` 现在「先集结、再分兵」——主将还在行军时，同缺口的其余军队收到 `MARCH` 到集结格（`reinforce` / `rally`）；主将已抵达就立刻进攻，另一路（`companion`）必须挑不同缺口，免得两路挤在同一格白打。
+- **面板看得见**：战争报价表新增「集结 / 缺口」列（`到场 N 支 · 战力系数 x.xx`）与「其余向此集结」按钮，军事页显示 `兵营 / 全国编制上限`，规则页列出 `mass_radius`、`minimum_mass_share`、`strike_columns`、`garrison_capacity` 四个参数。
+- 十年实验重跑（7 场景 × 3 种子 × 3650 日，纯 Mock）见 `MARCH_BALANCE_REPORT.md` 第 6 节：21 局共 553 场会战、93 场有两支以上军队在场，进攻方系数最低 0.518 / 中位 0.633 / 最高 1.000；各国在营兵营 0–9 座，`army_cap` 实测落在 12 / 16 / 20 / 24 / 28 / 32 / 36 这几档。把兵营愿望从 0 抬到 6 只让总数从 50 座升到 65 座——卡住规模的已经是建设节奏与国库，不是旧的唯一性上限。
+- 新增 `tests/test_mass_battle.py`（17 项，数据→结算→AI→UI→内容闸门逐段闭环），`tests/test_march_balance.py` 加两条十年不变量：会战系数全部落在 [0.5, 1.0] 且至少一仗真的两军在场；编制不超过由营数推出的上限，且确有国家修超过自己的守家愿望。测试总数 210。
+
+## v0.34 兵营、真行军与手绘地图
+
+- 新增建筑 **兵营**：建成后每日消耗财政募兵，玩家可随时开关募兵、指定优先兵种；军队从"一个国家一个数字"变成 **多支军队实体**，各有位置、编制、行军状态与军饷。
+- 行军改为 **真行军**：命令只设目的地，之后每天按地形支付移动力，抵达才开战。成本表在 `config.rules.json` 的 `movement` 段，`core/movement.py` 是唯一实现——绘制器、引擎结算、AI 共用同一张表。
+- 地形决定速度（草原 1.0 到高山 2.4），**任何已建成道路都提速且不分归属**（0.35/格）；单条命令有 `maximum_order_cost` 上限，超出就要分段下令。
+- 攻城按 **整城易主** 结算，且必须先打边缘城池；多支军队可先汇聚在某个兵营相邻六格内的己方/中立地块，再一起出发。
+- AI 全量接入：会造兵营、开募兵、选兵种、按地形与克制决定打谁、并做多路机动。
+- 军事面板显示军队列表、行军路径与预计抵达天数；路径分解直接复用引擎给出的路线。
+- 新增 **手绘地图**：主菜单进入，用画笔涂地形/河流/道路/都城，右侧 **实时显示任意两格之间的行军天数**，并同步给出开局校验。气候、水文、灾害、核心领土与公平度全部由草稿派生，同一张图每次算出的结果一致。
+- 画图上显示的天数就是开局后引擎要花的天数，这条契约由 `tests/test_mapgen_custom.py` 直接断言（草稿定价 == 运行中世界定价）。
+- 新端点 `POST /api/map_preview`、`POST /api/march_preview`；`POST /api/new_game` 接受 `draft` 直接用手绘图开局。手绘世界文件按草稿摘要命名，避免存档钉住的 `world_sha256` 撞车。
+- 新增 `military.strike_columns`（默认 3）：一场战争同时按**军队**报价几条路线。AI 会对同一敌国的不同缺口分别下令形成两路进军；军事面板「战争状态」卡逐行列出各军的天数、成本、集结格与缺口，点一行就下这一路的命令，前端不再自己估天数。
+- 筑路进入性格参数 `mock.roads`（激进 6 / 中立 3 / 保守 1）：AI 先补路再排工矿，因为道路直接决定一条命令能打到多远；`run_march_balance.py` 用它跑「无人筑路 / 默认偏好 / 全国筑路」三档对照。
+- `military.peace_relation_reset` 接进议和结算（此前是硬编码 +20），同时清掉两类空转拒绝：保守档 `pact_relation` 抬到引擎闸门 15，贸易对象不再选正在入侵的国家。
+- 十年平衡实验（5 场景 × 3 种子 × 3650 日，纯 Mock，无 API）见 `MARCH_BALANCE_REPORT.md`：0 道命令超出上限、议和后关系一律 -20、上限 12 比 48 少 15 次宣战；筑路会挤占战争频率（无人筑路 37 次宣战 / 全国筑路 26 次）。
+- 新增 `tests/test_march_balance.py` 把上面这些不变量钉住（含接管国报价与逐军队列上限）。测试总数 191。
+
+## v0.33 兵种编成与内容闸门
+
+- 军队不再是一个数字，而是 **兵种编成表**：征召民兵、投射弓手、青铜战车、重装步兵、马上贵族、攻城器械，各自拥有战力、防御、编制上限、造价、日维护、科技门槛、克制关系和地形适应。
+- 战斗逐个兵种结算：`数量 × 兵种战力 × 对敌军构成的克制修正 × 交战地形修正`，再乘装备水平与稳定度；防守方使用防御值并享有驻守加成。同一支军队换一种敌军构成，攻击力可以差近一倍。
+- 战损按各兵种占比分摊，且刻意不消耗随机数——同样的动作日志回放必然得到同样的编制。
+- 军饷断供时先遣散最贵的兵种，而不是整体缩水。
+- AI 按性格建军：激进优先马上贵族与青铜战车，中立优先战车与弓手，保守优先重装步兵与弓手；受科技门槛、编制上限和财政约束，买不起或没解锁就自动降级。
+- 军事面板改为逐兵种表格，显示编制/上限、攻/防、日维护、造价与克制地形；玩家可按兵种招募，并直接看到"需「科技」2 级""已达编成上限""财政不足"等原因。
+- 新增 `core/content.py` 内容校验闸门：兵种克制、地形键、科技解锁与建筑前置、军事参数在开局和读档时全部校验，配置写错立刻报错而不是静默降级。
+- 旧存档继续可用（`format_version` 仍为 1）：只有标量军队规模的老档会按 `military.default_unit` 折算成民兵编制。
+- 十年混合性格验证：26 次招募落在 3 个兵种上，6 场战争、11 场战斗、5 次媾和，编成与领土变化一致；测试总数 116。
 
 ## v0.32 真实地形 + 细六边形地图
 

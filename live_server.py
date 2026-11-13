@@ -27,6 +27,7 @@ from agents.personality import normalize_personality, personality_definition, pe
 from agents.providers import provider_payload, resolve_simple_settings
 from agents.scheduler import AgentScheduler
 from core.messages import compose_ruler_messages, record_ruler_messages
+from core.military import Military
 from core.simulation import Simulation
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -63,6 +64,57 @@ def load_key_file(path: Path) -> None:
     os.environ.setdefault("EOS_API_KEY", keys[0])
 
 
+def project_world(world_data: dict) -> dict:
+    """Compact tile table the canvas draws, shared by the live map and the painter."""
+    metadata = world_data["metadata"]
+    polities = []
+    for index, (country_id, polity) in enumerate(
+            {polity["id"]: polity for polity in world_data["polities"]}.items()):
+        polities.append({
+            "id": country_id,
+            "name": polity["name"],
+            "color": (
+                polity.get("color")
+                or COUNTRY_COLORS.get(country_id)
+                or FALLBACK_PALETTE[index % len(FALLBACK_PALETTE)]
+            ),
+            "archetype": polity.get("type"),
+            "capital": polity["capital"],
+        })
+    tiles = [
+        [
+            tile["col"], tile["row"], 1 if tile["land"] else 0,
+            tile["biome"], tile["owner_id"] or "", 1 if tile["river"] else 0,
+            [tile["downstream"]["col"], tile["downstream"]["row"]]
+            if tile.get("downstream") else None,
+            tile["elevation_m"], tile["annual_precip_mm"],
+            tile["annual_mean_temp_c"], round(tile.get("slope", 0), 4),
+        ]
+        for tile in world_data["tiles"]
+    ]
+    return {
+        "metadata": {
+            "grid_width": metadata["grid_width"],
+            "grid_height": metadata["grid_height"],
+            "cell_area_km2": metadata["cell_area_km2"],
+            "hex_radius_km": metadata["hex_radius_km"],
+            "schema_version": metadata.get("schema_version", 1),
+            "generator": metadata.get("generator", "mapgen_v1"),
+            "river_depth_model": metadata.get("river_depth_model"),
+            "seed": metadata.get("seed"),
+            "terrain_texture_url": (
+                f"/api/terrain?seed={metadata.get('seed')}"
+                if metadata.get("terrain_texture") else None
+            ),
+        },
+        "polities": polities,
+        "tiles": tiles,
+        "river_cells": world_data.get("river_cells", []),
+        "road_cells": world_data.get("road_cells", []),
+        "rendering": world_data.get("rendering", {}),
+    }
+
+
 class LiveSession:
     def __init__(
         self,
@@ -77,6 +129,11 @@ class LiveSession:
         self.scheduler = scheduler
         self.budget = budget or CallBudget()
         self.agent_meta = agent_meta or {}
+        from core.state import DEFAULT_RULES
+
+        # The painter prices marches with the same rules table the engine will load, so the
+        # draft never needs a running simulation to answer "how many days is that?".
+        self.rules = json.loads(DEFAULT_RULES.read_text(encoding="utf-8"))
         self.player_country: str | None = None
         self.current_save_id: str | None = None
         self.current_save_name: str | None = None
@@ -289,10 +346,10 @@ class LiveSession:
                     "control_changed", country_id=self.player_country, mode="player"
                 )
             elif action == "observe":
-                if self.player_country:
-                    for city in self.simulation.state.countries[self.player_country].cities:
-                        if city.managed_by == "manual":
-                            city.managed_by = "ai"
+                seat = self.simulation.state.countries.get(self.player_country or "")
+                for city in (seat.cities if seat is not None else []):
+                    if city.managed_by == "manual":
+                        city.managed_by = "ai"
                 self.player_country = None
                 self.scheduler.set_player_country(None)
                 self.simulation.state.record("control_changed", country_id=None, mode="observer")
@@ -322,14 +379,21 @@ class LiveSession:
         base_seed: int | None,
         save_name: str | None = None,
         start_astronomical_year: int = -799,
+        draft: dict | None = None,
     ) -> dict:
         from mapgen import generate_fair_world, normalize_countries
 
         with self.lock:
-            normalized = normalize_countries(countries)
-            world, path = generate_fair_world(
-                normalized, base_seed=base_seed, generation_version="v2"
-            )
+            if draft is not None:
+                from mapgen_custom import build_world_from_draft, write_draft_world
+
+                world = build_world_from_draft(draft, seed=base_seed)
+                path = write_draft_world(world)
+            else:
+                normalized = normalize_countries(countries)
+                world, path = generate_fair_world(
+                    normalized, base_seed=base_seed, generation_version="v2"
+                )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
             self.simulation = simulation
@@ -360,11 +424,16 @@ class LiveSession:
                 seed=world["metadata"]["seed"],
                 fairness=world["metadata"]["fairness"]["score"],
             )
-            default_name = save_name or f"新世界 {world['metadata']['seed']}"
+            draft_name = world["metadata"].get("draft_name")
+            default_name = save_name or (
+                f"手绘世界 {draft_name} {world['metadata']['seed']}" if draft_name
+                else f"新世界 {world['metadata']['seed']}"
+            )
             save = self.save_current(default_name)
             return {
                 "ok": True,
                 "seed": world["metadata"]["seed"],
+                "generator": world["metadata"].get("generator"),
                 "fairness": world["metadata"]["fairness"],
                 "countries": {p["id"]: p["name"] for p in world["polities"]},
                 "path": str(path),
@@ -406,10 +475,17 @@ class LiveSession:
                     ),
                     None,
                 )
+                realm = self.simulation.state.countries.get(country_id)
+                personality = (
+                    getattr(realm, "personality", None)
+                    or meta.get("personality")
+                    or "neutral"
+                )
                 countries[country_id] = {
                     **meta,
-                    "personality": normalize_personality(getattr(self.simulation.state.countries[country_id], "personality", meta.get("personality"))),
-                    "personality_label": personality_label(getattr(self.simulation.state.countries[country_id], "personality", "neutral")),
+                    "eliminated": country_id in self.simulation.state.eliminated,
+                    "personality": normalize_personality(personality),
+                    "personality_label": personality_label(personality),
                     "api_key_env": env_name,
                     "key_configured": (
                         meta.get("mode") == "openai_compatible" and configured
@@ -727,58 +803,62 @@ class LiveSession:
             result = self.simulation.engine.apply_action(actor, action)
             return {"ok": result.accepted, "result": result.to_dict()}
 
+    def map_preview(self, draft: dict) -> dict:
+        """Playability report for a painted draft — pure, so hovering never blocks the sim."""
+        from mapgen_custom import draft_report
+
+        return {"ok": True, "report": draft_report(draft)}
+
+    def march_preview(self, draft: dict, start, target) -> dict:
+        """March timing for a draft, priced by core.movement.Movement over those tiles."""
+        from mapgen_custom import march_preview
+
+        return march_preview(draft, self.rules, start, target)
+
+    def seat(self) -> str | None:
+        """The realm the player still holds a chair at, or None once it has been annexed.
+
+        `player_country` is kept as the historical seat so the panel can say whose throne
+        was taken; everything that prices orders or draws tables reads this instead.
+        """
+        if self.player_country is None:
+            return None
+        return self.player_country if self.player_country in self.simulation.state.countries else None
+
+    def campaign_quotes(self) -> dict:
+        """March prices per army against this realm's current wars, for the military panel.
+
+        Only the commanded country gets a quote: the observer view has no one to give orders,
+        and `strike_options` answers empty while at peace, so an idle game pays nothing.
+        """
+        seat = self.seat()
+        if seat is None:
+            return {}
+        return Military(self.simulation.state).strike_options(seat)
+
+    def tile_strikes(self, col: int, row: int) -> dict:
+        """Who stands on one tile and what each of my armies would pay to take it.
+
+        The panel asks per click rather than per frame: pricing a tile runs the same route
+        search a march order runs, so keeping it off the snapshot keeps the clock smooth.
+        The enemy columns walking *at* this tile are not priced here — the snapshot already
+        ships every realm's alerts, and the panel filters that by tile.
+        """
+        with self.lock:
+            state = self.simulation.state
+            grid = state.world.data["metadata"]
+            if not (0 <= col < int(grid["grid_width"]) and 0 <= row < int(grid["grid_height"])):
+                return {"ok": False, "error": "坐标不在地图范围内"}
+            military = Military(state)
+            return {"ok": True, "tile": military.tile_strikes(self.seat(), (col, row))}
+
     def world_payload(self) -> dict:
-        world = self.simulation.state.world
-        metadata = world.data["metadata"]
-        polities = []
-        for index, (country_id, polity) in enumerate(world.polities.items()):
-            polities.append({
-                "id": country_id,
-                "name": polity["name"],
-                "color": (
-                    polity.get("color")
-                    or COUNTRY_COLORS.get(country_id)
-                    or FALLBACK_PALETTE[index % len(FALLBACK_PALETTE)]
-                ),
-                "archetype": polity.get("type"),
-                "capital": polity["capital"],
-            })
-        tiles = [
-            [
-                tile["col"], tile["row"], 1 if tile["land"] else 0,
-                tile["biome"], tile["owner_id"] or "", 1 if tile["river"] else 0,
-                [tile["downstream"]["col"], tile["downstream"]["row"]]
-                if tile.get("downstream") else None,
-                tile["elevation_m"], tile["annual_precip_mm"],
-                tile["annual_mean_temp_c"], round(tile.get("slope", 0), 4),
-            ]
-            for tile in world.data["tiles"]
-        ]
-        return {
-            "metadata": {
-                "grid_width": metadata["grid_width"],
-                "grid_height": metadata["grid_height"],
-                "cell_area_km2": metadata["cell_area_km2"],
-                "hex_radius_km": metadata["hex_radius_km"],
-                "schema_version": metadata.get("schema_version", 1),
-                "generator": metadata.get("generator", "mapgen_v1"),
-                "river_depth_model": metadata.get("river_depth_model"),
-                "seed": metadata.get("seed"),
-                "terrain_texture_url": (
-                    f"/api/terrain?seed={metadata.get('seed')}"
-                    if metadata.get("terrain_texture") else None
-                ),
-            },
-            "polities": polities,
-            "tiles": tiles,
-            "river_cells": world.data.get("river_cells", []),
-            "road_cells": world.data.get("road_cells", []),
-            "rendering": world.data.get("rendering", {}),
-        }
+        return project_world(self.simulation.state.world.data)
 
     def snapshot(self) -> dict:
         with self.lock:
             summary = self.simulation.state.summary()
+            threats = Military(self.simulation.state).incoming_threats()
             recent = [
                 deepcopy(event) for event in self.simulation.state.event_log
                 if event["type"] not in {"economy_daily"}
@@ -813,11 +893,17 @@ class LiveSession:
                 "speed": self.speed,
                 "maximum_day": self.maximum_day,
                 "player_country": self.player_country,
-                "mode": "player" if self.player_country else "observer",
+                "mode": "player" if self.seat() else "observer",
+                "eliminated": summary["eliminated"],
                 "current_save_id": self.current_save_id,
                 "current_save_name": self.current_save_name,
                 "era": summary["era"],
                 "building_specs": self.simulation.state.config["buildings"],
+                "unit_specs": self.simulation.state.config["units"],
+                "military_specs": self.simulation.state.config["military"],
+                "movement_specs": self.simulation.state.config["movement"],
+                "campaign_quotes": self.campaign_quotes(),
+                "incoming_threats": threats,
                 "policy_options": sorted(self.simulation.state.config["policies"]),
                 "research_fields": self.simulation.state.config["research_fields"],
                 "tech_tree": self.simulation.state.config["tech_tree"],
@@ -893,10 +979,26 @@ class Handler(BaseHTTPRequestHandler):
             self._json(self.session.agent_payload())
         elif path == "/api/setup":
             from mapgen import ARCHETYPES, CORE_TILES, DEFAULT_COUNTRIES
+            from mapgen_custom import DRAFT_HEIGHT, DRAFT_WIDTH, palette
+
+            movement = self.session.rules["movement"]
+            costs = movement["biome_cost"]
             self._json({
                 "countries": DEFAULT_COUNTRIES,
                 "archetypes": ARCHETYPES,
                 "core_tiles": CORE_TILES,
+                "draft": {
+                    "width": DRAFT_WIDTH,
+                    "height": DRAFT_HEIGHT,
+                    "brushes": [
+                        dict(brush, march_cost=costs.get(brush["biome"]))
+                        for brush in palette()
+                    ],
+                    "daily_budget": movement["daily_budget"],
+                    "road_cost": movement["road_cost"],
+                    "maximum_order_cost": movement["maximum_order_cost"],
+                    "biome_cost": costs,
+                },
             })
         elif path == "/api/saves":
             self._json({
@@ -911,6 +1013,15 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 limit = 80
             self._json(self.session.diary_payload(country_id, limit))
+        elif path == "/api/tile_strikes":
+            params = parse_qs(urlparse(self.path).query)
+            try:
+                col = int(params.get("col", [""])[0])
+                row = int(params.get("row", [""])[0])
+            except ValueError:
+                self._json({"ok": False, "error": "col、row 必须是整数"}, 400)
+                return
+            self._json(self.session.tile_strikes(col, row))
         elif path == "/favicon.ico":
             self._send(204, b"", "image/x-icon")
         elif path.startswith("/assets/"):
@@ -930,6 +1041,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path not in {
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
             "/api/agents/budget", "/api/agents/personality", "/api/new_game", "/api/saves",
+            "/api/map_preview", "/api/march_preview",
         }:
             self._json({"error": "not found"}, 404)
             return
@@ -968,6 +1080,13 @@ class Handler(BaseHTTPRequestHandler):
                     None if seed in (None, "") else int(seed),
                     payload.get("save_name"),
                     int(start_year),
+                    payload.get("draft"),
+                )
+            elif self.path == "/api/map_preview":
+                result = self.session.map_preview(payload.get("draft") or {})
+            elif self.path == "/api/march_preview":
+                result = self.session.march_preview(
+                    payload.get("draft") or {}, payload.get("from"), payload.get("to")
                 )
             elif self.path == "/api/action":
                 result = self.session.player_action(

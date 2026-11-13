@@ -52,6 +52,15 @@ class WeatherModel:
             for country_id in self.capitals
         }
 
+    def forget(self, country_id: str) -> None:
+        """Stop reporting capital weather for a realm that has left the board.
+
+        The grid keeps being sampled exactly as before, so this cannot move a single
+        raindrop of an action-log replay; it only drops the dead realm's rows.
+        """
+        self.capitals.pop(country_id, None)
+        self.month_accumulators.pop(country_id, None)
+
     def sample(self, day_index: int) -> dict[str, np.ndarray]:
         self.anomaly, rain, temperature, snow = weather_day(
             self.rng,

@@ -3,8 +3,10 @@
 > 报告日期：2026-11-11  
 > 当前代码版本：v0.32 系列  
 > 测试状态：**97 passed**  
-> 仓库：<https://github.com/xd666-afk/PROJECT-EOS>  
+> 仓库：<https://github.com/zsmb07/neirong>  
 > 说明：本报告汇总从地图底座恢复、策略模拟器、城市系统、AI 接入到多国架构的完整演进，包含设计思路、最终落地效果、验证数据和遗留问题。
+>
+> **本报告是 v0.32 阶段快照**：其后的兵种编成、兵营与真行军、集结、按格下令、占领贡金、募兵与外交回执、围城与整城易主、入侵边警与都城吞并（至 v0.40，322 项测试）不在这里，读 `README.md` 的版本条目与 `DEVELOPER_MANUAL.md`；下面「遗留问题」里已经落地的条目（围城、多支军队实体、真行军）按此为准。
 
 ---
 
@@ -452,7 +454,7 @@ AgentScheduler ── deepcopy(observation) ──> HeuristicAgent / OpenAICompa
 
 ### 8.1 GitHub
 
-- 公开仓库：<https://github.com/xd666-afk/PROJECT-EOS>
+- 公开仓库：<https://github.com/zsmb07/neirong>
 - 分支：`main`
 - 作者邮箱：GitHub noreply
 - 当前本地 `main` 领先远端若干提交；最近一次推送因 GitHub `502` 按用户规则停止，没有反复重试。

@@ -149,19 +149,33 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
     maris = state.countries["MARIS"]
     before_treasury = elar.treasury
     assert engine.apply_action("ELAR", {
-        "type": "MILITARY", "operation": "RECRUIT", "strength": 2,
+        "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 2,
     }).accepted
+    assert elar.army_units == {"MILITIA": 2}
     assert elar.army_strength == 2
-    assert elar.treasury == before_treasury - 50
+    assert elar.treasury == before_treasury - 40
+    rejected = engine.apply_action("ELAR", {
+        "type": "MILITARY", "operation": "RECRUIT", "unit": "SIEGE", "strength": 1,
+    })
+    assert not rejected.accepted and rejected.reason_code == "TECHNOLOGY_REQUIRED"
     own_target = next(
         coord for coord in neighbors(*elar.army_position)
         if coord in elar.tiles
     )
-    assert engine.apply_action("ELAR", {
+    ordered = engine.apply_action("ELAR", {
         "type": "MILITARY", "operation": "MARCH",
         "tile": {"col": own_target[0], "row": own_target[1]},
-    }).accepted
-    assert elar.army_position == own_target
+    })
+    assert ordered.accepted
+    army = elar.main_army
+    assert ordered.effects["destination"] == {"col": own_target[0], "row": own_target[1]}
+    assert ordered.effects["days"] >= 1
+    assert army.march is not None and army.march.destination == own_target
+    assert army.tile != own_target
+    for _ in range(ordered.effects["days"]):
+        engine.step_day(force=True)
+    assert army.march is None
+    assert army.tile == own_target
 
     war = engine.apply_action("ELAR", {
         "type": "DIPLOMACY", "operation": "DECLARE_WAR", "target": "MARIS",
@@ -174,7 +188,7 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
         coord for coord in neighbors(*border_tile)
         if state.world.tile(coord)["land"] and coord not in maris.tiles
     )
-    elar.army_position = staging
+    elar.main_army.tile = staging
     battle = engine.apply_action("ELAR", {
         "type": "MILITARY", "operation": "ATTACK", "target": "MARIS",
     })
@@ -197,6 +211,7 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
     })
     assert accepted.accepted
     assert "MARIS" not in elar.at_war_with and "ELAR" not in maris.at_war_with
+    assert accepted.effects["relation"] == state.config["military"]["peace_relation_reset"]
 
 
 def test_city_focus_changes_only_own_city_and_affects_output(engine):

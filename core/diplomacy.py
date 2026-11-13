@@ -6,6 +6,9 @@ from typing import Any
 from core.actions import ActionRejected
 from core.state import GameState, relation_key
 
+# Below this, a trade pact proposal is refused outright; the AI profiles are written against it.
+MINIMUM_PACT_RELATION = 15
+
 
 class Diplomacy:
     def __init__(self, state: GameState) -> None:
@@ -14,14 +17,17 @@ class Diplomacy:
     def relation(self, left: str, right: str) -> int:
         return int(self.state.relations.get(relation_key(left, right), 0))
 
-    def change_relation(self, left: str, right: str, delta: int) -> int:
+    def set_relation(self, left: str, right: str, value: int) -> int:
         key = relation_key(left, right)
-        self.state.relations[key] = max(-100, min(100, self.relation(left, right) + delta))
+        self.state.relations[key] = max(-100, min(100, int(value)))
         for country_id, other in ((left, right), (right, left)):
             contacts = self.state.countries[country_id].contacts
             if other not in contacts:
                 contacts.append(other)
         return self.state.relations[key]
+
+    def change_relation(self, left: str, right: str, delta: int) -> int:
+        return self.set_relation(left, right, self.relation(left, right) + delta)
 
     def gift(self, actor: str, action: dict) -> dict:
         target_id = action["target"]
@@ -93,8 +99,10 @@ class Diplomacy:
         if target_id in self.state.countries[actor].at_war_with:
             raise ActionRejected("AT_WAR", "交战中不能签订贸易协定")
         relation = self.relation(actor, target_id)
-        if relation < 15:
-            raise ActionRejected("RELATION_TOO_LOW", "关系低于 15，需先改善外交关系")
+        if relation < MINIMUM_PACT_RELATION:
+            raise ActionRejected(
+                "RELATION_TOO_LOW", f"关系低于 {MINIMUM_PACT_RELATION}，需先改善外交关系"
+            )
         for pact in self.state.pacts.values():
             if pact["status"] == "ACTIVE" and pact["pact"] == action["pact"] and {
                 pact["sender"], pact["target"]
@@ -139,7 +147,12 @@ class Diplomacy:
                 target.at_war_with = [cid for cid in target.at_war_with if cid != proposal["sender"]]
                 sender.war_exhaustion = max(0.0, sender.war_exhaustion - 2.0)
                 target.war_exhaustion = max(0.0, target.war_exhaustion - 2.0)
-                relation = self.change_relation(actor, proposal["sender"], 20)
+                # Blockades are not lifted here: `siege_daily` drops any ledger whose sides are
+                # no longer at war, so the settlement that ended the war also ends the starvation.
+                relation = self.set_relation(
+                    actor, proposal["sender"],
+                    self.state.config["military"]["peace_relation_reset"],
+                )
                 self.state.record(
                     "peace_accepted", sender=proposal["sender"], target=actor, relation=relation,
                 )
