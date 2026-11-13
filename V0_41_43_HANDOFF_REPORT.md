@@ -1,11 +1,11 @@
 # v0.41–v0.43 交接报告：这一批改了什么，还有什么没改
 
-对应提交：[`43cd12a` feat(military): borders slow marches and enemy camps can be fought](https://github.com/zsmb07/neirong/commit/43cd12a)
+对应提交：`43cd12a` feat(military): borders slow marches and enemy camps can be fought → `b860e06` docs(handoff) → `f0a75c3` fix(military): hostile soil really slows marches
 分支：`feat/military-units`（尚未合进 `main`）
-规模：38 个文件，+13116 / −427
-写作时间：2026-11-13
+规模：39 个文件，+13423 / −429（三个提交合起来对 `main` 的差异）
+写作时间：2026-11-13。第一至第六节写于 `43cd12a`，第七节在 `f0a75c3` 之后按实际结果改写过一遍——当时的六个红灯与「文档落后」两组挂账现在已结，别照着旧结论重做。
 
-这份报告只干两件事：把这一批的改动讲清楚，然后把**已知还没修的问题**一条条列出来，列到能直接照着下手的粒度。接手的人（云电脑上的我）不需要重新读一遍 diff。
+这份报告只干两件事：把这一批的改动讲清楚，然后把**已知还没修的问题**一条条列出来，列到能直接照着下手的粒度。接手的人不需要重新读一遍 diff。
 
 ---
 
@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | `daily_budget` | 3.0 | 一支军队一天能烧掉多少点移动成本——行军是逐日推进的下单，不是瞬移 |
 | `road_cost` | 0.35 | 道路每格成本，**不分归属**都按这个价；边境附加费是叠在它上面的，所以敌国境内的路（0.35+1.25=1.6）仍然比本国草原（1.0）贵、但比敌国的山地（2.4+1.25）便宜 |
-| `hostile_cost` | 1.25 | **本批新增**：格子属于别国时，在该格的每格成本上追加的附加费 |
+| `hostile_cost` | 1.25 | **本批新增**：格子属于别国时，在该格的每格成本上追加的附加费（值是本批写进表的，但因为键名对不上，它直到 `f0a75c3` 才真的进结算——见 7.1 最后一条） |
 | `maximum_order_cost` | 60.0 | 单条命令的成本上限；超了不是「到不了」，是「一条令走不到，要分段下令」 |
 | `biome_cost` | 草原 1.0 → 山地 2.4 | 地形基础成本，覆盖世界文件里出现的每个陆地群系（缺一个就建局时报 `ContentError`） |
 
@@ -81,9 +81,9 @@
 
 ## 六、测试与验证
 
-跑法：`C:/Users/ROG/venvs/eos/Scripts/python.exe -m pytest -q --basetemp=.tmp_pytest`（仓库不带 `.venv`，别建）。
+跑法：用自己那套仓库外的 Python 环境执行 `python -m pytest -q --basetemp=.tmp_pytest`（解释器路径按各自的机器，这里不写死；仓库不带 `.venv`，别建）。
 
-- **316 通过 / 6 失败**（总数 322，和 README 说的那个数字对得上，但「全绿」已经不成立了，见下一节）。
+- 本节写于 `43cd12a` 当时：**316 通过 / 6 失败**（总数 322，「全绿」已经不成立）。`f0a75c3` 之后这六个红灯全部转绿并新增两条，实测 **324 passed / 0 failed**，见 7.1。
 - 这一批新增/大改的测试文件：`test_march_movement.py`(370)、`test_tile_strikes.py`(452)、`test_mass_battle.py`(484)、`test_siege.py`(925)、`test_border_alerts.py`(371)、`test_capture_tribute.py`(362)、`test_recruit_receipts.py`(428)、`test_military_units.py`(360)、`test_march_balance.py`(208)、`test_dashboard_ui.py`(186)、`test_mapgen_custom.py`(385)。
 - 手工端到端验证过一场真实的 17 天野战结算：`field=True`、战后边界一格未变、双方战损与卡片预报价一致。（验证用的探针脚本按约定已删，未入库。）
 - `output/world_2000BCE.json` 未被改动；diff 里不含任何密钥。
@@ -92,9 +92,18 @@
 
 ## 七、还没修的问题（照着这个清单接手）
 
-### 7.1 六个红灯测试：还钉在已经删掉的「走廊」教义上
+### 7.1 六个红灯测试：已在 `f0a75c3` 全部转绿（下表留作修法记录）
 
-这六个是本批刻意留下的（决定：什么都不补，先推）。**失败原因是测试写的是旧规则，不是引擎坏了**——别去改引擎迁就它们。
+这六个是 `43cd12a` 当时刻意留下的（决定：什么都不补，先推）。**失败原因是测试写的是旧规则，不是引擎坏了**——实际的修法也确实全落在测试与文案探针上，引擎没有为绿灯让步：
+
+- helper 不再调用已删除的 `_corridor`，改成挑「最远的、可以合法落脚的格子」，并用引擎自己的 `_road_plan` + `_expedition` 滤掉会踩进别国领土的路线——这样第 6 条那句 `march["expedition"] is False` 才是真话，而不是碰巧。
+- 第 3 条按 v0.43 的教义**反向重写**：走廊易主只改价、不改命，命令照旧走完，抵达时如实报 `army_arrived.purpose == "MARCH"`，且全程没有 `march_cancelled`。
+- 第 4 条同样重写：远征真的走到了终点，抵达当日开战并带 `expedition=true`、`battle.attacker/defender` 齐备。
+- 第 7 条的面板探针换成还在的语义串「落脚格只要不在对方领土里」；`tests/test_siege.py:923` 断言的**提示词**子串「只走己方或无主地」按计划原样保留——MARCH 的落脚点规则说的还是这句话。
+- 顺带：`tests/test_actions.py` 里写死的 `40` 改成从 `config["units"]["MILITIA"]["cost"]["treasury"]` 读单价，以后调价不再需要动测试。
+- **新增的第一条该有却没有的测试**：`test_hostile_soil_is_priced_into_every_road_that_crosses_it`。原因是本批那个真正的 bug——`Movement.cost()` 读的是 `state["owner"]`，而 `Military.movement()` 交出的键叫 `hostile`，所以边境减速从上线起对任何报价都没生效过，全套测试却全绿。现在钉死「己方 = 中性价、无 actor（画笔）= 中性价、别国 = 中性价 + `hostile_cost`」这条三方恒等式。
+
+下表是当时的诊断，「怎么修」一列读作历史记录：
 
 | # | 测试 | 为什么红 | 怎么修 |
 | --- | --- | --- | --- |
@@ -113,18 +122,19 @@
 
 `tests/` 里**没有** `test_rout_retreat.py`。v0.41 的 `_rout_frame` / `_apply_rout` 目前只被别的文件的断言顺带覆盖。至少该钉住：幸存者比例 0.4、`retreat_radius` 内的落点选择、营帐易主时 `barracks_lost_survivor_rate`（当前 0.0）的行为、以及「报价帧」和「结算结果」两边数字一致。
 
-### 7.3 文档落后于代码
+### 7.3 文档落后于代码：`f0a75c3` 补掉大半，还剩两处
 
-- `README.md:3` 状态行还写着「**322 项 pytest 全绿**」。实际是 316 绿 6 红。这句话是最先该改的。
-- `README.md:165` 那行「测试总数 322」同样需要跟着实际情况更新。
-- README 里**完全没有** v0.41 / v0.42 / v0.43 三个版本的章节（现有版本记录停在更早的批次）。
-- `DEVELOPER_MANUAL.md` 是**「写了但写的是旧教义」**，比没写更容易误导人：
-  - `:576` 说「单条命令上限 `maximum_order_cost`：超过就 `NO_PATH` 拒绝」——现在超上限报的是 `ORDER_LIMIT`（带真实成本与天数，且明说可以分段），根本走不到的才叫 `NO_LAND_LINK` / `ENCLAVED`。`NO_PATH` 这个码在本批之后已经不是行军回执了。
-  - 同一行还在讲「通道只允许己方或无主陆地；必须穿过敌国领土时改判为远征」——这正是本批删掉的走廊教义。现在的规则是**别国领土穿得过去，只是每格多付 `hostile_cost`**；「只走己方或无主地」降级成了 MARCH 令的**落点**限制（`_marchable`），不再是沿途限制。
-  - `:1280` 的 `movement` 表列了 `daily_budget` / `road_cost` / `maximum_order_cost` / `biome_cost`，**少了 `hostile_cost`**。
-  - `:1597` 那段历史观察里还写着「远超 24 点的 `movement.maximum_order_cost`」——现在这个值是 60，需要说明那是当时的取值。
-  - 结算结果里新增的 `field=true`（野战、不夺地）、`tile_strikes` 新增的 `march` / `field` 两种帧、以及 `FOREIGN_GROUND` 回执码，手册一个字都没提。
-- `PROJECT_EOS_DEVELOPMENT_REPORT.md` 顶部汇总行也没跟上。
+**已经跟上的：**
+
+- `README.md:3` 状态行与版本条目现在写 **324 项 pytest 全绿**，并新增了一节 v0.43，把本批规则、那个键名 bug 和修法都记在明处。
+- `DEVELOPER_MANUAL.md` 里最容易误导人的那几行按 v0.43 的真规则重写过：`:575` 讲清 `Movement` 的键契约（谁发 `hostile`、谁读 `hostile`、画笔为什么不填这个键）以及那条三方恒等式测试；`:576` 改成 60 点上限 + `SEA` / `ENCLAVED` / `ORDER_LIMIT`（快路径下才有 `NO_ROAD`），并把「穿」与「停」分成两件事；`:577` 说明沿途易主不再撤单；`movement` 参数表补上 `hostile_cost`；历史观察那段标注了「24 点」是当时的取值；§19.4 的军事闸门改成 60 点；围城那行从「只走己方与无主走廊」改成「可以穿过别国领土（每格多付 `hostile_cost`，抵达当日再吃 `expedition_factor`），但落脚格不落在对方领土里」。
+- 手册里那条「远征行军是已知缺陷（未修）」已经换掉，同时留了一句警告：通道打通之后战争强度上升，旧的强度结论要在新的定价下重测。
+- `PROJECT_EOS_DEVELOPMENT_REPORT.md` 顶部那行本来就写着「本报告是 v0.32 阶段快照，其后版本读 README 与手册」，作为自述仍然成立。
+
+**还没跟上的（下一批的文档活）：**
+
+- README 缺 **v0.41 / v0.42** 两个版本的独立章节——溃退与野战只在 v0.43 那节和手册里散着。
+- `DEVELOPER_MANUAL.md` 里 `野战` 只出现一次：`field=true` 这个结算字段、`tile_strikes` 新增的 `march` / `field` 两种帧的字段表、以及 `FOREIGN_GROUND` 回执码都还没有成文的一节。
 
 ### 7.4 已知的小缺口（不红，但行为不完美）
 
@@ -139,7 +149,7 @@
 1. 让远征更贵（加大 `hostile_cost` 或远征折扣），代价是边境拉锯几乎打不起来；
 2. 维持成本、只削抵达战力（调低 `expedition_factor`），代价是长距离奇袭仍然一刀致命。
 
-现在 0.78 / 1.25 这组值是「能玩、没验算过长期」的状态。要动它，先用 `run_march_balance.py` 跑一轮，别裸改。
+现在 0.78 / 1.25 这组值是「能玩、没验算过长期」的状态，而且自 `f0a75c3` 起 1.25 才**真的**进了结算——之前所有关于远征强度的观察（包括「默认世界几乎打不起来」那一类结论）量到的都是加成没生效的世界。要动它，先用 `run_march_balance.py` 跑一轮，别裸改。
 
 ### 7.6 其他挂账
 
@@ -150,6 +160,6 @@
 
 ## 八、给接手人的三条注意事项
 
-1. **别为绿灯改引擎。** 6 条红灯全部是测试在断言已被推翻的旧教义（详见 7.1）。先改测试，改完再跑全量确认没引入新红。
+1. **别为绿灯改引擎。** 当时那 6 条红灯全部是测试在断言已被推翻的旧教义（修法见 7.1）；照这个顺序改完测试，再跑全量确认没有引入新的红。
 2. **`maximum_order_cost` 是承重的。** 面板 5 处读它来印「上限 X 点，超了分段下令」，`tests/test_march_balance.py:178`/`:202` 直接改写和回读它，`core/content.py` 则要求它 > `road_cost + hostile_cost`。改这个数等于改行军教义，不是改一个常量。
 3. **`output/world_2000BCE.json` 不许重新生成**，密钥只走环境变量或本地文件、不进 JSON / 日志 / 提交。
