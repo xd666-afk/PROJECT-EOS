@@ -363,6 +363,7 @@ def town(country_overrides=None):
         "buildings": {}, "projects": [], "cities": [{"health": 100, "security": 100}],
         "stability": 90.0, "population": 20000.0, "housing": 100.0,
         "food": 240.0, "food_capacity": 400.0, "treasury": 100.0,
+        "last_economy": {"treasury_income": 12.0}, "military_upkeep": 0.0,
     }
     return {**country, **(country_overrides or {})}
 
@@ -386,6 +387,16 @@ def test_the_mock_agent_wants_a_camp_for_every_city_it_holds():
 
     broke = town({"treasury": rules["buildings"]["BARRACKS"]["cost"] - 0.1})
     assert agent._building_choice(broke, rules) != "BARRACKS", "a camp nobody can wage waits"
+
+    # The bricks are affordable here and the daily balance is not. Stock alone let a realm
+    # raise a wall it then could not feed, which is the ruin the 停摆 feed filled up with.
+    ruin = town({"treasury": 5_000.0, "last_economy": {"treasury_income": 1.2},
+                 "military_upkeep": 0.85})
+    assert agent._building_choice(ruin, rules) != "BARRACKS", "存量再厚也养不活第二座营"
+
+    wage = float(rules["military"]["barracks"]["daily_cost"])
+    thin = town({"last_economy": {"treasury_income": wage * 2.5 / 0.4}})
+    assert agent._building_choice(thin, rules) == "BARRACKS", "账算得过来的日子就该起营"
 
 
 def camp_observation(strength, recruiting, army_cap):

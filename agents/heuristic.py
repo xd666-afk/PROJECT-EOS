@@ -653,7 +653,15 @@ class HeuristicAgent(CountryAgent):
             requirement = barracks.get("required_technology") or {}
             ready = technology.get(requirement.get("field", ""), 0) >= requirement.get("level", 0)
             wage = float((rules["military"].get("barracks") or {}).get("daily_cost", 0.0))
-            if ready and country["treasury"] >= barracks["cost"] + wage * 30.0:
+            # A camp is a bill that outlives its bricks: `daily_cost` leaves the treasury every
+            # day one stands. The gate therefore asks whether this realm's daily balance feeds
+            # one more wall — wages kept under two fifths of what is left after the army is
+            # paid — and not whether the treasury happens to hold the price of the building
+            # today. Stock alone is what raised the ruins the 停摆 news feed was full of.
+            income = float((country.get("last_economy") or {}).get("treasury_income", 0.0))
+            headroom = income - float(country.get("military_upkeep", 0.0))
+            bills = (counts.get("BARRACKS", 0) + 1) * wage
+            if ready and country["treasury"] >= barracks["cost"] and headroom * 0.4 >= bills:
                 return "BARRACKS"
         road_target = int(personality_definition(personality)["mock"].get("roads", 0))
         if road_target and counts.get("ROAD", 0) < road_target:

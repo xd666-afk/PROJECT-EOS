@@ -174,6 +174,38 @@ def test_an_involuntary_stop_is_announced_once_and_pausing_is_quiet():
     assert len(events_of(state, "recruiting_changed")) == 1
 
 
+def test_one_camp_complains_about_the_same_reason_once_per_cooldown():
+    """国库在日饷上下反复横跳：停摆原因天天翻转，公告却按 stall_notice_days 限速。"""
+    engine = engine_of()
+    state = engine.state
+    tile, army = camp_on(engine)
+    country = state.countries["ELAR"]
+    cooldown = 20
+    state.config["military"]["barracks"]["stall_notice_days"] = cooldown
+
+    country.treasury = 0.2
+    engine.step_day()
+    assert stalled_events(state, "INSUFFICIENT_WAGE", army.army_id), "第一次付不起要说一次"
+
+    # 五轮「付得起 / 付不起」= 10 日，全在冷却里：面板照样读得到原因，新闻不再重复。
+    for _ in range(5):
+        country.treasury = 5.0
+        engine.step_day()
+        country.treasury = 0.2
+        engine.step_day()
+    announced = len(stalled_events(state, "INSUFFICIENT_WAGE", army.army_id))
+    assert announced == 1
+    assert report_at(engine, tile)["stall"] == "INSUFFICIENT_WAGE"
+
+    # 冷却过后同一条理由可以再说一遍。
+    for _ in range(6):
+        country.treasury = 5.0
+        engine.step_day()
+        country.treasury = 0.2
+        engine.step_day()
+    assert len(stalled_events(state, "INSUFFICIENT_WAGE", army.army_id)) == announced + 1
+
+
 def test_the_camp_quota_refuses_a_manual_order_but_not_a_field_army():
     """定额只约束站在兵营里的那支军队；野战军队照旧按全国编制募兵。"""
     engine = engine_of()

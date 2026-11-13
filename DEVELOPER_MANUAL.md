@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-13，对应当前代码与 322 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-13，对应当前代码与 324 项测试。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
@@ -54,7 +54,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、占领贡金、围城与整城易主（含开赴封锁圈）、战争疲劳、和平；按地块看驻军、按地块下令攻打并预报价 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、322 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、324 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -562,7 +562,7 @@ siege: {"attacker", "armies", "progress", "started_day"} | None
 
 - 军队是**多支实体** `country.armies = [ArmyState]`，每支有自己的 `army_id/tile/units/recruiting/progress/preferred_unit/march`；`country.army_strength`、`army_units`、`army_position` 是由这张列表派生的只读聚合，供旧存档与旧读数兼容，不要再单独维护标量。
 - 兵营（`BARRACKS` 建筑）每座由驻在其格子上的那支军队募兵：`barracks_daily()` 每天扣 `barracks.daily_cost` 军饷攒 `army.progress`，攒够目标兵种单价就出 1 支并扣粮；开关由 `SET_RECRUITING` 控制，练兵兵种由 `SET_RECRUIT_UNIT` 指定（未解锁则回落到 `barracks.default_unit`）。同一座兵营同时只能有一支军队募兵。
-- **停摆原因只有一份表**：`core/state.py::recruit_stall`（先 `PAUSED`、再 `INSUFFICIENT_WAGE`，其余转给 `recruit_block`）与 `recruit_block`（`ARMY_LIMIT` → `UNIT_LIMIT` → `GARRISON_LIMIT` → `INSUFFICIENT_FOOD`）是结算与面板共用的单源；`barracks_report(country, tile, config)` 把一格讲成一整行（`army_id`、`recruiting`、`unit/label/preferred`、`price/food_cost/upkeep/power/wage`、`progress`、`days_left`、`strength/capacity/room`、`raised`、`stall/stall_label`），`barracks_reports()` 按格子稳定排序列出本国全部兵营。`camp_garrison` 是「这一营当天由谁领饷」的唯一答案（先取在本格且 `recruiting` 的军队，没有则取本格第一支，都没有则 `None` → `stall = NO_GARRISON`）。`RECRUIT_STALL_LABELS` 给七种码的中文文案，`RECRUIT_STALL_QUIET = {"", "PAUSED"}`：玩家自己停募不发消息，只有非自愿停工才进 `barracks_stalled` 事件（`country_id/army_id/tile/unit/label/code/reason/wage/progress`），且同一码只播一次（`army.stall` 去重）。
+- **停摆原因只有一份表**：`core/state.py::recruit_stall`（先 `PAUSED`、再 `INSUFFICIENT_WAGE`，其余转给 `recruit_block`）与 `recruit_block`（`ARMY_LIMIT` → `UNIT_LIMIT` → `GARRISON_LIMIT` → `INSUFFICIENT_FOOD`）是结算与面板共用的单源；`barracks_report(country, tile, config)` 把一格讲成一整行（`army_id`、`recruiting`、`unit/label/preferred`、`price/food_cost/upkeep/power/wage`、`progress`、`days_left`、`strength/capacity/room`、`raised`、`stall/stall_label`），`barracks_reports()` 按格子稳定排序列出本国全部兵营。`camp_garrison` 是「这一营当天由谁领饷」的唯一答案（先取在本格且 `recruiting` 的军队，没有则取本格第一支，都没有则 `None` → `stall = NO_GARRISON`）。`RECRUIT_STALL_LABELS` 给七种码的中文文案，`RECRUIT_STALL_QUIET = {"", "PAUSED"}`：玩家自己停募不发消息，只有非自愿停工才进 `barracks_stalled` 事件（`country_id/army_id/tile/unit/label/code/reason/wage/progress`）。去重有两层：`army.stall` 当日与昨日同码则不重复播；**跨日**再由 `barracks.stall_notice_days`（v0.43，默认 60）限速——同一支军队为同一个原因每 60 天最多抱怨一次，限速账记在 `ArmyState.stall_notices`（逐码 → 上次公告日，进存档、往返不丢）。必须有这一层的原因是实测：国库在日饷上下反复横跳时停摆码几乎天天翻转，「变化才公告」等于每天一条。`army.stall` 本身**每天照写**，面板、`barracks_report` 与 AI 观测永远读得到原因，被限的只是新闻流；前端气泡再单独把 `barracks_stalled` 拉黑一层。
 - **`NO_GARRISON` 只会出现在两次结算之间**：`sync_barracks` 在结算时给空营房补一支领饷军队，所以它不会刷屏，面板刷新时才可能读到——别把它当成故障。
 - **兵营数量不封顶，营内编制封顶**：`BARRACKS` 没有 `max_per_country`，`_raise_block()` 的 `GARRISON_LIMIT` 让每座兵营最多练到 `barracks.garrison_capacity` 支；全国上限改由 `core/content.py::field_cap(building_ids, config)` 给出——`max(military.maximum_strength, 已建成兵营数 × garrison_capacity)`。也就是说扩军靠修营，不靠放宽常量；`army_cap` 随 `state.summary()` 与 `build_observation()` 一起下发，前端与 AI 都不要再自己算。
 - 军事动作可选带 `army_id`：`RECRUIT / MARCH / ATTACK / SET_RECRUITING / SET_RECRUIT_UNIT` 都经 `Military._army_of` 解析，省略即"主力军队"（`country.main_army`），指向他国军队 → `NOT_OWNED`，不存在 → `UNKNOWN_ARMY`。AI 与玩家走同一个审核器。
@@ -572,9 +572,9 @@ siege: {"attacker", "armies", "progress", "started_day"} | None
 - 战力逐个兵种相加：`数量 × power × 克制修正 × 地形修正`，再乘装备水平、稳定度和一次随机浮动。克制修正按敌方各兵种占比加权 `counters`；`terrain` 只作用于进攻方，防守方使用 `defense` 并外加 `defense_bonus_flat`。
 - 战损按各兵种占比用"最大余数法"拆分，显式不消耗随机数，保证回放一致；军饷断供时先遣散 `upkeep_per_day` 最高的兵种。
 - 行军是**真行军**，不是瞬移：`MARCH` / `ATTACK` 只下一张订单，把加权最短路写进 `army.march = MarchOrder(route, cumulative, spent, ...)`，`RuleEngine.step_day` 里的 `Military.march_daily()` 每天花掉 `movement.daily_budget` 点成本，将军队挪到该成本能到达的最远一格，走完路线才结算抵达（`army_arrived`）。
-- 路线成本来自 `config/rules.json` 的 `movement` 表：`biome_cost` 逐群系定价，`road_cost` 让道路格无视地形；路网取 `world.road_cells` 与各国已建成 `ROAD` 的并集，**不分归属**。`core/movement.py::Movement` 是唯一实现，引擎、AI 观测与前端都读它，别再另写一套跳数模型。
-- 单条命令上限 `maximum_order_cost`：超过就 `NO_PATH` 拒绝，跨大陆要分段下令。通道只允许己方或无主陆地；必须穿过敌国领土时改判为远征（`expedition=True`），仍按地形与道路定价。
-- 路线与 `cumulative` 是**下单时刻的定价快照**：路上新修的道路只加快下一条命令，不改变在途行军。在途军队不能再下令（`MARCH_IN_PROGRESS`）；沿途格子易主则就地中止（`march_cancelled`）。
+- 路线成本来自 `config/rules.json` 的 `movement` 表：`biome_cost` 逐群系定价，`road_cost` 让道路格无视地形；路网取 `world.road_cells` 与各国已建成 `ROAD` 的并集，**不分归属**。`core/movement.py::Movement` 是唯一实现，引擎、AI 观测与前端都读它，别再另写一套跳数模型。`Movement` 自己不认「谁在走」：`state_of(coord)` 返回 `{land, biome, road, hostile}`，`hostile` 由调用方按自己的立场算好交进来（`Military.movement(actor)` 填 `owners.get(coord) not in (None, actor)`，`mapgen_custom.movement()` 干脆不填 = 纯地理）。这个键名两边必须一致——v0.43 之前一边发 `hostile`、一边读 `owner`，`hostile_cost` 从上线起就没在结算里生效过而全套测试全绿，现在由 `test_hostile_soil_is_priced_into_every_road_that_crosses_it` 钉住「己方 = 中性价、无 actor = 中性价、别国 = 中性价 + `hostile_cost`」这条三方恒等式。
+- 单条命令上限 `maximum_order_cost`（v0.43 起 60 点）：超过不再判成「没有路」，而是回 `ORDER_LIMIT` 并附上这一格真正要多少点、约几天，让玩家自己分段下令。拒绝只有三种码：`SEA`（端点是海）、`ENCLAVED`（被海隔死的大陆）、`ORDER_LIMIT`（路在但一条命令付不起），`NO_ROAD` 只在跳过第二次无上限搜索时出现——日常报价走快路径，玩家点击与被拒的订单才付那次搜索。通道与落脚点分开：**穿**任何陆地格都可以，只是每踏进别国一格多付 `hostile_cost`（1.25）；**停**只能停在己方或无主格（`_marchable`），要占别国那一格就下进攻令。路线穿过他国领土即 `expedition=True`，会战另按 `expedition_factor` 惩罚。
+- 路线与 `cumulative` 是**下单时刻的定价快照**：路上新修的道路只加快下一条命令，不改变在途行军。在途军队不能再下令（`MARCH_IN_PROGRESS`）；沿途格子易主**不再撤销订单**（v0.43）——走廊按已谈好的价走完，抵达时那里站着谁就在抵达当日跟谁结算。`march_cancelled` 只剩一条触发路径：这支军队已经打不动了（`军队已无力继续行军`）。
 - 进攻要求已宣战：军队已在合法目标旁则当日开战，否则排队行军、抵达当日开战；远征按 `expedition_factor` 惩罚。
 - 会战只算**到场的军队**：`Military._mass(country, tile, army)` 取驻防（`march is None`、有兵力）且与缺口相距 ≤ `military.mass_radius` 格的军队，加上被下令的那一支，按它们的兵力占全国兵力之比折算战力系数 `minimum_mass_share + (1 - minimum_mass_share) × 占比`，攻守两侧同一条规则（`core/military.py::_battle`）。因此多座兵营的兵汇到同一格才打满，单独一支只打 `minimum_mass_share` 的力；伤亡先落在到场军队上（`_bleed_order`），再按固定顺序轮到其余军队，仍然不消耗随机数。战报与 `battle` 事件带 `attacker_mass / attacker_share / defender_mass / defender_share`。
 - `Military.strike_options()` 按**每支军队**给目标定价：返回值 `campaign_options[敌国]` 是当日最优的一路，`options` 列出各军自己的最短路（最多 `military.strike_columns` 条，排序键 `(days, -mass, army_id)`：天数相同优先打已经更多军队的缺口）。每条报价带 `mass`（到场几支）与 `mass_share`（这一仗打几成力），前端与 Mock/LLM 读的就是结算用的同一份数字，别再另算。
@@ -789,7 +789,7 @@ AI 市长在自给率低于 95% 时转“人口与农业”方针并扩建农业
 - 性格写入 `CountryState` 与动态存档；旧存档默认中立。
 - 观察数据 `country.personality` 同时提供给 Mock 与 LLM。
 - `mock.units` 是兵种招募优先序：规则 AI 只在已解锁、未满编、买得起的前提下按该顺序选兵种，全军团规模受观测里的 `country.army_cap`（=`field_cap`，随已建成兵营数增长）约束，缺这个键才退回 `military.maximum_strength`；三套性格都拿不到可用兵种时退回 `military.default_unit`。
-- `mock.barracks` 是本国**主场**想持有的兵营数：`_building_choice()` 的目标是 `mock.barracks + max(0, 城市数 - 1)`，每多一座城市就多要一座营，因为每营只练 `garrison_capacity` 支固定编制、全国上限又只按营数增长。内容表不再给 `BARRACKS` 设 `max_per_country`，所以这里没有硬顶；开工还要过 `bronze_metallurgy` 前置与"造价 + 30 天军饷"的钱包闸门。`run_march_balance.py` 用 `兵营当饭吃 / 无人修兵营` 两档场景调这个旋钮。
+- `mock.barracks` 是本国**主场**想持有的兵营数：`_building_choice()` 的目标是 `mock.barracks + max(0, 城市数 - 1)`，每多一座城市就多要一座营，因为每营只练 `garrison_capacity` 支固定编制、全国上限又只按营数增长。内容表不再给 `BARRACKS` 设 `max_per_country`，所以这里没有硬顶；开工还要过 `bronze_metallurgy` 前置，再过一道**流量闸门**（v0.43）：`(已建成 + 在建 + 1) 座营的日饷 ≤ (last_economy.treasury_income − military_upkeep) × 0.4`，外加国库仍付得起这一栋的造价。旧口径是 `treasury ≥ 造价 + 日饷 × 30` 的存量闸门——它只保证买得起砖，于是 AI 会一堵一堵地立起养不活的营，正是 §7.9 那批天天停摆的兵营的来路。`run_march_balance.py` 用 `兵营当饭吃 / 无人修兵营` 两档场景调这个旋钮。
 - 兵营募兵开关由 `mock` 的钱包与上限驱动：某支驻军营练满 `garrison_capacity`、或全国兵力已达 `army_cap` 时，规则 AI 主动 `SET_RECRUITING False` 停饷，不留着空转（`agents/heuristic.py::_barracks_orders`）。
 - `mock.roads` 是筑路欲望（本国想持有的道路格数）：`_building_choice()` 先满足它再排工矿，设 0 即完全不为此筑路。因为行军定价不分道路归属，这一格旋钮直接决定本国军队能在一条命令内打到哪里；立国偏好为 `building: ROAD` 的商贸国家仍会按经济偏好修到 2 条，与性格无关。
 - `mock.pact_relation` 必须不低于 `core.diplomacy.MINIMUM_PACT_RELATION`（15）：低于闸门只会在每个规划周期换来一条 `RELATION_TOO_LOW` 拒绝，`tests/test_march_balance.py` 逐档检查。
@@ -1277,7 +1277,7 @@ POST /api/agents/budget
 | `tech_tree` / `eras` / `research_*` | 科技与时代 |
 | `policies` | 国家政策 |
 | `military` | 编制下限 `maximum_strength`、`recruit_batch_max`、`default_unit`、战损率、`defense_bonus_flat`、`expedition_factor`、冶金加成、随机区间、占领与疲劳参数、`peace_relation_reset`、`strike_columns`（一场战争同时报价几路）、`mass_radius`（缺口几格内算到场）、`minimum_mass_share`（单独一支军队的战力保底）、`barracks` 子表（造价/工期/日饷/营内固定编制 `garrison_capacity`/默认兵种/进度封顶；**没有** `max_per_country`） |
-| `movement` | 真行军定价：`daily_budget`（单日可花的成本）、`road_cost`（道路格成本）、`maximum_order_cost`（单条命令上限）、`biome_cost`（逐陆地群系成本） |
+| `movement` | 真行军定价：`daily_budget`（单日可花的成本）、`road_cost`（道路格成本）、`hostile_cost`（踏入别国一格的减速附加，v0.43 起真的进结算）、`maximum_order_cost`（单条命令上限，60 点；超了回 `ORDER_LIMIT` 并报价实需）、`biome_cost`（逐陆地群系成本） |
 | `trade_expiry_days` | 提案过期 |
 | `workers_baseline` | 劳动力基准 |
 
@@ -1391,7 +1391,7 @@ POST /api/agents/budget
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**322 passed**（`python -m pytest -q --basetemp=.tmp_pytest`）。
+当前：**324 passed**（`python -m pytest -q --basetemp=.tmp_pytest`）。
 
 ### 15.2 测试原则
 
@@ -1593,8 +1593,8 @@ taskkill /PID <PID> /F
 - 六家 LLM 厂商的预设已完成接入与本地安全测试，但尚未用五家真实账号逐一验收；模型 ID 以各账号控制台实际开通情况为准。
 - Mock 规则 AI 仍是基线强度，尚未进行“无 Key 玩家也能获得完整体验”的深度策略优化。
 - 军事是战略抽象：已有兵营、多支军队实体、真行军与围城（封锁圈 → 每日成数 → 整城易主），但无海军、补给线、军团编制；围城也不模拟援军解围事件、饥荒围城内的粮价与城墙耐久分级——一座城同时只有一本账、只有一方围得。
-- **远征行军是已知缺陷（未修）**：`Movement` 在己方/无主走廊走不通时会放开成「过境敌土」再算一次价（`expedition=True`，会战另按 `expedition_factor` 惩罚），但 `march_daily` 见到「下一格已属他国」当日就把这支军队就地中止（`march_cancelled`）——按远征价报出的行军**永远走不完**，那套远征定价与惩罚目前只是装饰（`test_march_movement.py::test_an_expedition_is_priced_but_never_walked` 把这条矛盾钉住：报价 3 天 / 7.0 成本的远征队第 1 天就在边境停下，零抵达、零会战）。围城的开赴通道 `siege_marches` 因此刻意只报己方与无主走廊的路线、不带 `expedition` 字段，保证「面板报得出 = 结算走得到」。修法两条：下单时冻结沿途通行权（真修，会动平衡），或撤掉远征报价与 `expedition_factor`（承认包围就得先夺一格城缘）。两条都改变战争强度，尚未选定。
-- 默认开局世界（`output/world_2000BCE.json`，四国）在 4160 游戏日内一次宣战都没有：ELAR 与 SAHAR 全程零兵营零军队，VAYR 只攒到 3 支，唯一成规模的 MARIS（23 支、6 座营）离最近的对手还有 37 格以上——远超 24 点的 `movement.maximum_order_cost`，报价一律 `reachable=false`，而 AI 在宣战之前就先看可达性，于是和平一直挂着。军事内容的平衡证据因此全部来自 `mapgen.generate_fair_world` 生成的公平世界，实时观察台的默认局与 `run_march_balance.py` 不是同一个世界。
+- **远征行军在 v0.43 已经打通**（旧文档曾把它列为「报价能出、结算走不完」的已知缺陷）：`march_daily` 不再因为「下一格已属他国」而中止，按下单时冻结的路线走完，抵达当日照常有守军就开战；`Movement` 在己方/无主走廊走不通时放开成过境敌土再算一次价（`expedition=True`，每格多付 `hostile_cost`，会战再按 `expedition_factor` 惩罚），报价与结算读的是同一条路。围城开赴通道 `siege_marches` 也随之放开——它现在会报过境路线，代价写在同一行里，「面板报得出 = 结算走得到」靠的是同源定价而不是把路线藏起来。这一改动等于**抬高战争强度**，任何后续平衡结论都要以多 seed 长程实测为准（行军令次数、到场率、远征占比、夺地率、陷落与吞并数），不要凭「应该更活跃了」下结论。
+- 默认开局世界（`output/world_2000BCE.json`，四国）在 4160 游戏日内一次宣战都没有：ELAR 与 SAHAR 全程零兵营零军队，VAYR 只攒到 3 支，唯一成规模的 MARIS（23 支、6 座营）离最近的对手还有 37 格以上——远超当时 24 点的 `movement.maximum_order_cost`，报价一律 `reachable=false`，而 AI 在宣战之前就先看可达性，于是和平一直挂着。军事内容的平衡证据因此全部来自 `mapgen.generate_fair_world` 生成的公平世界，实时观察台的默认局与 `run_march_balance.py` 不是同一个世界。**这条结论测于「24 点上限 + 走廊不可穿」的旧口径**：v0.43 把上限提到 60 点并放开敌土通行，默认局是否仍然长和平需要重测（37 格草原在 60 点内已经够得着）。
 - 城市没有完整物资库存与城市间商品网络；目前只有粮食账本与地方预算。
 - 城市服务已有治安/卫生指标，但还没有独立的卫生所、治安所、消防等设施与事件链。
 - 无正式胜利动画、音效、过场；结算为 UI 面板。
@@ -1741,14 +1741,15 @@ siege(city_id/name/center/attacker/defender/open/armies/garrison/walls/attack_po
 - 科技：3 线 × 6 级。
 - 默认规划周期：90 日。
 - 自动保存：每 30 日。
-- 军事闸门：单条命令上限 24 点、集结半径 1 格、单独一支军队保底系数 0.5、每营定额 4 支、常备额 12 支。
+- 军事闸门：单条命令上限 60 点（v0.43，24 → 60；超过回 `ORDER_LIMIT` 并附实需点数与天数）、敌土减速 `hostile_cost` 1.25 点/格（**穿得过去、停不下来**：落脚点仍须己方或无主）、集结半径 1 格、单独一支军队保底系数 0.5、每营定额 4 支、常备额 12 支。
 - 按格下令：被点的格子必须属于目标国（`NOT_ENEMY_TILE` / `NO_TERRITORY`）；点城池中心格不再被拒，它开的是一本围城账——圈里已有本国军队则当日开围，否则排队行军到封锁圈；点其它格时军队已在相邻六格内则当日开战（`days 0`），否则落脚格必须是与目标格相邻、且不属该国的格子。
-- 围城结算：`daily_progress` 0.06 × 成数、`fall_threshold` 1.0、`blockade_radius` 1 格、`wall_bonus` 1.6、`exhaustion_per_day` 0.05（围方与被围方各加）、`stability_loss` 8.0（只在城破当日扣败方）、`peace_pressure` 10.0（城被啃满时的议和闸门位移）。基线（seed 2000、一支满编军队围一座边城）：无守军无墙 17 日城破、有城墙 20 日（成数 8/9.6）、圈内另有 8 支守军 34 日（成数 0.5）。城墙 `WALL`：造价 60、工期 90 日、需 `bronze_metallurgy` 3 级、只能落城池中心格。开赴通道另算一段路：`siege_marches` 报的是「行军 N 天 + 抵达后围 M 日」（实测 seed 31001 第 1806 日：B 的一支 4 乘战车走到青原城3 的落脚格 (83,30) 用 1 天 / 3.00 成本，抵达后 17 日城破 ⇒ 全程 18 日），只走己方与无主走廊，最多 `strike_columns` 路。
+- 围城结算：`daily_progress` 0.06 × 成数、`fall_threshold` 1.0、`blockade_radius` 1 格、`wall_bonus` 1.6、`exhaustion_per_day` 0.05（围方与被围方各加）、`stability_loss` 8.0（只在城破当日扣败方）、`peace_pressure` 10.0（城被啃满时的议和闸门位移）。基线（seed 2000、一支满编军队围一座边城）：无守军无墙 17 日城破、有城墙 20 日（成数 8/9.6）、圈内另有 8 支守军 34 日（成数 0.5）。城墙 `WALL`：造价 60、工期 90 日、需 `bronze_metallurgy` 3 级、只能落城池中心格。开赴通道另算一段路：`siege_marches` 报的是「行军 N 天 + 抵达后围 M 日」（实测 seed 31001 第 1806 日：B 的一支 4 乘战车走到青原城3 的落脚格 (83,30) 用 1 天 / 3.00 成本，抵达后 17 日城破 ⇒ 全程 18 日），路线可以穿过别国领土（每格多付 `hostile_cost`，抵达当日再吃 `expedition_factor`），但落脚格不落在对方领土里；最多 `strike_columns` 路。
 - 占领贡金：每栋建筑抽缴付方当日毛收入的 2%，为期 180 天，对同一收缴方合计封顶 8%；`ROAD` 免贡；净贡金每占本方收入 1% 把议和闸门移动 25.0 点疲劳。
-- 募兵结算：日饷 `barracks.daily_cost` 0.8、每营定额 `garrison_capacity` 4 支；默认兵种 `MILITIA`（财政 20、口粮 3、编成上限 8 支），攒够单价出 1 支 ⇒ 从空到成兵约 25 日；停摆码七种见 §7.9。
+- 募兵结算：日饷 `barracks.daily_cost` 0.5（v0.43，0.8 → 0.5）、每营定额 `garrison_capacity` 4 支、停摆公告限速 `stall_notice_days` 60 日；默认兵种 `MILITIA`（财政 12.5、口粮 3、编成上限 8 支），攒够单价出 1 支 ⇒ 从空到成兵约 25 日（造价与日饷同乘 0.625，日历不动）；停摆码七种见 §7.9。
+- 每兵养护 `units.*.upkeep_per_day`（v0.43 后整体下调约四成）：`MILITIA` 0.018、`ARCHER` 0.02、`HEAVY_INFANTRY` 0.025、`CHARIOT` 0.028、`CAVALRY` 0.033、`SIEGE` 0.036 财政/日，付不起当日由 `_desert()` 先遣走养护最贵的那一支（贵→贱次序未变）。
 - 回执与账本上限：`RECEIPT_LIMIT` = `LEDGER_LIMIT` = 12 条（外交页收发两列各取最近 12 行）。
 - 提案到期：贸易与协定都用 `trade_expiry_days` = 180 日（**没有** `pact_expiry_days` 这个键）；到期当日账上仍是 `PENDING` 且 `days_left = 0`，次日才翻 `EXPIRED`。
-- 测试：322 项。
+- 测试：324 项。
 - 实时服务默认端口：8765。
 
 ---

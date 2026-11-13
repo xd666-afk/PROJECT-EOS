@@ -269,6 +269,7 @@ class ArmyState:
     march: MarchOrder | None = None
     stall: str = ""
     raised: int = 0
+    stall_notices: dict[str, int] = field(default_factory=dict)
 
     @property
     def strength(self) -> int:
@@ -285,6 +286,7 @@ class ArmyState:
             "march": self.march.to_dict() if self.march else None,
             "stall": self.stall,
             "raised": self.raised,
+            "stall_notices": dict(self.stall_notices),
         }
 
     @classmethod
@@ -300,6 +302,8 @@ class ArmyState:
             march=MarchOrder.from_dict(payload) if payload else None,
             stall=str(data.get("stall", "") or ""),
             raised=max(0, int(data.get("raised", 0) or 0)),
+            stall_notices={str(code): int(day)
+                           for code, day in (data.get("stall_notices") or {}).items()},
         )
 
 

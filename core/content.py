@@ -25,7 +25,9 @@ MILITARY_NUMERIC = (
     "mass_radius", "minimum_mass_share",
     "capture_tribute_share", "capture_tribute_cap", "capture_tribute_resolve",
 )
-BARRACKS_KEYS = frozenset({"daily_cost", "garrison_capacity", "default_unit", "progress_cap_ratio"})
+BARRACKS_KEYS = frozenset(
+    {"daily_cost", "garrison_capacity", "default_unit", "progress_cap_ratio", "stall_notice_days"}
+)
 SIEGE_KEYS = frozenset({
     "daily_progress", "wall_bonus", "fall_threshold",
     "blockade_radius", "exhaustion_per_day", "stability_loss", "peace_pressure",
@@ -257,6 +259,9 @@ def _validate_military(config: dict[str, Any]) -> None:
     _require(isinstance(capacity, int) and not isinstance(capacity, bool) and capacity >= 1,
              "military.barracks.garrison_capacity 必须是正整数")
     _number(barracks["progress_cap_ratio"], "military.barracks.progress_cap_ratio", low=1.0)
+    notices = barracks["stall_notice_days"]
+    _require(isinstance(notices, int) and not isinstance(notices, bool) and notices >= 1,
+             "military.barracks.stall_notice_days 必须是正整数")
     fallback = barracks["default_unit"]
     _require(fallback in config["units"], f"military.barracks.default_unit {fallback!r} 不在 units 表中")
     _require(config["units"][fallback].get("required_technology") is None,

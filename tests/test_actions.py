@@ -153,7 +153,8 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
     }).accepted
     assert elar.army_units == {"MILITIA": 2}
     assert elar.army_strength == 2
-    assert elar.treasury == before_treasury - 40
+    price = float(state.config["units"]["MILITIA"]["cost"]["treasury"])
+    assert elar.treasury == pytest.approx(before_treasury - 2 * price)
     rejected = engine.apply_action("ELAR", {
         "type": "MILITARY", "operation": "RECRUIT", "unit": "SIEGE", "strength": 1,
     })

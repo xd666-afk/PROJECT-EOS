@@ -38,16 +38,18 @@ class Movement:
     def cost(self, coord: Coord) -> float | None:
         """Cost of entering `coord`; None means the tile cannot be marched onto.
 
-        Terrain sets the price, a road pays it down whatever lies under it, and whoever owns
-        the ground adds a surcharge on top of both — so the cheapest road across a hostile
-        country can still beat a friendly forest, while the same road at home stays cheaper
-        still.
+        Terrain sets the price, a road pays it down whatever lies under it, and ground the
+        marching realm does not hold adds a surcharge on top of both — so the cheapest road
+        across a hostile country can still beat a friendly forest, while the same road at
+        home stays cheaper still. `state_of` answers the ownership question for its own
+        actor and hands over the boolean; a caller without an actor (the map editor) leaves
+        the key out and marches over pure geography.
         """
         state = self._state_of(coord)
         if state is None or not state.get("land"):
             return None
         total = self.road_cost if state.get("road") else self.biome_cost[state["biome"]]
-        if state.get("owner") is not None:
+        if state.get("hostile"):
             total += self.hostile_cost
         return total
 

@@ -45,17 +45,33 @@ def quiet_state(seed=2000):
 
 
 def farthest_walkable_tile(engine, country_id):
-    """The corridor tile that costs the most to reach: a march with days to spare."""
+    """The dearest hex a plain march order can be parked on.
+
+    Two rules narrow the map down: a march only *ends* on own or unclaimed soil, and the
+    route to it must not cross anybody's border — a column may do that, but then it is an
+    expedition and the tests that time a march want the unpenalised road. Both are read
+    from the settlement's own helpers, so the day counts below are the ones the engine
+    quotes rather than a second arithmetic invented here.
+    """
     state = engine.state
+    military = engine.military
     seat = state.countries[country_id].army_position
-    movement = engine.military.movement()
-    costs, _previous = movement.search(
-        seat, engine.military._corridor(country_id, engine.military._owners())
+    owners = military._owners()
+    movement = military.movement(country_id)
+    costs, previous = movement.search(seat)
+    candidates = (
+        coord for coord in costs
+        if coord != seat and owners.get(coord) in (None, country_id)
     )
-    return max(
-        (coord for coord in costs if coord != seat),
-        key=lambda coord: (round(costs[coord], 3), -coord[1], coord[0]),
-    )
+    # Dearest first, so the march has days to spare; ties settle on the same hex the
+    # engine would pick.
+    ordered = sorted(candidates,
+                     key=lambda coord: (-round(costs[coord], 3), coord[1], -coord[0]))
+    for coord in ordered:
+        plan = military._road_plan(movement, previous, seat, coord)
+        if not military._expedition(country_id, plan, owners):
+            return coord
+    raise AssertionError(f"{country_id} 找不到一格既合法落脚、又不过境敌土的远格")
 
 
 def strip_movement(biomes, roads=(), **overrides):
@@ -176,7 +192,13 @@ def test_march_order_queues_and_walks_the_route_one_budget_per_day():
     assert not events_of(state, "battle")
 
 
-def test_a_march_is_cancelled_when_the_corridor_turns_hostile():
+def test_a_march_survives_the_corridor_turning_hostile():
+    """A border moving under a column no longer revokes the order.
+
+    The route keeps the price it was quoted with, so the hexes MARIS took mid-walk cost
+    this column nothing extra and cost the *next* order the surcharge: crossing is priced
+    when the order is placed, not renegotiated underneath it.
+    """
     engine, state = quiet_state()
     country = state.countries["ELAR"]
     seat = country.army_position
@@ -184,16 +206,20 @@ def test_a_march_is_cancelled_when_the_corridor_turns_hostile():
     ordered = engine.apply_action("ELAR", march_action(farthest_walkable_tile(engine, "ELAR")))
     assert ordered.accepted
     ahead = army.march.route[army.march.index + 1:]
+    destination = army.march.route[-1]
     for coord in ahead:
         if coord in country.tiles:
             country.tiles.remove(coord)
     state.countries["MARIS"].tiles = list(ahead)
 
     engine.step_day(force=True)
-    assert army.march is None
-    assert army.tile not in ahead
-    cancelled = events_of(state, "march_cancelled")[-1]
-    assert cancelled["army_id"] == army.army_id
+    assert army.march is not None and army.march.index > 0
+    assert not events_of(state, "march_cancelled")
+
+    for _ in range(ordered.effects["days"]):
+        engine.step_day(force=True)
+    assert army.march is None and army.tile == destination
+    assert events_of(state, "army_arrived")[-1]["purpose"] == "MARCH"
 
 
 def test_an_attack_only_battles_when_the_army_arrives():
@@ -240,6 +266,29 @@ def test_an_army_camped_on_the_border_still_fights_at_once():
     assert events_of(state, "battle")[-1]["expedition"] is False
 
 
+def test_hostile_soil_is_priced_into_every_road_that_crosses_it():
+    """`movement.hostile_cost` only rules the world if the quote actually moves with the border.
+
+    One hex, one terrain, three callers: a realm marching over its own ground, a realm
+    marching over somebody else's, and the map editor pricing pure geography. The middle
+    pair differs by exactly the surcharge — the day the two sides of this boundary spoke
+    different key names, every hostile road silently marched like home and nothing else
+    in this file noticed.
+    """
+    engine, state = quiet_state()
+    elar, maris, military = state.countries["ELAR"], state.countries["MARIS"], engine.military
+    coord = elar.army_position
+    assert coord in elar.tiles
+    neutral = military.movement().cost(coord)
+    assert military.movement("ELAR").cost(coord) == pytest.approx(neutral)
+
+    surcharge = float(state.config["movement"]["hostile_cost"])
+    elar.tiles = [tile for tile in elar.tiles if tile != coord]
+    maris.tiles = list(maris.tiles) + [coord]
+    assert military.movement("MARIS").cost(coord) == pytest.approx(neutral)
+    assert military.movement("ELAR").cost(coord) == pytest.approx(neutral + surcharge)
+
+
 def walled_world():
     """ELAR boxed in by SAHAR soil, with VAYR just outside that wall.
 
@@ -279,29 +328,33 @@ def test_a_hostile_corridor_becomes_an_expedition_and_the_enemy_roads_help_it():
     assert repaved["days"] <= priced["days"]
 
 
-def test_an_expedition_is_priced_but_never_walked():
-    """The passage is quoted and penalised, and `march_daily` still halts it at the border.
+def test_an_expedition_walks_its_quoted_road_and_fights_on_arrival():
+    """The road the strike channel quotes is the road the settlement walks.
 
-    Pinned so the contradiction stays visible instead of living only in a report: this is
-    why the siege channel quotes corridor-only roads, and the first thing to revisit if a
-    column is ever allowed to march through hostile soil is `expedition_factor` together
-    with the expedition rows the strike channel still offers.
+    This column crosses a continent of somebody else's soil, which used to be the case
+    that halted at the border. It no longer does: the surcharge is paid hex by hex on the
+    way out, and the price the expedition truly pays is the `expedition_factor` the battle
+    itself applies when the column finally arrives.
     """
     engine, state, army = walled_world()
     priced = engine.military.strike_options("ELAR")["VAYR"]
     assert priced["expedition"] is True and priced["days"] > 1
     assert engine.apply_action("ELAR", attack_action("VAYR")).accepted
+    assert army.march.expedition is True
     route = army.march.route
 
-    for _ in range(priced["days"] + 2):
+    for _ in range(priced["days"] - 1):
         engine.step_day(force=True)
+        assert not events_of(state, "battle")
 
-    assert army.march is None and army.tile in route
-    assert army.tile != route[-1], "stopped short: the column never reaches the objective"
-    assert not events_of(state, "army_arrived") and not events_of(state, "battle")
-    cancelled = events_of(state, "march_cancelled")[-1]
-    assert cancelled["army_id"] == army.army_id
-    assert cancelled["reason"] == "行军线沿途有格子易主，军队就地停下"
+    engine.step_day(force=True)
+    assert army.march is None and army.tile == route[-1]
+    assert not events_of(state, "march_cancelled")
+    arrived = events_of(state, "army_arrived")[-1]
+    assert arrived["purpose"] == "ATTACK" and arrived["fought"] is True
+    battle = events_of(state, "battle")[-1]
+    assert battle["attacker"] == "ELAR" and battle["defender"] == "VAYR"
+    assert battle["expedition"] is True
 
 
 def test_a_march_in_progress_survives_a_save_and_resumes_where_it_stopped(tmp_path):

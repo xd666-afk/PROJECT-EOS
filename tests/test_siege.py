@@ -907,7 +907,7 @@ def test_lying_to_a_wall_beats_marching_to_one_and_no_army_is_ordered_twice():
 def test_the_prompt_and_the_panel_both_offer_the_march():
     dashboard = (ROOT / "dashboard.html").read_text(encoding="utf-8")
     for needle in ("(quotes[id]||{}).siege_marches||[]", 'data-siege-march="', "可开赴的城墙",
-                   "开赴并开围", "抵达当日自动开围", "只走己方与无主地"):
+                   "开赴并开围", "抵达当日自动开围", "落脚格只要不在对方领土里"):
         assert needle in dashboard, needle
 
     engine = engine_of()

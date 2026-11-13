@@ -439,6 +439,9 @@ body.right-panel-open .notice-stack{right:354px}
   background:#d8b476;border-radius:2px}.road-thumb i::before{left:0}.road-thumb i::after{right:0}
 .build-option:last-child{border-bottom:0}
 .build-option.solo{grid-template-columns:1fr}
+/* Rows without a thumbnail still inherited the 38px first track, which pushed their text
+   into a sliver and left the button floating a column short of the right edge. */
+.build-option.row{grid-template-columns:1fr auto}
 .build-option b{display:block;font-size:10.5px;font-weight:600}
 .build-option small{display:block;color:var(--muted);font-size:8.5px;margin-top:1px}
 .build-option button{min-height:30px;min-width:48px;font-size:9.5px}
@@ -1019,7 +1022,7 @@ const PERSONALITY_LABELS={aggressive:'激进',neutral:'中立',conservative:'保
 const PERSONALITY_DESC={aggressive:'扩张、军备与威慑优先',neutral:'粮食、财政、军备与外交均衡',conservative:'粮食、稳定、防御与外交优先'};
 const canvas=document.getElementById('map'),ctx=canvas.getContext('2d'),mapPanel=canvas.parentElement;
 let WORLD=null,STATE=null,selectedCountry=null,selectedTile=null,mapMode='satellite',rightTab='country';
-let tileStrikes=null,tileStrikeKey='';
+let tileStrikes=null,tileStrikeKey='',tileStrikeTile='';
 let terrainImage=null,terrainReady=false,terrainUrl=null;
 let zoom=1,panX=0,panY=0,fitScale=1,baseOffX=0,baseOffY=0,drag=null,moved=false,renderKey='',eventKey='';
 let hoveredTile=null;
@@ -2107,13 +2110,13 @@ function tileStrikeCard(tile,price){
       :(row.reachable
         ?`行军 ${row.days} 天 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当日${center?'开围城账':'开战'}`
         :(center?`走不进这座城的封锁圈：先从边缘把圈里的一格夺下来`:'没有一条命令能走到这一格旁：先把军队分段调上前线'));
-    return `<div class="build-option"><div><b>${esc(row.army_id)}</b><small>${where}</small>
+    return `<div class="build-option row"><div><b>${esc(row.army_id)}</b><small>${where}</small>
       <small class="mut">到场 ${row.mass} 支 · 战力系数 ${fmtNum(row.mass_share,2)}</small>${routStrikeLine(row.rout)}</div>
       <button data-strike="${esc(row.army_id)}" ${row.reachable?'':'disabled'}>${
         center?(row.can_attack?'用这支军队开围':'开赴封锁圈'):row.can_attack?'用这支军队攻打':'开赴并攻打'}</button></div>`;
   }).join('');
   const note=`<div class="build-option solo"><span class="hint">${esc(STRIKE_NOTES[price.reason]||'本国暂时没有能打到这一格的军队。')}</span></div>`+
-    (price.reason==='NOT_AT_WAR'?`<div class="build-option"><div><b>向 ${esc(rival)} 宣战</b><small>宣战后这一格的报价与进攻令才会开放</small></div><button data-declare-war-tile>宣战</button></div>`:'');
+    (price.reason==='NOT_AT_WAR'?`<div class="build-option row"><div><b>向 ${esc(rival)} 宣战</b><small>宣战后这一格的报价与进攻令才会开放</small></div><button data-declare-war-tile>宣战</button></div>`:'');
   return `${head}<div class="build-card">
     <div class="build-option solo"><div><b>${center?`中心格周围 ${siegeRing()} 格封锁圈内有本国军队`:`这一格周围六格内有本国军队`} ${ring} 支</b>
     <small>${price.at_war?'报价来自结算引擎：到场军队数与战力系数即会战实际使用的数字。':'尚未交战。'}</small></div></div>
@@ -2156,7 +2159,7 @@ function tileMarchCard(tile,price){
   const cap=Number(frame.cap)||0;
   const body=rows.map(row=>{
     const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
-    return `<div class="build-option"><div><b>${esc(row.army_id)} ${key}</b>
+    return `<div class="build-option row"><div><b>${esc(row.army_id)} ${key}</b>
       <small>${marchRowLine(row,cap)}</small>
       <small class="mut">${row.strength} 支${row.expedition?' · 远征过境（沿途经过别国领土）':''}</small></div>
       ${marchRowButton(row)}</div>`;
@@ -2172,7 +2175,7 @@ function fieldStrikeRow(frame,row,tile){
       :'没有一条命令能走到这顶营帐旁：先把军队分段调上前线');
   const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
   const guard=row.unopposed?'对方营里没有军队接战':`对方到场 ${Number(row.guards)||0} 支`;
-  return `<div class="build-option"><div><b>${esc(row.army_id)} ${key}</b><small>${where}</small>
+  return `<div class="build-option row"><div><b>${esc(row.army_id)} ${key}</b><small>${where}</small>
     <small class="mut">我方到场 ${row.mass} 支 · 战力系数 ${fmtNum(row.mass_share,2)} · ${guard} · 攻方折 ${fmtInt(row.attacker_loss)} 人 · 守方折 ${fmtInt(row.defender_loss)} 人</small>
     ${routStrikeLine(row.rout)}</div>
     <button data-field-strike="${esc(row.army_id)}" data-field-target="${esc(frame.target)}" ${row.reachable?'':'disabled'}>${
@@ -2191,7 +2194,7 @@ function fieldFrameCard(frame,tile){
   const note=`<div class="build-option solo"><span class="hint">${frame.at_war
     ?'本国暂时没有能打到这顶营帐的军队：都在途或未编成。'
     :`还未与 ${who} 交战：宣战后军队才接得到这道打击令。这一格不是 ${who} 的领土，所以打赢只歼其军、边界不动。`}</span></div>`+
-    (!frame.at_war?`<div class="build-option"><div><b>向 ${who} 宣战</b><small>宣战后这一顶营帐的报价与打击令才会开放</small></div><button data-field-war="${esc(frame.target)}">宣战</button></div>`:'');
+    (!frame.at_war?`<div class="build-option row"><div><b>向 ${who} 宣战</b><small>宣战后这一顶营帐的报价与打击令才会开放</small></div><button data-field-war="${esc(frame.target)}">宣战</button></div>`:'');
   return `<div class="build-card">${head}${rows||note}</div>`;
 }
 function tileFieldCard(tile,price){
@@ -2317,7 +2320,7 @@ function renderRight(){
     ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>日 ${STATE.latest_llm_decision.day}</small></div>
       <p>${esc(decision.reason||'无说明')}</p><div class="chips">${(decision.actions||[]).map(a=>`<span class="chip">${esc(fmtAction(a))}</span>`).join('')}</div></div>`:''}
     <div class="split"><span>建设队列</span><b>${c.projects} 项</b></div>
-    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
+    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option row"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
     ${STATE.player_country===selectedCountry?`
       <div class="sect"><span>国策命令</span><span>即时生效</span></div>
       <div class="manage">
@@ -2366,8 +2369,13 @@ function renderRight(){
   }
 
   const strikeKey=selectedTile?`${selectedTile[0]},${selectedTile[1]},${STATE.day},${STATE.player_country||''}`:'';
+  const strikeTile=selectedTile?`${selectedTile[0]},${selectedTile[1]}`:'';
   if(strikeKey!==tileStrikeKey){
-    tileStrikeKey=strikeKey;tileStrikes=null;
+    tileStrikeKey=strikeKey;
+    // Only another hex invalidates what is already on screen. A new day re-prices this one,
+    // and the old quote stays under the button until the fresh one lands — clearing it here
+    // emptied the march rows for a beat every morning, which read as the panel flickering.
+    if(strikeTile!==tileStrikeTile){tileStrikeTile=strikeTile;tileStrikes=null;}
     if(strikeKey&&STATE.player_country)loadTileStrikes(selectedTile[0],selectedTile[1],strikeKey);
   }
   const tile=selectedTileData(),b=selectedTile?(buildingAt(selectedTile[0],selectedTile[1])):null;
@@ -2413,7 +2421,7 @@ function renderRight(){
       ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
         (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
           <div class="build-card">
-            <div class="build-option"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
+            <div class="build-option row"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
             <div class="settle-conditions">${settle.checks.map(check=>`<div class="settle-check ${check.ok?'ok':'bad'}"><i></i>${esc(check.label)}<span>${check.ok?'已满足':'未满足'}</span></div>`).join('')}</div>
           </div>`:
         `<div class="observer-note"><b>${STATE.player_country?'不可建城':'观战视角'}</b>${STATE.player_country?'此处已有主权，或不与本国领土相邻。建城地块必须与本国领土直接相邻。':'只有接管一个国家后，才能建城或建设。'}</div>`)}
@@ -3048,7 +3056,7 @@ function showNoticeBubble(event){
 }
 function syncNoticeBubbles(){
   if(!STATE)return;
-  const events=(STATE.recent_events||[]).filter(e=>!['economy_daily','action_result','llm_call','agent_test','ruler_message'].includes(e.type));
+  const events=(STATE.recent_events||[]).filter(e=>!['economy_daily','action_result','llm_call','agent_test','ruler_message','barracks_stalled'].includes(e.type));
   const seq=events.reduce((m,e)=>Math.max(m,e.sequence||0),0);
   if(lastNoticeSeq===null){lastNoticeSeq=seq;return;}
   if(seq<=lastNoticeSeq)return;

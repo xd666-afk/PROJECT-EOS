@@ -440,7 +440,13 @@ class Military:
 
     def _stall(self, country, army, code: str, tile, wage: float,
                unit_id: str | None = None) -> None:
-        """Record why this camp delivers nothing today -- once, when it changes."""
+        """Record why this camp delivers nothing today.
+
+        The reason lands on `army.stall` every single day -- the panel and the quotes read
+        it live -- but the announcement is rate limited: one camp may complain about the
+        same reason once per `stall_notice_days`, because a treasury hovering around the
+        daily wage flips the code on and off almost every day.
+        """
         unit_id = unit_id or (self._barracks_unit(country, army) if army else "")
         if army is not None:
             if army.stall == code:
@@ -448,6 +454,13 @@ class Military:
             army.stall = code
         if code in RECRUIT_STALL_QUIET:
             return
+        day = self.state.day_index
+        cooldown = int(self.barracks["stall_notice_days"])
+        last = army.stall_notices.get(code) if army is not None else None
+        if last is not None and day - last < cooldown:
+            return
+        if army is not None:
+            army.stall_notices[code] = day
         spec = self.units.get(unit_id) or {}
         self.state.record(
             "barracks_stalled", country_id=country.country_id,
