@@ -641,6 +641,68 @@ body.right-panel-open .notice-stack{right:354px}
   .tabs button{font-size:9px}
   .left,.right{max-height:50vh}
 }
+
+/* v0.46: one persistent map, object navigation and a contextual workbench. */
+:root{--rail:64px}
+.rail{padding:10px 6px}.rail button{min-height:52px}.rail-note{display:none}
+.topbar{grid-template-columns:155px minmax(300px,1fr) auto;gap:12px;padding:10px 18px}
+.brand .sigil{display:none}.brand h1{font-size:14px}.brand small{font-size:11px}
+.power{flex-wrap:nowrap;justify-content:flex-start;gap:16px}.res{border:0;background:none;min-width:65px;padding:0}
+.res:first-child,.res:last-child{display:none}.res small{font-size:11px}.res b{font-size:15px}
+.timebox{gap:12px}.date{min-width:130px}.timebtns .pause{min-width:58px}.timebtns button{font-size:12px}
+.left{width:248px;top:64px;bottom:18px}.right{width:352px;top:64px;bottom:18px}
+.left .scroll,.right .scroll{padding:14px}.side-head{min-height:43px;font-size:12px}
+.side-head button{font-size:12px}.side-head span{font-weight:600}
+.object-header{padding:14px;border-bottom:1px solid var(--line)}
+.object-header label{display:block;font-size:11px;color:var(--muted);margin-bottom:7px}
+#realmPicker{width:100%;padding:9px;font-size:14px}.object-header .modebar{margin-top:10px;justify-content:stretch}
+.object-header .modebar button{flex:1;font-size:12px}.view-status{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.6}
+.object-tabs,.context-tabs{display:flex;gap:5px;padding:10px 0}.object-tabs button,.context-tabs button{flex:1;padding:8px;font-size:12px}
+.object-tabs button.on,.context-tabs button.on{border-color:var(--accent);color:var(--accent);background:var(--panel-3)}
+#countries,#playerBanner{display:none!important}.object-row{display:block;width:100%;text-align:left;padding:12px;margin:6px 0;background:none}
+.object-row b{display:block;font-size:13px}.object-row small{display:block;color:var(--muted);margin-top:5px;font-size:11px;line-height:1.7}
+#worldSupply .sect{display:none}#worldSupply .country{padding:12px 8px;margin:5px 0}#worldSupply .country small{font-size:11px;white-space:normal;line-height:1.7}
+#worldSupply .country b{font-size:13px}#worldRight>.tabs{display:none}
+#worldRight .heading h2{font-size:20px}.context-tabs{position:sticky;top:0;background:var(--shell);z-index:2}
+#worldRight .kv,#worldRight .split{font-size:12px;line-height:1.8}#worldRight .hint{font-size:12px;line-height:1.8}
+#worldRight .build-option{padding:12px 8px}#worldRight .build-option b{font-size:13px}#worldRight .build-option small{font-size:11px;line-height:1.7}
+#worldRight button{min-height:32px}#worldRight details{margin:12px 0}#worldRight summary{cursor:pointer;color:var(--muted);padding:9px 0;font-size:12px}
+.inspector-empty{padding:20px 0;color:var(--muted);font-size:13px;line-height:1.9}
+.layer-note,.ticker{display:none}.map-toolbar{top:16px}.map-tools button{padding:8px 11px;font-size:12px}
+.map-legend{max-width:calc(100% - 30px);font-size:10px}.notice-stack{bottom:26px;pointer-events:none}
+.notice-bubble{pointer-events:auto;font-size:11px;max-width:290px}.notice-bubble:nth-child(n+2){display:none}
+/* Secondary views are drawers: the map and the clock stay in place. */
+.modal{left:auto;right:0;top:var(--top);width:min(790px,calc(100vw - 360px));border-left:1px solid var(--line-2);box-shadow:-16px 0 45px #0005;background:var(--shell)}
+.modal-card{padding:24px 26px 40px}.modal-head{position:sticky;top:-1px;background:var(--shell);z-index:4;padding:12px 0 16px}
+.modal-head h2{font-size:22px}.modal-head p{font-size:12px}.deck-crumb{font-size:11px}.deck-tabs button{font-size:13px;padding:8px 14px}
+.modal .mil-grid,.modal .diplo-layout{grid-template-columns:1fr}.modal .tech-grid{grid-template-columns:1fr}
+.modal .city-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.modal .city-detail{grid-template-columns:1fr}
+.modal .hint{font-size:12px;line-height:1.8}.modal td,.modal th{font-size:12px}.modal .diplo-row{grid-template-columns:5px 1fr}
+.modal .diplo-row>div:nth-child(3),.modal .diplo-actions{grid-column:2}.modal .diplo-actions{max-width:none!important}
+.modal .garrison-row small{font-size:12px}.modal .city-stat small{font-size:11px}.modal .deck-head-actions button{font-size:12px}
+body:has(.modal:not([hidden])) .right{visibility:hidden}
+@media(max-width:1150px){body:has(.modal:not([hidden])) .left{visibility:hidden}.brand{display:none}.topbar{grid-template-columns:1fr auto}.power{gap:10px}.timebtns .speed:nth-of-type(n+4){display:none}.modal{width:calc(100vw - 330px)}}
+@media(max-width:850px){.power .res:nth-child(n+4){display:none}.date small{display:none}.timebox{gap:5px}.modal{left:var(--rail);width:auto}.left{width:220px}.right{width:min(352px,calc(100vw - 90px))}}
+@media(max-width:640px){:root{--rail:0px;--top:74px}.app{padding-left:0}.rail{z-index:60}.topbar{grid-template-columns:1fr auto}.hud-actions{display:none}.date{min-width:110px}.date b{font-size:11px}.timebtns .speed{display:none}.left{max-height:calc(100vh - 175px);bottom:70px;top:62px}.right{max-height:calc(100vh - 170px);top:62px;bottom:65px}.modal{bottom:56px;left:0}.modal-card{padding:14px}.modal .city-grid{grid-template-columns:1fr}.map-tools{max-width:100%;overflow:auto;flex-wrap:nowrap}.map-tools button{white-space:nowrap}}
+
+</style>
+<style>
+@media(min-width:901px){
+  .topbar{grid-template-rows:none;height:74px;min-height:74px}
+  .power,.timebox{grid-column:auto;grid-row:1}
+}
+@media(min-width:901px) and (max-width:1150px){
+  .power .res:nth-child(n+4){display:none}
+  body:has(.modal:not([hidden])) #worldLeft{display:none}
+}
+@media(max-width:900px){
+  :root{--rail:0px}
+  .topbar{grid-template-columns:minmax(140px,1fr) auto;grid-template-rows:none;height:74px;padding:8px 12px}
+  .power,.timebox{grid-column:auto;grid-row:1}.power{gap:12px;justify-content:flex-start}
+  .power .res:nth-child(n+4){display:none}.timebox{flex-wrap:nowrap}
+  .modal{left:0;width:100%;bottom:56px}.date small{display:none}
+  body:has(.modal:not([hidden])) #worldLeft{display:none}
+}
 </style>
 </head>
 <body>
@@ -706,10 +768,6 @@ body.right-panel-open .notice-stack{right:354px}
     </div>
     <div class="power" id="powerBar"></div>
     <div class="timebox">
-      <div class="modebar">
-        <button id="observeBtn">观战</button>
-        <button id="interveneBtn">介入</button>
-      </div>
       <div class="hud-actions">
         <button class="notify" id="notifyBtn" title="通知中心">动态<span class="notify-badge" id="notifyBadge">0</span></button>
         <button id="gameMenuBtn">菜单</button>
@@ -721,14 +779,19 @@ body.right-panel-open .notice-stack{right:354px}
         <button class="speed on" data-speed="2">2×</button>
         <button class="speed" data-speed="4">4×</button>
         <button class="speed" data-speed="8">8×</button>
-        <button id="stepBtn">›</button>
+        <button id="stepBtn" title="推进一天">单步</button>
       </div>
     </div>
   </header>
   <main class="workspace">
     <aside class="left" id="worldLeft">
-      <div class="side-head"><span>世界列国 · 点击选择</span><button id="collapseLeft">收起</button></div>
-      <div class="scroll">
+      <div class="side-head"><span>世界导航</span><button id="collapseLeft">收起</button></div>
+      <div class="object-header"><label for="realmPicker">正在查看的国家</label><select id="realmPicker"></select>      <div class="modebar">
+        <button id="observeBtn">观战</button>
+        <button id="interveneBtn">介入</button>
+      </div>
+<div class="view-status" id="viewStatus"></div></div>
+      <div class="scroll"><div class="object-tabs"><button data-object-tab="cities" class="on">城市</button><button data-object-tab="armies">军队</button><button data-object-tab="tasks">事务</button></div><div id="objectArmies" hidden></div>
         <div class="threat-stack" id="worldThreats" hidden></div>
         <div id="worldSupply" hidden></div>
         <div class="player-banner" id="playerBanner" hidden></div>
@@ -795,7 +858,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 科技</div><h2>科技与时代</h2><p id="techSubtitle">三条科技线共同决定时代推进</p></div>
-      <div class="deck-head-actions"><button id="techCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="techCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="techTabs">
       <button data-tech-filter="all" class="on">总览</button>
@@ -813,7 +876,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 外交</div><h2>外交与协定</h2><p id="diploSubtitle">关系、贸易协定与双边提案</p></div>
-      <div class="deck-head-actions"><button id="diploCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="diploCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="diploTabs">
       <button data-diplo-filter="relations" class="on">邦交关系</button>
@@ -827,7 +890,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 军事</div><h2>军事与战争</h2><p id="militarySubtitle">常备军、边境战与战争疲劳</p></div>
-      <div class="deck-head-actions"><button id="militaryCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="militaryCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="militaryTabs">
       <button data-mil-filter="army" class="on">军队</button>
@@ -841,7 +904,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 城市</div><h2>城市与规划</h2><p id="citySubtitle">城市人口、城域与独立发展方针</p></div>
-      <div class="deck-head-actions"><button id="cityCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="cityCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="cityTabs">
       <button data-city-tab="list" class="on">城市列表</button>
@@ -889,7 +952,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 国家</div><h2>国家治理</h2><p id="nationSubtitle">全局资源、政策、城市与排名</p></div>
-      <div class="deck-head-actions"><button id="nationCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="nationCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="nationTabs">
       <button data-nation-tab="overview" class="on">概览与政策</button>
@@ -905,7 +968,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / 动态</div><h2>通知中心</h2><p>世界事件与在建工程。重要变化会同时以地图气泡提示，不需要常驻占用主界面。</p></div>
-      <div class="deck-head-actions"><button id="notifyCloseBtn">返回世界</button></div>
+      <div class="deck-head-actions"><button id="notifyCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="notifyTabs">
       <button data-notify-tab="events" class="on">世界动态</button>
@@ -936,7 +999,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / AI</div><h2>国家 AI 席位</h2><p>逐国选择激进/中立/保守性格，以及 Mock 或任意 OpenAI 兼容模型。密钥只读取本机环境变量，不进入页面或存档。</p></div>
-      <div class="deck-head-actions"><button id="agentsClose">返回世界</button></div>
+      <div class="deck-head-actions"><button id="agentsClose">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="aiTabs">
       <button data-ai-tab="seats" class="on">席位配置</button>
@@ -955,7 +1018,7 @@ body.right-panel-open .notice-stack{right:354px}
   <div class="modal-card">
     <div class="modal-head">
       <div><div class="deck-crumb">指挥台 / AI / 统治档案</div><h2>AI 统治档案</h2><p>决策会先以地图气泡出现；这里保留已经淡出或关闭的 LLM 日记，随时回看它看到了什么、为什么这样做、下一步准备做什么。</p></div>
-      <div class="deck-head-actions"><button id="diaryClose">返回世界</button></div>
+      <div class="deck-head-actions"><button id="diaryClose">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="diaryTabs">
       <button data-ai-tab="seats">席位配置</button>
@@ -1873,7 +1936,7 @@ function cityStockCard(city){
     <div class="split"><span>未满足需求 / 运输损耗</span><b>${fmtNum(city.food_unmet,2)} / ${fmtNum(city.food_loss,2)}</b></div>
     <div class="hint">${connected} 条可用城际路线 · 全国存粮是各城库存合计。道路提高运量并降低损耗；隔离城市须靠本地储粮。</div>
     ${routes.map(r=>{const peer=cities.find(c=>c.city_id===(r.source===city.city_id?r.target:r.source));return `<div class="hint"><b>${esc(peer?.name||'其他城市')}</b> · ${r.status==='connected'?`${fmtNum(r.capacity,1)} 粮/日 · 损耗 ${(r.loss_rate*100).toFixed(1)}%`:esc(r.reason)}</div>`;}).join('')}
-    <button data-supply-map="${esc(city.city_id)}">在地图查看物流</button></div>`;
+    <div class="action-row"><button data-open-city-planner="${esc(city.city_id)}">进入城市规划</button><button data-supply-map="${esc(city.city_id)}">查看物流</button></div></div>`;
 }
 function renderSupplyOverview(){
   const host=$('worldSupply'),country=STATE?.countries?.[selectedCountry];
@@ -1922,7 +1985,7 @@ function pickMapArmy(coord){
   const rows=(c?.armies||[]).filter(a=>a.strength>0&&a.tile?.[0]===coord[0]&&a.tile?.[1]===coord[1]);
   if(!rows.length)return;
   const at=rows.findIndex(a=>a.army_id===selectedArmy);
-  selectedArmy=rows[(at+1)%rows.length].army_id;
+  selectedArmy=rows[(at+1)%rows.length].army_id;inspectorMode='orders';
   showToast(`已选中 ${selectedArmy}；点击目的地查看路线和抵达时间`);
 }
 function drawOrderPreview(scale){
@@ -1946,8 +2009,45 @@ document.addEventListener('click',async e=>{
     mapMode='logistics';for(const b of document.querySelectorAll('[data-layer]'))b.classList.toggle('on',b.dataset.layer===mapMode);
     updateMapLegend();
   }
-  focusTile(...city.center);
+  inspectorMode='info';focusTile(...city.center);
 });
+
+let objectTab='cities',inspectorMode='build',unavailableOpen=false;
+function renderObjectNavigator(){
+  const picker=$('realmPicker');if(!picker||!STATE)return;
+  if(document.activeElement!==picker){picker.innerHTML=livePolities().map(p=>`<option value="${p.id}" ${p.id===selectedCountry?'selected':''}>${esc(p.name)}</option>`).join('');}
+  $('viewStatus').textContent=STATE.player_country?`正在治理 ${countryMeta(STATE.player_country)?.name||STATE.player_country} · ${selectedCountry===STATE.player_country?'本国视角':'查看其他国家'}`:'观战中 · 接管后可下达操作';
+  const c=STATE.countries[selectedCountry];
+  $('objectArmies').innerHTML=(c?.armies||[]).filter(a=>a.strength>0).map(a=>`<button class="object-row" data-nav-army="${a.army_id}"><b>${esc(a.army_id)} · ${a.strength} 支</b><small>${a.march?`在途 · 剩余 ${a.march.days_left} 天`:'待命 · 点击定位并选择'}</small></button>`).join('')||'<div class="inspector-empty">尚无已编成军队。<button data-open-recruit>前往募兵</button></div>';
+  $('worldSupply').hidden=objectTab!=='cities';$('objectArmies').hidden=objectTab!=='armies';
+  $('worldThreats').hidden=objectTab!=='tasks'||!threatRows().length;
+  $('activities').hidden=objectTab!=='tasks';$('activities').previousElementSibling.hidden=objectTab!=='tasks';
+  for(const b of document.querySelectorAll('[data-object-tab]'))b.classList.toggle('on',b.dataset.objectTab===objectTab);
+}
+function refreshInspector(){
+  const panel=$('panel-tile');if(!panel)return;
+  for(const node of panel.querySelectorAll('[data-inspect-section]'))node.hidden=node.dataset.inspectSection!==inspectorMode;
+  for(const b of panel.querySelectorAll('[data-inspect-mode]'))b.classList.toggle('on',b.dataset.inspectMode===inspectorMode);
+  for(const card of panel.querySelectorAll('[data-inspect-section="build"]>.build-card')){
+    const disabled=[...card.querySelectorAll(':scope > .build-option')].filter(row=>row.querySelector('[data-build]:disabled'));
+    if(disabled.length){const details=document.createElement('details');details.open=unavailableOpen;
+      details.innerHTML=`<summary>暂不可用的建筑（${disabled.length}）· 查看原因</summary>`;
+      details.ontoggle=()=>{unavailableOpen=details.open};disabled.forEach(row=>details.appendChild(row));
+      if(!card.querySelector('[data-build]:not(:disabled)')){const hint=document.createElement('div');hint.className='hint';hint.textContent='此地块暂无可开工项目。可展开条件查看原因，或选择相邻空地。';card.appendChild(hint);}
+      card.appendChild(details);}
+  }
+  const title=$('worldRight').querySelector('.side-head span');
+  if(title)title.textContent=selectedTile?`当前对象 · ${selectedTile.join(', ')}`:'操作与详情';
+}
+$('realmPicker').onchange=async e=>{const deck=activeDeck;selectCountry(e.target.value);if(deck!=='world')await openDeck(deck,true);};
+document.addEventListener('click',async e=>{
+  const tab=e.target.closest('[data-object-tab]');if(tab){objectTab=tab.dataset.objectTab;renderObjectNavigator();}
+  const mode=e.target.closest('[data-inspect-mode]');if(mode){inspectorMode=mode.dataset.inspectMode;refreshInspector();}
+  const army=e.target.closest('[data-nav-army]');if(army){const a=STATE.countries[selectedCountry].armies.find(a=>a.army_id===army.dataset.navArmy);const own=STATE.player_country===selectedCountry;selectedArmy=own?a.army_id:null;inspectorMode=own?'orders':'info';focusTile(...a.tile);}
+  if(e.target.closest('[data-open-recruit]'))openDeck('military');
+  const planner=e.target.closest('[data-open-city-planner]');if(planner){await openDeck('city',true);openCityDetail(planner.dataset.openCityPlanner);}
+});
+
 function render(force=false){
   const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
   const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
@@ -2149,11 +2249,11 @@ function renderTop(){
   $('eraLine').textContent=(country.era?.short||'时代')+' · '+(country.era?.name||'');
   $('date').textContent=STATE.date;
   $('nextPlan').textContent=`游戏日 ${STATE.day} / ${STATE.maximum_day} · 下一规划 ${nextPlanning()} 日`;
-  $('pauseBtn').textContent=STATE.paused?'▶':'Ⅱ';
+  $('pauseBtn').textContent=STATE.paused?'继续':'暂停';
   for(const b of document.querySelectorAll('.speed'))b.classList.toggle('on',Number(b.dataset.speed)===STATE.speed);
   $('observeBtn').classList.toggle('on',STATE.mode==='observer');
   $('interveneBtn').classList.toggle('on',STATE.mode==='player');
-  $('interveneBtn').textContent=STATE.mode==='player'?'治理中':'介入';
+  $('interveneBtn').textContent=STATE.player_country===selectedCountry?'结束接管':'接管该国';
   const bld=Object.keys(country.buildings).length;
   const rank=(STATE.ranking||[]).findIndex(entry=>entry.country_id===selectedCountry);
   $('powerBar').innerHTML=`
@@ -2267,6 +2367,7 @@ function healSelection(){
 function renderCountries(){
   if(!STATE)return;
   renderSupplyOverview();
+  renderObjectNavigator();
   const alerts=STATE.incoming_threats||{};
   $('countries').innerHTML=livePolities().map(p=>{
     const c=STATE.countries[p.id],agent=STATE.agents?.[p.id]||{};
@@ -2284,6 +2385,7 @@ function renderCountries(){
   $('countries').insertAdjacentHTML('beforeend',footer);
   for(const b of document.querySelectorAll('#countries .country'))b.onclick=()=>selectCountry(b.dataset.country);
   renderThreats();
+  renderObjectNavigator();
   updateMilitaryDot();
   const projects=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
   $('jobCount').textContent=`${projects.length} 项`;
@@ -2819,7 +2921,7 @@ function renderRight(){
     $('panel-tile').innerHTML='<div class="heading"><div><h2>未选择地块</h2><small>点击地图查看地块详情</small></div></div><div class="hint">地图是主要操作面。选择地块后，这里会显示地形、设施和可建造选项。</div>';
   }else{
     const player=STATE.player_country?STATE.countries[STATE.player_country]:null;
-    const owned=STATE.player_country&&selectedCountry===STATE.player_country&&tile.owner===STATE.player_country;
+    const owned=STATE.player_country&&tile.owner===STATE.player_country;
     const settle=settleConditions(tile);
     const specs=STATE.building_specs||{};
     const buildRows=owned?Object.entries(specs).map(([key,spec])=>{
@@ -2844,7 +2946,8 @@ function renderRight(){
     $('panel-tile').innerHTML=`
       <div class="heading"><div><h2>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
       <span class="pill">${b?(b.project?'施工中':'已建设'):'未建设'}</span></div>
-      <div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
+      <div class="context-tabs"><button data-inspect-mode="build">建设</button><button data-inspect-mode="orders">调动</button><button data-inspect-mode="info">详情</button></div>
+      <div data-inspect-section="info"><div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
       <div class="kv"><span>地形</span><b>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</b></div>
       ${tile.lake?`<div class="kv"><span>湖泊</span><b>内流湖 · 水深 ${tile.lakeDepth!=null?fmtNum(tile.lakeDepth,1)+' m':'未知'}${tile.lakeLevel!=null?` · 湖面 ${fmtNum(tile.lakeLevel,0)} m`:''}</b></div>`:''}
       ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverKind==='endorheic'?'内流河':'外流河'}${tile.riverKind==='endorheic'&&tile.riverTerminal?` · 注入 ${esc(tile.riverTerminal)}`:''}${tile.riverDepth!=null?` · 水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:''}${tile.riverDrainage?` · 流域 ${fmtInt(tile.riverDrainage)} km²`:''}</b></div>`:''}
@@ -2852,19 +2955,20 @@ function renderRight(){
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
       ${cityAtTile(tile.owner,tile.col,tile.row)?cityStockCard(cityAtTile(tile.owner,tile.col,tile.row)):""}
-      ${tileIncomingCard(tile)}
+      </div><div data-inspect-section="orders">${tileIncomingCard(tile)}
       ${tileGarrison(tile,tilePrice(tile))}
       ${tileBarracksCard(tile,owned)}
       ${tileMarchCard(tile,tilePrice(tile))}
       ${tileStrikeCard(tile,tilePrice(tile))}
       ${tileFieldCard(tile,tilePrice(tile))}
-      ${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
+      </div><div data-inspect-section="build">${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
         (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
           <div class="build-card">
             <div class="build-option row"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
             <div class="settle-conditions">${settle.checks.map(check=>`<div class="settle-check ${check.ok?'ok':'bad'}"><i></i>${esc(check.label)}<span>${check.ok?'已满足':'未满足'}</span></div>`).join('')}</div>
           </div>`:
         `<div class="observer-note"><b>${STATE.player_country?'不可建城':'观战视角'}</b>${STATE.player_country?'此处已有主权，或不与本国领土相邻。建城地块必须与本国领土直接相邻。':'只有接管一个国家后，才能建城或建设。'}</div>`)}
+      </div>
     `;
     for(const btn of document.querySelectorAll('[data-build]')){
       btn.onclick=()=>submitBuild(tile.col,tile.row,btn.dataset.build);
@@ -2914,6 +3018,7 @@ function renderRight(){
     <div class="hint">评分每 90 日规划阶段后更新，四条路线分别奖励人口与仓容、科技与书库、领土与前哨、稳定度与住房。没有任何单一资源可以独占排名。</div>`;
   const tick=events.slice(0,2).map(e=>`<b>${e[0]}</b> ${e[1]}`).join('　·　');
   $('ticker').innerHTML=tick||'等待世界动态';
+  refreshInspector();
 }
 function fmtAction(a){
   if(!a)return'无动作';
@@ -3001,7 +3106,7 @@ function selectTab(name){
 }
 function showDetailTab(){setSidePanel('right',true);selectTab('tile');}
 function selectCountry(cid){
-  selectedCountry=cid;selectedTile=null;setSidePanel('right',true);
+  selectedCountry=cid;selectedTile=null;setSidePanel('right',false);
   if(STATE?.mode==='player'&&STATE.player_country!==cid)showToast(`当前治理 ${STATE.player_country}；切换到 ${cid} 需要重新介入。`);
   renderTop();renderCountries();renderRight();render(true);
 }
@@ -3119,7 +3224,7 @@ canvas.addEventListener('dblclick',async e=>{
   const hit=cityAtScreen(e.clientX,e.clientY);
   if(!hit)return;
   selectedCountry=hit.cid;
-  await openCities();
+  await openDeck('city',true);
   openCityDetail(hit.city.city_id);
 });
 canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
@@ -3159,7 +3264,7 @@ $('pauseBtn').onclick=()=>control(STATE?.paused?'resume':'pause');
 $('stepBtn').onclick=()=>control('step');
 for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed',Number(b.dataset.speed));
 $('observeBtn').onclick=()=>{if(STATE?.mode==='player')control('observe');};
-$('interveneBtn').onclick=()=>{if(STATE?.mode!=='player')control('take_control',selectedCountry);};
+$('interveneBtn').onclick=()=>{if(STATE)control(STATE.player_country===selectedCountry?'observe':'take_control',selectedCountry);};
 $('agentsClose').onclick=()=>$('agentsModal').hidden=true;
 $('applyBudget').onclick=async()=>{
   try{
@@ -3365,8 +3470,17 @@ $('nationCloseBtn').onclick=()=>closeDeck('nation');
 $('notifyCloseBtn').onclick=()=>closeDeck('notify');
 for(const b of document.querySelectorAll('#primaryRail [data-deck]'))b.onclick=()=>openDeck(b.dataset.deck);
 
-let activeDeck='world';
+let activeDeck='world',drawerMapShift=0;
+function alignDrawerMap(){
+  if(activeDeck==='world')return;
+  const modal=document.querySelector('.modal:not([hidden])');if(!modal||modal.getBoundingClientRect().left<=mapPanel.getBoundingClientRect().left)return;
+  panX-=drawerMapShift;
+  const rect=mapPanel.getBoundingClientRect(),edge=modal.getBoundingClientRect().left-rect.left;
+  const left=window.innerWidth>1150&&!$('worldLeft').classList.contains('collapsed')?270:0;
+  drawerMapShift=(left+edge)/2-mapPanel.clientWidth/2;panX+=drawerMapShift;render(true);
+}
 function setRail(name){
+  if(name==='world'&&drawerMapShift){panX-=drawerMapShift;drawerMapShift=0;render(true);}
   activeDeck=name;
   for(const b of document.querySelectorAll('#primaryRail [data-deck]'))b.classList.toggle('on',b.dataset.deck===name);
 }
@@ -3390,8 +3504,8 @@ async function closeAllDecks(){
   if(pauseOpen)await closePauseMenu();
   $('agentsModal').hidden=true;$('diaryModal').hidden=true;$('notifyModal').hidden=true;
 }
-async function openDeck(name){
-  if(name==='world'){await closeAllDecks();setRail('world');return;}
+async function openDeck(name,force=false){
+  if(name==='world'||(name===activeDeck&&!force)){await closeAllDecks();setRail('world');return;}
   if(!STATE){showToast('请先进入一个世界',true);return;}
   await closeAllDecks();
   setRail(name);
@@ -3402,6 +3516,7 @@ async function openDeck(name){
   else if(name==='military')await openMilitary();
   else if(name==='ai')await openAgents();
   else if(name==='system')await openPauseMenu();
+  requestAnimationFrame(alignDrawerMap);
 }
 
 let nationTab='overview',diploFilter='relations',militaryFilter='army',techFilter='all',selectedArmy=null;
@@ -4427,8 +4542,8 @@ async function startSession(){
   showOnlyScreen('game');gameLoaded=true;
   resetDiaryBubbles();lastNoticeSeq=null;if($('noticeStack'))$('noticeStack').innerHTML='';unreadNotices=0;updateNotifyBadge();
   await nextFrame();resize();fitMap();await poll(true);
-  renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('country');
-  setSidePanel('right',window.innerWidth>=1100);
+  renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('tile');
+  setSidePanel('right',false);
   if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
   await refreshSaves();
   if(bootParams.get('tech')==='1')await openTechTree();
@@ -4516,8 +4631,7 @@ $('pauseMainBtn').onclick=async()=>{
 async function openCities(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
   setRail('city');
-  cityResume=!STATE.paused;
-  if(cityResume)await control('pause');
+  cityResume=false;
   selectedCityId=null;selectedCityTile=null;
   $('cityGrid').hidden=false;$('cityDetail').hidden=true;
   for(const b of document.querySelectorAll('#cityTabs [data-city-tab]'))b.classList.toggle('on',b.dataset.cityTab==='list');
@@ -4526,7 +4640,7 @@ async function openCities(){
 async function closeCities(){
   $('cityModal').hidden=true;$('cityDetail').hidden=true;$('cityGrid').hidden=false;
   selectedCityId=null;selectedCityTile=null;
-  if(cityResume)await control('resume');
+
   cityResume=false;setRail('world');
 }
 $('cityDetailBack').onclick=()=>{
@@ -4739,13 +4853,12 @@ function renderCityDetail(){
 async function openMilitary(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
   setRail('military');
-  militaryResume=!STATE.paused;
-  if(militaryResume)await control('pause');
+  militaryResume=false;
   renderMilitary();$('militaryModal').hidden=false;
 }
 async function closeMilitary(){
   $('militaryModal').hidden=true;
-  if(militaryResume)await control('resume');
+
   militaryResume=false;setRail('world');
 }
 function renderMilitary(){
@@ -4960,13 +5073,12 @@ function renderMilitary(){
 async function openDiplomacy(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
   setRail('diplo');
-  diploResume=!STATE.paused;
-  if(diploResume)await control('pause');
+  diploResume=false;
   renderDiplomacy();$('diploModal').hidden=false;
 }
 async function closeDiplomacy(){
   $('diploModal').hidden=true;
-  if(diploResume)await control('resume');
+
   diploResume=false;setRail('world');
 }
 function renderDiplomacy(){
@@ -5029,13 +5141,12 @@ function renderDiplomacy(){
 async function openTechTree(){
   if(!STATE){showToast('请先进入一个世界',true);return;}
   setRail('tech');
-  techResume=!STATE.paused;
-  if(techResume)await control('pause');
+  techResume=false;
   renderTechTree();$('techModal').hidden=false;
 }
 async function closeTechTree(){
   $('techModal').hidden=true;
-  if(techResume)await control('resume');
+
   techResume=false;setRail('world');
 }
 function techUnlockIndex(){
