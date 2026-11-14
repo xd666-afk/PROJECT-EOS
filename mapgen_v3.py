@@ -33,7 +33,6 @@ from mapgen_v2 import (
     _label_river_networks,
     _lake_cells,
     _recompute_accumulation,
-    _road_path,
     _shape_rivers,
     _split_road_networks,
     _terminal_lakes,
@@ -101,6 +100,7 @@ def _build_road_cells(
     river: np.ndarray,
     width: int,
     height: int,
+    biome: np.ndarray | None = None,
 ) -> list[dict[str, Any]]:
     """Build a capital-spanning road network directly on the hex grid."""
     capitals = [
@@ -126,10 +126,10 @@ def _build_road_cells(
     for _, left, right in edges:
         if find(left[2]) == find(right[2]):
             continue
-        parent[find(left[2])] = find(right[2])
-        path = _road_path(left[:2], right[:2], land, elev, river)
+        path = _ancient_road_path(left[:2], right[:2], land, elev, river, biome)
         if not path:
             continue
+        parent[find(left[2])] = find(right[2])
         network_id = f"RN_{left[2]}_{right[2]}"
         for x, y in path:
             left_distance = worldgen.hex_distance((x, y), left[:2])
@@ -143,6 +143,56 @@ def _build_road_cells(
             }
     road_cells = sorted(cells.values(), key=lambda cell: (cell["tile"]["row"], cell["tile"]["col"]))
     return _split_road_networks(road_cells)
+
+
+def _ancient_road_path(start, end, land, elev, river, biome):
+    """Initial roads obey ancient terrain and two-cell bridge limits too."""
+    from heapq import heappop, heappush
+    from types import SimpleNamespace
+    from core.road import river_width
+
+    height, width = land.shape
+    world = SimpleNamespace(tiles={(x, y): {"land": bool(land[y, x]), "river": bool(river[y, x])}
+                                   for y in range(height) for x in range(width)})
+    allowed = land.copy()
+    if biome is not None:
+        allowed &= ~np.isin(biome, ["alpine", "tundra", "desert"])
+    for y, x in zip(*np.where(river & land)):
+        span = river_width(world, (int(x), int(y)))
+        if span is None or span > 2:
+            allowed[y, x] = False
+    if not allowed[start[1], start[0]] or not allowed[end[1], end[0]]:
+        return None
+    first = (start, 0)
+    costs, previous, heap = {first: 0.0}, {first: None}, [(0.0, first)]
+    finish = None
+    while heap:
+        cost, key = heappop(heap)
+        if cost != costs[key]:
+            continue
+        coord, run = key
+        if coord == end:
+            finish = key
+            break
+        x, y = coord
+        for nx, ny in worldgen.neighbors(x, y, width, height):
+            if not allowed[ny, nx]:
+                continue
+            next_run = run + 1 if river[ny, nx] else 0
+            if next_run > 2:
+                continue
+            candidate = cost + 1.0 + abs(float(elev[ny, nx] - elev[y, x])) / 260.0 + (3.5 if river[ny, nx] else 0.0)
+            next_key = ((nx, ny), next_run)
+            if candidate < costs.get(next_key, float("inf")):
+                costs[next_key], previous[next_key] = candidate, key
+                heappush(heap, (candidate, next_key))
+    if finish is None:
+        return None
+    path = []
+    while finish is not None:
+        path.append(finish[0])
+        finish = previous[finish]
+    return list(reversed(path))
 
 
 def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str, Any]:
@@ -255,7 +305,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         })
 
     road_cells = [
-        cell for cell in _build_road_cells(polities, polity_land, polity_elev, polity_river, V2_WIDTH, V2_HEIGHT)
+        cell for cell in _build_road_cells(polities, polity_land, polity_elev, polity_river, V2_WIDTH, V2_HEIGHT, polity_biome)
         if polity_land[cell["tile"]["row"], cell["tile"]["col"]]
     ]
     for cell in road_cells:

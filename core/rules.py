@@ -206,6 +206,11 @@ class RuleEngine:
                 total_outposts=len(country.outposts),
             )
             return {"tile": action["tile"], "cost": cost, "outposts": len(country.outposts)}
+        if action_type == "BUILD_ROAD_ROUTE":
+            from core.road_planner import plan, enqueue
+            quote = plan(self.state, country, (action["from"]["col"], action["from"]["row"]),
+                         (action["to"]["col"], action["to"]["row"]))
+            return enqueue(self.state, country, quote)
         if action_type == "BUILD":
             coord = (action["tile"]["col"], action["tile"]["row"])
             if coord not in country.tiles:
@@ -213,12 +218,22 @@ class RuleEngine:
             tile = self.state.world.tile(coord)
             if not tile["land"]:
                 raise ActionRejected("INVALID_TERRAIN", "海域不能建设")
-            if coord in country.buildings or self.construction.project_for_tile(country, coord):
-                raise ActionRejected("BUILDING_CONFLICT", "目标地块已有建筑或在建工程")
             building = action["building"]
+            from core.road import built_roads, road_permit, road_quote
+            conflicts = any(tuple(p["tile"]) == coord and (p["building"] == "ROAD") == (building == "ROAD") for p in country.projects)
+            if conflicts or (building != "ROAD" and country.buildings.get(coord) not in (None, "ROAD")):
+                raise ActionRejected("BUILDING_CONFLICT", "同类设施已经存在或正在建设")
+            if building == "ROAD":
+                if coord in built_roads(country) or self.state.world.is_road_cell(coord):
+                    raise ActionRejected("ROAD_EXISTS", "该地块已经是道路")
+                permit = road_permit(self.state, country, coord)
+                if permit:
+                    raise ActionRejected(*permit)
+                if tile.get("river"):
+                    from core.road import river_width
+                    if river_width(self.state.world, coord) != 1:
+                        raise ActionRejected("ROAD_BRIDGE_PLAN_REQUIRED", "多格河道请使用整段道路规划，从一侧陆地跨到另一侧陆地")
             spec = self.state.config["buildings"][building]
-            if self.state.world.is_road_cell(coord) and building != "ROAD":
-                raise ActionRejected("ROAD_TILE", "该地块是道路，不能建设其他设施")
             if tile["biome"] not in spec["allowed_biomes"]:
                 raise ActionRejected("INVALID_TERRAIN", f"{tile['biome']} 不适合建设 {building}")
             if building == "FARM" and tile["biome"] == "desert" and not tile["river"]:
@@ -245,7 +260,8 @@ class RuleEngine:
                 raise ActionRejected(
                     "NOT_CITY_CENTER", f"{building} 只能建在城池中心格上：先选中一座城"
                 )
-            cost = float(spec["cost"])
+            cost = road_quote(self.state, country, coord)[0] if building == "ROAD" else float(spec["cost"])
+            duration = road_quote(self.state, country, coord)[1] if building == "ROAD" else float(spec["days"])
             if country.treasury + 1e-9 < cost:
                 raise ActionRejected("INSUFFICIENT_TREASURY", f"建设需要 {cost} 财政单位")
             if building == "ROAD":
@@ -271,11 +287,14 @@ class RuleEngine:
                 "project_id": project_id,
                 "tile": coord,
                 "building": building,
-                "remaining_days": float(spec["days"]),
-                "total_days": float(spec["days"]),
+                "remaining_days": duration,
+                "total_days": duration,
                 "started_day": self.state.day_index,
                 "cost": cost,
             }
+            if building == "ROAD":
+                dependency = next((p["project_id"] for p in country.projects if p["building"] == "ROAD" and hex_distance(coord, tuple(p["tile"])) == 1), None)
+                project["depends_on"] = dependency
             country.projects.append(project)
             self.state.record(
                 "construction_started",
@@ -285,7 +304,7 @@ class RuleEngine:
                 building=building,
                 cost=cost,
             )
-            return {"project_id": project_id, "cost": cost, "duration_days": spec["days"]}
+            return {"project_id": project_id, "cost": cost, "duration_days": duration}
         if action_type == "ALLOCATE_WORKERS":
             previous = deepcopy(country.workers)
             country.workers = {
@@ -365,12 +384,18 @@ class RuleEngine:
             country.tax_rate = action["rate"]
             return {"previous_rate": previous, "rate": country.tax_rate}
         if action_type == "SET_RESEARCH":
-            field = action["field"]
-            if country.technology[field] >= self.state.config["research_max_level"]:
-                raise ActionRejected("RESEARCH_MAXED", "该研究领域已达到当前上限")
-            previous = country.research_field
-            country.research_field = field
-            return {"previous_field": previous, "field": field}
+            from core.technology import select, legacy_target
+            node = action.get("node")
+            if node is None:
+                node = legacy_target(country, self.state.config, action["field"])
+                if node is None:
+                    raise ActionRejected("RESEARCH_MAXED", "该研究领域已达到当前上限")
+            result = select(country, self.state.config, node)
+            if "field" in action:
+                country.research_field = action["field"]
+                result["field"] = action["field"]
+            return result
+
         if action_type == "DIPLOMACY":
             operation = action["operation"]
             if operation == "GIFT":

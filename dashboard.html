@@ -685,6 +685,9 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 @media(max-width:850px){.power .res:nth-child(n+4){display:none}.date small{display:none}.timebox{gap:5px}.modal{left:var(--rail);width:auto}.left{width:220px}.right{width:min(352px,calc(100vw - 90px))}}
 @media(max-width:640px){:root{--rail:0px;--top:74px}.app{padding-left:0}.rail{z-index:60}.topbar{grid-template-columns:1fr auto}.hud-actions{display:none}.date{min-width:110px}.date b{font-size:11px}.timebtns .speed{display:none}.left{max-height:calc(100vh - 175px);bottom:70px;top:62px}.right{max-height:calc(100vh - 170px);top:62px;bottom:65px}.modal{bottom:56px;left:0}.modal-card{padding:14px}.modal .city-grid{grid-template-columns:1fr}.map-tools{max-width:100%;overflow:auto;flex-wrap:nowrap}.map-tools button{white-space:nowrap}}
 
+
+#techModal{width:min(1320px,calc(100vw - 350px))}#techModal .modal-card{width:100%}#techGrid{display:block}.research-current{padding:14px;background:#142c33;border:1px solid #41585c;border-radius:10px;display:grid;gap:7px}.research-current span,.research-current small{font-size:12px;color:#b5c5c4}.research-viewport{max-height:calc(100vh - 435px);min-height:220px;overflow:auto;border:1px solid #354b51;border-radius:10px;margin:10px 0;overscroll-behavior:contain}.research-graph{position:relative;background:linear-gradient(90deg,#182b31 1px,transparent 1px);background-size:246px 100%}.research-graph svg{position:absolute;inset:0;pointer-events:none}.research-column{position:absolute;top:14px;color:#8dabae;font-size:12px}.research-node{position:absolute;width:212px;height:142px;text-align:left;display:flex;flex-direction:column;gap:5px;padding:12px;border-radius:9px;border:1px solid #3b5058;border-top:3px solid var(--branch-color);background:#17282e;color:#9babad;white-space:normal;overflow:hidden}.research-node b{font-size:15px;color:#d5e1df}.research-node span{font-size:11px;line-height:1.45}.research-node small{font-size:10px}.research-node em{font-size:10px;font-style:normal}.research-node strong{font-size:10px;margin-top:auto}.research-node.available{border-color:var(--branch-color);background:#263b3c;cursor:pointer}.research-node.available strong{color:#f4d493}.research-node.researching{outline:2px solid #e4c77c;background:#304342}.research-node.known{background:#1b3832;border-color:#5d9279}.research-node.locked{background:#11252c;color:#819397;border-color:#314750}.research-node.locked b{color:#9aaeb0}.research-node.branch-dim{opacity:.22}.road-planner{padding:12px;margin-bottom:12px;border:1px solid #b39a63;border-radius:9px;background:#233333}.road-planner h3{margin:0 0 8px;font-size:14px}.road-planner p{font-size:12px;color:#c0cfcb;line-height:1.6;margin:8px 0}.road-planner .actions{display:flex;gap:7px;flex-wrap:wrap}.road-planner small{display:block;color:#c1ac83;font-size:11px;line-height:1.5;margin-top:8px}@media(max-width:850px){#techModal{width:auto}}@media(max-width:760px){#techModal .modal-card{width:100%}.research-viewport{max-height:60vh}}
+
 </style>
 <style>
 @media(min-width:901px){
@@ -857,14 +860,12 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 <div class="modal" id="techModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><div class="deck-crumb">指挥台 / 科技</div><h2>科技与时代</h2><p id="techSubtitle">三条科技线共同决定时代推进</p></div>
+      <div><div class="deck-crumb">指挥台 / 科技</div><h2>科技与时代</h2><p id="techSubtitle">选择研究分支，让技术服务国家战略</p></div>
       <div class="deck-head-actions"><button id="techCloseBtn">关闭面板 · Esc</button></div>
     </div>
     <div class="deck-tabs" id="techTabs">
       <button data-tech-filter="all" class="on">总览</button>
-      <button data-tech-filter="bronze_metallurgy">科技线</button>
-      <button data-tech-filter="writing">政治线</button>
-      <button data-tech-filter="agriculture">经济线</button>
+      <button data-tech-filter="food">农业民生</button><button data-tech-filter="industry">生产工业</button><button data-tech-filter="statecraft">治理商贸</button><button data-tech-filter="transport">交通工程</button><button data-tech-filter="science">科学方法</button>
       <button data-tech-filter="military">军工解锁</button>
     </div>
     <div class="tech-grid" id="techGrid"></div>
@@ -1239,6 +1240,7 @@ function roadEntityCells(){
       cells.set(col+','+row,{col,row,kind:cell.kind||'road',owner:cell.owner_id});
     }
   }
+  for(const [col,row,cid] of STATE?.roads||[])cells.set(col+','+row,{col,row,kind:getTile(col,row)?.[5]?'bridge':'road',owner:cid});
   for(const segment of roadSegments()){
     for(const point of segment.points){
       const key=point.join(',');
@@ -1541,7 +1543,7 @@ function hexNeighbors(col,row){
     :[[col-1,row-1],[col,row-1],[col-1,row],[col+1,row],[col-1,row+1],[col,row+1]];
 }
 function roadCellAt(col,row){
-  return !!(WORLD?.road_cells||[]).some(cell=>cell.tile.col===col&&cell.tile.row===row);
+  return !!(WORLD?.road_cells||[]).some(cell=>cell.tile.col===col&&cell.tile.row===row)||(STATE?.roads||[]).some(p=>p[0]===col&&p[1]===row)||(STATE?.buildings||[]).some(p=>p[0]===col&&p[1]===row&&p[2]==='ROAD');
 }
 function diplomacyLevel(countryId,otherId){
   if(!STATE||!countryId||!otherId)return 0;
@@ -1589,6 +1591,8 @@ function roadConnectionInfo(col,row,countryId=STATE?.player_country){
   for(const [c,r,b,cid] of STATE.buildings){
     if(b==='ROAD')add([c,r],cid);
   }
+  for(const [c,r,cid] of STATE.roads||[])add([c,r],cid);
+  for(const [c,r,b,cid] of STATE.projects||[])if(b==='ROAD'&&cid===countryId)add([c,r],cid);
   const territory=dynamicOwnerMap();
   for(const cell of WORLD.road_cells||[]){
     const coord=[cell.tile.col,cell.tile.row];
@@ -1600,6 +1604,7 @@ function roadConnectionInfo(col,row,countryId=STATE?.player_country){
     const set=owners.get(c+','+r);
     if(set)for(const owner of set)adjacent.add(owner);
   }
+  if((country?.cities||[]).some(city=>city.center[0]===col&&city.center[1]===row))adjacent.add(countryId);
   const threshold=Number(STATE.road_connection_level??3);
   const denied=[...adjacent].filter(owner=>owner!==countryId&&diplomacyLevel(countryId,owner)<threshold);
   return {connected:adjacent.size>0&&denied.length===0,denied};
@@ -2024,7 +2029,13 @@ function renderObjectNavigator(){
   $('activities').hidden=objectTab!=='tasks';$('activities').previousElementSibling.hidden=objectTab!=='tasks';
   for(const b of document.querySelectorAll('[data-object-tab]'))b.classList.toggle('on',b.dataset.objectTab===objectTab);
 }
+let inspectorTileKey='';
 function refreshInspector(){
+  const selectionKey=selectedTile?.join(',')||'';
+  if(selectionKey!==inspectorTileKey){
+    inspectorTileKey=selectionKey;
+    const scroller=$('worldRight')?.querySelector('.scroll');if(scroller)scroller.scrollTop=0;
+  }
   const panel=$('panel-tile');if(!panel)return;
   for(const node of panel.querySelectorAll('[data-inspect-section]'))node.hidden=node.dataset.inspectSection!==inspectorMode;
   for(const b of panel.querySelectorAll('[data-inspect-mode]'))b.classList.toggle('on',b.dataset.inspectMode===inspectorMode);
@@ -2049,7 +2060,7 @@ document.addEventListener('click',async e=>{
 });
 
 function render(force=false){
-  const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
+  const positions=STATE?(STATE.roads||[]).map(x=>x.join(',')).join('|')+STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
   const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
   if(!force&&key===renderKey)return;renderKey=key;
   const w=mapPanel.clientWidth,h=mapPanel.clientHeight;ctx.clearRect(0,0,w,h);
@@ -2125,6 +2136,7 @@ function render(force=false){
   if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite');
   if(mapMode==='logistics')drawLogisticsNetwork(scale);
   drawOrderPreview(scale);
+  drawPlannedRoad(scale);
   if(STATE&&mapMode!=='resources'){
     for(const [col,row,building,cid] of STATE.buildings){
       if(building==='ROAD')continue;
@@ -2390,12 +2402,12 @@ function renderCountries(){
   const projects=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
   $('jobCount').textContent=`${projects.length} 项`;
   $('activities').innerHTML=projects.length?projects.map(p=>{
-    const [col,row,building,cid,remaining,progress]=p,pct=Math.max(0,Math.min(100,progress*100));
+    const [col,row,building,cid,remaining,progress,total,queueStatus]=p,pct=Math.max(0,Math.min(100,progress*100));
     const icon=BUILD_ICON[building];
     return `<div class="job" style="--c:${countryColor(cid)}">
       <div class="job-head"><b>${icon?`<img src="/assets/icons/${icon}.png" alt="">`:''}${esc(cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
       <div class="job-bar"><i style="width:${pct}%"></i></div>
-      <div class="job-sub"><span>地块 ${col},${row}</span><span>${pct.toFixed(0)}%</span></div>
+      <div class="job-sub"><span>地块 ${col},${row} · ${esc(queueStatus||'施工中')}</span><span>${pct.toFixed(0)}%</span></div>
     </div>`;
   }).join(''):'<div class="nojobs">当前没有在建工程</div>';
 }
@@ -2567,7 +2579,7 @@ function bindCampControls(){
     submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.unit,strength:Number(b.dataset.size),army_id:b.dataset.campRecruit},'募兵令已下达').then(refresh);
 }
 const RECEIPT_ACTIONS={BUILD:'建设',SETTLE:'建城',ALLOCATE_WORKERS:'劳动力',SET_TAX:'税率',
-  SET_RESEARCH:'研究',SET_POLICY:'政策',TRADE:'贸易',DIPLOMACY:'外交',MILITARY:'军令',
+  BUILD_ROAD_ROUTE:'道路规划',SET_RESEARCH:'研究',SET_POLICY:'政策',TRADE:'贸易',DIPLOMACY:'外交',MILITARY:'军令',
   SET_CITY_FOCUS:'城市方针',SET_CITY_ZONE:'城市分区',SET_CITY_BUDGET:'城市预算',NO_OP:'空令'};
 const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
   SET_RECRUITING:'募兵开关',SET_RECRUIT_UNIT:'练兵目标',GIFT:'赠礼',PROPOSE_PACT:'提议协定',
@@ -2590,6 +2602,8 @@ function receiptDetail(action){
   if(action.building)push(BUILD_NAMES[action.building]||action.building);
   if(action.rate!=null)push(`税率 ${Math.round(action.rate*100)}%`);
   if(action.field)push(RESEARCH_LABELS[action.field]||action.field);
+  if(action.node)push(STATE?.research_tree?.[action.node]?.name||action.node);
+  if(action.from&&action.to)push(`(${action.from.col},${action.from.row}) → (${action.to.col},${action.to.row})`);
   if(action.priority)push(POLICY_LABELS[action.priority]||action.priority);
   if(action.pact)push(pactName(action.pact));
   if(action.focus)push(String(action.focus));
@@ -2858,16 +2872,14 @@ function renderRight(){
     ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>日 ${STATE.latest_llm_decision.day}</small></div>
       <p>${esc(decision.reason||'无说明')}</p><div class="chips">${(decision.actions||[]).map(a=>`<span class="chip">${esc(fmtAction(a))}</span>`).join('')}</div></div>`:''}
     <div class="split"><span>建设队列</span><b>${c.projects} 项</b></div>
-    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option row"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}%</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
+    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option row"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}% · ${esc(p[7]||'施工中')}</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
     ${STATE.player_country===selectedCountry?`
       <div class="sect"><span>国策命令</span><span>即时生效</span></div>
       <div class="manage">
         <label>税率
           <select id="taxSelect">${[0.05,0.08,0.1,0.15,0.2,0.25].filter(v=>v<=STATE.maximum_tax_rate).map(v=>`<option value="${v}" ${Math.abs(v-c.tax_rate)<.001?'selected':''}>${Math.round(v*100)}%</option>`).join('')}</select>
         </label>
-        <label>研究领域
-          <select id="researchSelect">${STATE.research_fields.map(f=>`<option value="${f}" ${f===c.research_field?'selected':''}>${esc(RESEARCH_LABELS[f]||f)}</option>`).join('')}</select>
-        </label>
+        <div><button id="openResearchTreeBtn">${c.research?.selected?'查看当前研究':'选择研究分支'}</button></div>
         <label class="wide">国家政策
           <select id="policySelect">${STATE.policy_options.map(p=>`<option value="${p}" ${p===c.policy?'selected':''}>${esc(POLICY_LABELS[p]||p)}</option>`).join('')}</select>
         </label>
@@ -2890,7 +2902,9 @@ function renderRight(){
   $('focusCapitalBtn').onclick=()=>{const p=meta.capital;focusTile(p.col,p.row);};
   const taxSelect=$('taxSelect');
   if(taxSelect)taxSelect.onchange=()=>submitPlayerAction({type:'SET_TAX',rate:Number(taxSelect.value)},'税率已调整');
+  if($('openResearchTreeBtn'))$('openResearchTreeBtn').onclick=()=>openDeck('tech',true);
   const researchSelect=$('researchSelect');
+  if(researchSelect)researchSelect.closest('.field')?.setAttribute('hidden','');
   if(researchSelect)researchSelect.onchange=()=>submitPlayerAction({type:'SET_RESEARCH',field:researchSelect.value},'研究领域已调整');
   const policySelect=$('policySelect');
   if(policySelect)policySelect.onchange=()=>submitPlayerAction({type:'SET_POLICY',priority:policySelect.value},'国家政策已调整');
@@ -2931,17 +2945,20 @@ function renderRight(){
       const riverOk=!spec.requires_river||tile.river;
       const existing=Object.values(player.buildings).filter(x=>x===key).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===key).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
-      const moneyOk=player.treasury>=spec.cost;
+      const permit=STATE.road_permits?.[STATE.player_country]?.[`${tile.col},${tile.row}`];
+      const cost=key==='ROAD'?(permit?.cost??spec.cost):spec.cost,days=key==='ROAD'?(permit?.days??spec.days):spec.days;
+      const moneyOk=player.treasury>=cost;
       const roadInfo=roadConnectionInfo(tile.col,tile.row);
-      const roadOk=key!=='ROAD'||(!roadCellAt(tile.col,tile.row)&&roadInfo.connected);
-      const roadTileBlocked=roadCellAt(tile.col,tile.row)&&key!=='ROAD';
-      const blocked=!!b || roadTileBlocked || !allowed || !techOk || !riverOk || !roadOk || !limitOk || !moneyOk;
+      const roadOk=key!=='ROAD'||(permit?.allowed&&!permit?.bridge_plan&&!roadCellAt(tile.col,tile.row)&&roadInfo.connected);
+      const roadTileBlocked=false;
+      const conflict=(STATE.projects||[]).some(p=>p[0]===tile.col&&p[1]===tile.row&&(p[2]==='ROAD')===(key==='ROAD'))||(key!=='ROAD'&&!!b&&b.building!=='ROAD'&&!b.project);
+      const blocked=conflict || roadTileBlocked || !allowed || !techOk || !riverOk || !roadOk || !limitOk || !moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
-      const roadWhy=roadCellAt(tile.col,tile.row)?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
+      const roadWhy=permit&&!permit.allowed?permit.reason:permit?.bridge_plan?'多格河流请使用整段规划':roadCellAt(tile.col,tile.row)?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
       const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[key];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`;
-      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${cost} 财政 · ${days} 日 · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
     }).join(''):'';
     $('panel-tile').innerHTML=`
       <div class="heading"><div><h2>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
@@ -2951,7 +2968,7 @@ function renderRight(){
       <div class="kv"><span>地形</span><b>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</b></div>
       ${tile.lake?`<div class="kv"><span>湖泊</span><b>内流湖 · 水深 ${tile.lakeDepth!=null?fmtNum(tile.lakeDepth,1)+' m':'未知'}${tile.lakeLevel!=null?` · 湖面 ${fmtNum(tile.lakeLevel,0)} m`:''}</b></div>`:''}
       ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverKind==='endorheic'?'内流河':'外流河'}${tile.riverKind==='endorheic'&&tile.riverTerminal?` · 注入 ${esc(tile.riverTerminal)}`:''}${tile.riverDepth!=null?` · 水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:''}${tile.riverDrainage?` · 流域 ${fmtInt(tile.riverDrainage)} km²`:''}</b></div>`:''}
-      ${tile.roadKind?`<div class="kv"><span>道路</span><b>${tile.roadKind==='bridge'?'桥梁':'道路'}</b></div>`:''}
+      ${tile.roadKind||roadCellAt(tile.col,tile.row)?`<div class="kv"><span>道路</span><b>${tile.river?'桥梁':'道路'} · 可与生产设施共存</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
       ${cityAtTile(tile.owner,tile.col,tile.row)?cityStockCard(cityAtTile(tile.owner,tile.col,tile.row)):""}
@@ -2961,7 +2978,7 @@ function renderRight(){
       ${tileMarchCard(tile,tilePrice(tile))}
       ${tileStrikeCard(tile,tilePrice(tile))}
       ${tileFieldCard(tile,tilePrice(tile))}
-      </div><div data-inspect-section="build">${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
+      </div><div data-inspect-section="build">${roadPlannerCard(tile,owned)}${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
         (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
           <div class="build-card">
             <div class="build-option row"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
@@ -2970,6 +2987,7 @@ function renderRight(){
         `<div class="observer-note"><b>${STATE.player_country?'不可建城':'观战视角'}</b>${STATE.player_country?'此处已有主权，或不与本国领土相邻。建城地块必须与本国领土直接相邻。':'只有接管一个国家后，才能建城或建设。'}</div>`)}
       </div>
     `;
+    bindRoadPlanner(tile);
     for(const btn of document.querySelectorAll('[data-build]')){
       btn.onclick=()=>submitBuild(tile.col,tile.row,btn.dataset.build);
     }
@@ -3025,7 +3043,8 @@ function fmtAction(a){
   if(a.type==='BUILD')return`建${BUILD_NAMES[a.building]||a.building} (${a.tile?.col},${a.tile?.row})`;
   if(a.type==='ALLOCATE_WORKERS')return`农业 ${Math.round(a.agriculture*100)}%`;
   if(a.type==='SET_POLICY')return`政策 ${a.policy||a.priority}`;
-  if(a.type==='SET_RESEARCH')return`研究 ${a.field}`;
+  if(a.type==='SET_RESEARCH')return`研究 ${STATE?.research_tree?.[a.node]?.name||a.field}`;
+  if(a.type==='BUILD_ROAD_ROUTE')return`道路 ${a.from.col},${a.from.row} → ${a.to.col},${a.to.row}`;
   if(a.type==='SET_TAX')return`税率 ${Math.round(a.rate*100)}%`;
   if(a.type==='TRADE')return`交易 ${a.operation||'提议'}`;
   if(a.type==='SETTLE')return`开拓 (${a.tile?.col},${a.tile?.row})`;
@@ -3045,7 +3064,8 @@ function formatEvent(e){
     case 'llm_diary':return[d,`<b>${esc(e.country_id)}</b> 写下统治日记《${esc(e.title||'决策记录')}》`,'meta'];
     case 'llm_call':return e.status==='success'?[d,`<b>DeepSeek</b> 调用完成 · ${e.usage?.total_tokens||'?'} Token`,'meta']:[d,`<b>DeepSeek</b> 调用失败，规则回退`,'hazard'];
     case 'agent_test':return[d,`<b>${esc(e.country_id)}</b> 模型连接测试${e.ok?'成功':'失败'}${e.latency_ms?` · ${e.latency_ms}ms`:''}`,'meta'];
-    case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
+    case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 掌握 ${esc(e.name||e.field)}${e.level?` · 能力 ${e.level} 级`:''}`,'research'];
+    case 'road_route_planned':return[d,`<b>${esc(e.country_id)}</b> 规划 ${e.segments} 格道路 · ${fmtNum(e.cost,1)} 财政`,'construction'];
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
     case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
     case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募 ${e.amount} 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
@@ -3147,6 +3167,7 @@ async function poll(force=false){
     if(!$('nationModal').hidden){renderNationCities();renderNationRanking();}
     if(force===true){
       lastStateKey='';renderTop();renderCountries();renderRight();render(true);
+      if(!$('techModal').hidden)renderTechTree();
       if(STATE.finished&&!endShown)showEndScreen();
     }else renderIfChanged();
     return STATE;
@@ -3161,6 +3182,7 @@ function renderIfChanged(){
   const active=document.activeElement;
   const editingRight=active&&['SELECT','INPUT'].includes(active.tagName)&&active.closest('.right');
   renderTop();renderCountries();if(!editingRight)renderRight();updateMapLegend();render();
+  if(!$('techModal').hidden)renderTechTree();
   if(STATE?.finished&&!endShown)showEndScreen();
 }
 function showEndScreen(){
@@ -3592,12 +3614,12 @@ function renderNotifyProjects(){
   if(!STATE)return;
   const rows=STATE.projects.slice().sort((a,b)=>a[4]-b[4]);
   $('notifyProjects').innerHTML=`<div class="sect"><span>在建工程</span><span>${rows.length} 项</span></div>
-    ${rows.length?rows.map(([col,row,building,cid,remaining,progress])=>{
+    ${rows.length?rows.map(([col,row,building,cid,remaining,progress,total,queueStatus])=>{
       const pct=Math.max(0,Math.min(100,progress*100));
       return `<div class="job" style="--c:${countryColor(cid)}">
         <div class="job-head"><b>${esc(countryMeta(cid)?.name||cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
         <div class="job-bar"><i style="width:${pct}%"></i></div>
-        <div class="job-sub"><span>地块 ${col},${row}</span><span>${pct.toFixed(0)}%</span></div></div>`;
+        <div class="job-sub"><span>地块 ${col},${row} · ${esc(queueStatus||'施工中')}</span><span>${pct.toFixed(0)}%</span></div></div>`;
     }).join(''):'<div class="mini-empty">当前没有在建工程</div>'}`;
 }
 function noticeEventKey(event){
@@ -4820,17 +4842,20 @@ function renderCityDetail(){
       const riverOk=!spec.requires_river||selected.river;
       const existing=Object.values(player.buildings||{}).filter(x=>x===kind).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===kind).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
-      const moneyOk=player.treasury>=spec.cost;
+      const permit=STATE.road_permits?.[STATE.player_country]?.[key];
+      const cost=kind==='ROAD'?(permit?.cost??spec.cost):spec.cost,days=kind==='ROAD'?(permit?.days??spec.days):spec.days;
+      const moneyOk=player.treasury>=cost;
       const roadInfo=roadConnectionInfo(selected.coord[0],selected.coord[1]);
-      const roadOk=kind!=='ROAD'||(!roadCellAt(selected.coord[0],selected.coord[1])&&roadInfo.connected);
-      const roadTileBlocked=roadCellAt(selected.coord[0],selected.coord[1])&&kind!=='ROAD';
-      const blocked=!!building||!!project||roadTileBlocked||!allowed||!techOk||!riverOk||!roadOk||!limitOk||!moneyOk;
+      const roadOk=kind!=='ROAD'||(permit?.allowed&&!permit?.bridge_plan&&!roadCellAt(selected.coord[0],selected.coord[1])&&roadInfo.connected);
+      const roadTileBlocked=false;
+      const conflict=(STATE.projects||[]).some(p=>p[0]===col&&p[1]===row&&(p[2]==='ROAD')===(kind==='ROAD'))||(kind!=='ROAD'&&!!building&&building!=='ROAD');
+      const blocked=conflict||roadTileBlocked||!allowed||!techOk||!riverOk||!roadOk||!limitOk||!moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
-      const roadWhy=roadCellAt(selected.coord[0],selected.coord[1])?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
+      const roadWhy=permit&&!permit.allowed?permit.reason:permit?.bridge_plan?'多格河流请使用整段规划':roadCellAt(selected.coord[0],selected.coord[1])?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
       const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[kind];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[kind]||kind).slice(0,1))}</span>`;
-      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${cost} 财政 · ${days} 日 · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
     });
     $('cityBuildPalette').innerHTML=rows.join('');
     $('cityBuildHint').textContent=building?`该地块已有：${BUILD_NAMES[building]||building}`:project?`该地块正在建设：${BUILD_NAMES[project[2]]||project[2]}`:'城市内建造与大地图使用同一套规则和全国上限。';
@@ -5165,12 +5190,13 @@ function techUnlockIndex(){
 }
 function applyTechFilter(){
   const indexView=techFilter==='military';
-  $('techGrid').hidden=indexView;
-  $('techIndex').hidden=!indexView;
-  $('techGrid').classList.toggle('single',!indexView&&techFilter!=='all');
-  for(const branch of document.querySelectorAll('#techGrid .tech-branch'))
-    branch.style.display=!indexView&&(techFilter==='all'||branch.dataset.techField===techFilter)?'':'none';
+  $('techGrid').hidden=indexView;$('techIndex').hidden=!indexView;
+  for(const node of document.querySelectorAll('[data-research-node]'))node.classList.toggle('branch-dim',techFilter!=='all'&&!indexView&&node.dataset.branch!==techFilter);
   if(indexView)renderTechIndex();
+  if(!indexView&&techFilter!=='all'){
+    const target=[...document.querySelectorAll('[data-research-node]')].find(n=>n.dataset.branch===techFilter&&n.classList.contains('available'))||document.querySelector(`[data-research-node][data-branch="${techFilter}"]`);
+    if(target)target.scrollIntoView({block:'nearest',inline:'center'});
+  }
 }
 function renderTechIndex(){
   if(!STATE)return;
@@ -5309,42 +5335,88 @@ function renderTechIndex(){
     <div class="hint">时代由三条线的最低等级决定；世界起始年份只会抬高起点时代，不会替代科技门槛。</div>
   </div>`;
 }
+let roadPlan=null;
+function roadPlannerCard(tile,owned){
+  if(!STATE.player_country)return '';
+  if(roadPlan?.actor!==STATE.player_country)roadPlan=null;
+  if(!owned&&!roadPlan)return '';
+  if(!roadPlan)return `<div class="road-planner"><h3>规划道路</h3><p>选起点，再点地图上的终点。自动绕开无法修筑的地形，整段报价后依次施工。</p><button id="roadStartBtn">从此规划道路</button><small>道路与农田、矿场等设施可共存。雪山、冻原和沙漠需要现代工程许可。</small></div>`;
+  const q=owned&&roadPlan.end?.[0]===tile.col&&roadPlan.end?.[1]===tile.row?roadPlan.quote:null;
+  return `<div class="road-planner"><h3>道路规划 · 起点 ${roadPlan.start.join(',')}</h3><p>${!owned?'请选择本国陆地作为终点':roadPlan.start[0]===tile.col&&roadPlan.start[1]===tile.row?'点击地图上的另一格作为终点':roadPlan.loading?'正在核对修筑许可…':roadPlan.error?esc(roadPlan.error):q?`${q.path.length} 格路线 · 新建 ${q.segments.length} 格<br><b>${fmtNum(q.cost,1)} 财政</b> · ${q.estimated_days===null?'建筑劳力为零，施工暂停':`约 ${fmtInt(q.estimated_days)} 日，逐段施工`}${q.pending_tiles.length?'<br>路线含已有工程，实际完工需等待前段':''}${q.affordable?'':'<br>财政不足，请缩短路线或积累资金'}`:'选择终点后查看报价'}</p><div class="actions"><button id="roadConfirmBtn" class="primary" ${!q||!q.affordable||!q.segments.length||roadPlan.loading||roadPlan.error?'disabled':''}>整段开工</button><button id="roadCancelBtn">取消规划</button></div><small>古代桥梁最多跨 2 格河道；需石拱桥梁技术。桥梁按实际两岸横断面检查。</small></div>`;
+}
+function bindRoadPlanner(tile){
+  const start=$('roadStartBtn'),cancel=$('roadCancelBtn'),confirm=$('roadConfirmBtn');
+  if(start)start.onclick=()=>{roadPlan={actor:STATE.player_country,start:[tile.col,tile.row],quote:null};renderRight();render(true);};
+  if(cancel)cancel.onclick=()=>{roadPlan=null;renderRight();render(true);};
+  if(confirm)confirm.onclick=async()=>{
+    const draft=roadPlan;if(!draft?.quote||draft.loading)return;
+    confirm.disabled=true;draft.loading=true;
+    try{
+      const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:draft.actor,action:{type:'BUILD_ROAD_ROUTE',from:{col:draft.start[0],row:draft.start[1]},to:{col:draft.end[0],row:draft.end[1]}}})});
+      const data=await response.json();
+      if(roadPlan!==draft)return;
+      if(data.ok){roadPlan=null;showToast('整段道路已入队，前一段完工后继续下一段');}
+      else{draft.loading=false;draft.key=null;draft.quote=null;showToast(data.result?.reason_text||data.error||'规划未能提交',true);}
+      await poll(true);renderRight();render(true);
+    }catch(error){draft.loading=false;draft.key=null;draft.error='连接失败，请重新选择终点';renderRight();}
+  };
+  if(!roadPlan||tile.owner!==STATE.player_country||roadPlan.start.join(',')===[tile.col,tile.row].join(','))return;
+  const key=JSON.stringify([STATE.player_country,roadPlan.start,tile.col,tile.row,STATE.day,STATE.countries[STATE.player_country]?.research?.known,STATE.countries[STATE.player_country]?.treasury,STATE.countries[STATE.player_country]?.workers,STATE.countries[STATE.player_country]?.policy]);
+  if(roadPlan.key===key)return;
+  const draft=roadPlan;draft.key=key;draft.end=[tile.col,tile.row];draft.loading=true;draft.error=null;draft.quote=null;
+  fetch('/api/road_preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:draft.actor,from:{col:draft.start[0],row:draft.start[1]},to:{col:tile.col,row:tile.row}})})
+    .then(r=>r.json()).then(data=>{if(roadPlan!==draft||draft.key!==key)return;draft.loading=false;draft.quote=data.ok?data.quote:null;draft.error=data.ok?null:data.error;renderRight();render(true);})
+    .catch(()=>{if(roadPlan!==draft||draft.key!==key)return;draft.loading=false;draft.error='路线预览连接失败';renderRight();});
+}
+function drawPlannedRoad(scale){
+  if(!roadPlan?.quote||roadPlan.actor!==STATE?.player_country)return;
+  const path=roadPlan.quote.path;
+  ctx.save();ctx.lineWidth=Math.max(.12,3/scale);ctx.strokeStyle='#ffe08b';ctx.setLineDash([.3,.16]);ctx.beginPath();
+  path.forEach((p,i)=>{if(i)ctx.lineTo(cx(p),cy(p));else ctx.moveTo(cx(p),cy(p));});ctx.stroke();ctx.setLineDash([]);
+  for(const p of [path[0],path[path.length-1]]){ctx.beginPath();ctx.arc(cx(p),cy(p),.5,0,Math.PI*2);ctx.stroke();}
+  ctx.restore();
+}
+const RESEARCH_BRANCHES={food:['农业民生','#92b77d'],industry:['生产工业','#ce9676'],statecraft:['治理商贸','#91a9d0'],transport:['交通工程','#d8b96e'],science:['科学方法','#a898d0']};
 function renderTechTree(){
   if(!STATE)return;
-  const country=STATE.countries[selectedCountry];
-  const unlocks=techUnlockIndex();
-  $('techSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${country.era.short} · ${country.era.name} · 起点 ${STATE.start_era_index} 级`;
-  $('techGrid').innerHTML=Object.entries(STATE.tech_tree).map(([field,definition])=>{
-    const level=country.technology[field]||1,next=Math.min(STATE.research_max_level,level+1);
-    const progress=country.research_progress[field]||0;
-    const threshold=STATE.research_base_threshold*level;
-    const pct=Math.min(100,progress/Math.max(threshold,1)*100);
-    const nodes=definition.levels.map(node=>{
-      const era=STATE.eras.find(item=>item.min_tech_level===node.level);
-      const state=node.level<=level?'lit':(node.level===next?'available':'locked');
-      const isCurrent=node.level===level;
-      const status=node.level<level||node.level===level?'已掌握':(node.level===next?(country.research_field===field?'研究中':'可研究'):'未解锁');
-      const gates=unlocks[`${field}:${node.level}`]||[];
-      const chips=gates.length
-        ?gates.map(g=>`<i class="${g.kind}"${g.color?` style="--uc:${g.color}"`:''}>${g.kind==='unit'?'兵种':'设施'} ${esc(g.label)}</i>`).join('')
-        :'<i class="gateless">仅属性加成</i>';
-      return `<div class="tech-node ${state} ${isCurrent?'current':''}" ${node.level===next?`data-tech-field="${field}"`:''}>
-        <div class="tech-node-head"><b>${esc(node.name)}</b><span>${esc(era?`${era.short} · ${era.name}`:'无时代门槛')} · L${node.level}</span></div>
-        <small>${esc(node.effect)}</small>
-        <div class="unlocks">${chips}</div>
-        <span class="tech-state">${status}</span></div>`;
-    }).join('');
-    return `<section class="tech-branch" data-tech-field="${field}" style="--tc:${definition.color}">
-      <h3>${esc(definition.label)}线</h3>
-      <div class="tech-progress">${country.research_field===field?`当前研究 ${pct.toFixed(0)}% · ${progress.toFixed(1)}/${threshold}`:'未在研究中'}${country.research_field===field?`<div class="bar"><i style="width:${pct}%;background:${definition.color}"></i></div>`:''}</div>
-      ${nodes}</section>`;
-  }).join('');
-  $('techHint').innerHTML='<div class="tech-legend"><span><i style="background:#7cb78b"></i>已掌握</span><span><i style="background:#e7b45f"></i>可研究</span><span><i style="background:#31505a"></i>未解锁</span></div><div style="margin-top:6px">节点上的「设施／兵种」标签由 buildings 与 units 的 required_technology 反查得出，与结算门控同源；虚线标签表示该级只有属性加成。三条线全部达到下一等级时时代自动推进；点击金色节点切换研究领域，「军工解锁」页签列出兵种阶梯、设施门槛与兵营常量，观察模式只能查看。</div>';
+  const previousViewport=document.querySelector('.research-viewport');
+  const previousScroll=previousViewport?{left:previousViewport.scrollLeft,top:previousViewport.scrollTop}:null;
+  const country=STATE.countries[selectedCountry],research=country.research;
+  if(!research)return;
+  const nodes=research.nodes,byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
+  const selected=byId[research.selected],canAct=STATE.player_country===selectedCountry;
+  $('techSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${research.known.length}/${nodes.length} 项技术 · ${research.known.includes('modern_engineering')?'现代工程许可已掌握':'古代工程许可：桥梁最多 2 格'}`;
+  const positions={},unlocks=techUnlockIndex();
+  const maxTier=Math.max(...nodes.map(n=>n.tier));
+  let maxRows=1;
+  for(let tier=1;tier<=maxTier;tier++){
+    const group=nodes.filter(n=>n.tier===tier).sort((a,b)=>Object.keys(RESEARCH_BRANCHES).indexOf(a.branch)-Object.keys(RESEARCH_BRANCHES).indexOf(b.branch));
+    maxRows=Math.max(maxRows,group.length);
+    group.forEach((n,i)=>positions[n.id]={x:24+(tier-1)*246,y:54+i*168});
+  }
+  const width=maxTier*246+24,height=maxRows*168+64;
+  const edges=nodes.flatMap(n=>n.requires.map(parent=>{
+    const a=positions[parent],b=positions[n.id],lit=research.known.includes(parent),color=RESEARCH_BRANCHES[n.branch][1];
+    return `<path d="M ${a.x+212} ${a.y+65} C ${a.x+238} ${a.y+65}, ${b.x-24} ${b.y+65}, ${b.x} ${b.y+65}" fill="none" stroke="${lit?color:'#40535b'}" stroke-opacity="${lit?.7:.45}" stroke-width="${lit?2:1.3}" marker-end="url(#techArrow)"/>`;
+  })).join('');
+  const active=selected?`<b>研究中 · ${esc(selected.name)}</b><span>${selected.progress.toFixed(1)} / ${selected.cost} 科研点 · ${(Math.min(1,selected.progress/selected.cost)*100).toFixed(0)}%</span><div class="bar"><i style="width:${Math.min(100,selected.progress/selected.cost*100)}%"></i></div>`:'<b>选择下一项研究</b><span>亮色节点已满足全部前置条件。切换研究会保留各节点进度。</span>';
+  $('techGrid').innerHTML=`<div class="research-current">${active}<small>研究完成后等待下一次选择；AI 国家会按本国政策继续研究。</small></div><div id="researchDetail" class="hint">点选节点查看前置；点选可研究节点立即开始研究。</div><div class="research-viewport"><div class="research-graph" style="width:${width}px;height:${height}px"><svg width="${width}" height="${height}"><defs><marker id="techArrow" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#71878b"/></marker></defs>${edges}</svg>${Array.from({length:maxTier},(_,i)=>`<span class="research-column" style="left:${24+i*246}px">第 ${i+1} 层</span>`).join('')}${nodes.map(n=>{
+    const pos=positions[n.id],branch=RESEARCH_BRANCHES[n.branch];
+    const gates=n.legacy?(unlocks[`${n.legacy.field}:${n.legacy.level}`]||[]):[];
+    const status={known:'已掌握',available:'可研究 · 点击开始',researching:'正在研究',locked:'缺少前置'}[n.status];
+    return `<button class="research-node ${n.status}" data-research-node="${n.id}" data-branch="${n.branch}" style="left:${pos.x}px;top:${pos.y}px;--branch-color:${branch[1]}" title="前置：${n.requires.map(id=>byId[id].name).join('、')||'无'}"><small>${branch[0]} · ${n.cost} 科研点</small><b>${esc(n.name)}</b><span>${esc(n.effect)}</span>${gates.length?`<em>${gates.map(g=>esc(g.label)).join(' · ')}</em>`:''}<strong>${status}${n.progress>0&&n.status!=='known'?` · 已投入 ${n.progress.toFixed(1)}`:''}</strong></button>`;
+  }).join('')}</div></div>`;
+  $('techHint').innerHTML='连线表示前置依赖，跨分支连线需要同时掌握多项技术。道路许可直接由研究节点授予；现代道路工程需要蒸汽、科学、财政与桥梁等基础。可向右滚动查看后续技术。';
   applyTechFilter();
-  for(const node of document.querySelectorAll('[data-tech-field]'))node.onclick=()=>{
-    if(!STATE.player_country)return showToast('观战模式只能查看科技树；介入国家后可选择研究',true);
-    if(STATE.player_country!==selectedCountry)return showToast('请先接管当前选中的国家',true);
-    submitPlayerAction({type:'SET_RESEARCH',field:node.dataset.techField},`已切换研究路线：${STATE.tech_tree[node.dataset.techField].label}`).then(renderTechTree);
+  const viewport=document.querySelector('.research-viewport');
+  if(previousScroll&&viewport){viewport.scrollLeft=previousScroll.left;viewport.scrollTop=previousScroll.top;}
+  for(const button of document.querySelectorAll('[data-research-node]'))button.onclick=async()=>{
+    const node=byId[button.dataset.researchNode];
+    $('researchDetail').textContent=`${node.name}：${node.effect}。前置：${node.requires.map(id=>`${byId[id].name}${research.known.includes(id)?'（已掌握）':'（未掌握）'}`).join('、')||'无'}。`;
+    if(node.status!=='available')return;
+    if(!canAct){showToast('请先接管当前国家再选择研究',true);return;}
+    await submitPlayerAction({type:'SET_RESEARCH',node:node.id},`开始研究：${node.name}`);
+    renderTechTree();
   };
 }
 document.addEventListener('keydown',async e=>{

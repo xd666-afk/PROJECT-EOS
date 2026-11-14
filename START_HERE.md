@@ -2,7 +2,9 @@
 
 **先读 [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md)。** 这是当前项目的完整开发说明书：启动、架构、动作协议、城市系统、API、存档/回放、测试与协作规范。
 
-**当前交互版 v0.46：先读 [`INTERACTION_REWORK_2026-11-14.md`](INTERACTION_REWORK_2026-11-14.md)。** 地图常驻与对象操作重构，沿用现有美术。
+**当前版本 v0.47：先读 [`ROADS_RESEARCH_2026-11-15.md`](ROADS_RESEARCH_2026-11-15.md)。** 道路与建筑共存、整段规划、地形与跨河许可、30 项分支科技。
+
+**此前交互版 v0.46：先读 [`INTERACTION_REWORK_2026-11-14.md`](INTERACTION_REWORK_2026-11-14.md)。** 地图常驻与对象操作重构，沿用现有美术。
 
 **物流与外交 v0.45：先读 [`CIVIL_NETWORKS_2026-11-14.md`](CIVIL_NETWORKS_2026-11-14.md)。** 已实现城市粮仓与真实道路调运、外交通行、物流图层和地图军队直接选择。
 

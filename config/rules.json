@@ -1,5 +1,5 @@
 {
-  "rules_version": "0.3.0",
+  "rules_version": "0.47.0-roads-research",
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,
@@ -1064,5 +1064,474 @@
     "loss_per_cost": 0.003,
     "max_loss": 0.35,
     "reserve_days": 10.0
+  },
+  "road_rules": {
+    "ancient_bridge_width": 2,
+    "modern_bridge_width": 6,
+    "terrain_technology": {
+      "alpine": "modern_engineering",
+      "tundra": "modern_engineering",
+      "desert": "modern_engineering",
+      "wetland": "drainage"
+    },
+    "terrain_names": {
+      "alpine": "雪山",
+      "tundra": "冻原",
+      "desert": "沙漠",
+      "wetland": "湿地"
+    },
+    "terrain_multiplier": {
+      "forest": 1.4,
+      "wetland": 2,
+      "alpine": 4,
+      "tundra": 3,
+      "desert": 3
+    },
+    "bridge_multiplier": 2.5
+  },
+  "research_tree": {
+    "farming": {
+      "name": "定居农业",
+      "branch": "food",
+      "tier": 1,
+      "requires": [],
+      "cost": 20,
+      "effect": "粮食 +8%，税收 +1.5%；农田",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 1
+      }
+    },
+    "tools": {
+      "name": "石器与用火",
+      "branch": "industry",
+      "tier": 1,
+      "requires": [],
+      "cost": 20,
+      "effect": "矿业 +8%，战力 +4%；矿场",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 1
+      }
+    },
+    "symbols": {
+      "name": "符号与信仰",
+      "branch": "statecraft",
+      "tier": 1,
+      "requires": [],
+      "cost": 20,
+      "effect": "研究 +6%，稳定 +0.6；书库、神庙",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 1
+      }
+    },
+    "storage": {
+      "name": "仓储与交换",
+      "branch": "food",
+      "tier": 2,
+      "requires": [
+        "farming"
+      ],
+      "cost": 20,
+      "effect": "粮食能力升至 2 级；粮仓",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 2
+      }
+    },
+    "bronze": {
+      "name": "青铜冶炼",
+      "branch": "industry",
+      "tier": 2,
+      "requires": [
+        "tools"
+      ],
+      "cost": 20,
+      "effect": "矿业能力升至 2 级；工坊、兵营",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 2
+      }
+    },
+    "script": {
+      "name": "文字与哲学",
+      "branch": "statecraft",
+      "tier": 2,
+      "requires": [
+        "symbols"
+      ],
+      "cost": 20,
+      "effect": "研究与治理能力升至 2 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 2
+      }
+    },
+    "irrigation": {
+      "name": "灌溉与市场",
+      "branch": "food",
+      "tier": 3,
+      "requires": [
+        "storage",
+        "bronze"
+      ],
+      "cost": 40,
+      "effect": "粮食能力升至 3 级；灌溉渠、市场、大粮仓",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 3
+      }
+    },
+    "iron": {
+      "name": "铁器锻造",
+      "branch": "industry",
+      "tier": 3,
+      "requires": [
+        "bronze"
+      ],
+      "cost": 40,
+      "effect": "矿业能力升至 3 级；大工坊、城墙",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 3
+      }
+    },
+    "laws": {
+      "name": "城邦法典",
+      "branch": "statecraft",
+      "tier": 3,
+      "requires": [
+        "script",
+        "storage"
+      ],
+      "cost": 40,
+      "effect": "治理能力升至 3 级；大书库",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 3
+      }
+    },
+    "coinage": {
+      "name": "货币经济",
+      "branch": "food",
+      "tier": 4,
+      "requires": [
+        "irrigation",
+        "script"
+      ],
+      "cost": 60,
+      "effect": "粮食与税收能力升至 4 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 4
+      }
+    },
+    "engineering": {
+      "name": "土木工程",
+      "branch": "industry",
+      "tier": 4,
+      "requires": [
+        "iron",
+        "script"
+      ],
+      "cost": 60,
+      "effect": "矿业与工程能力升至 4 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 4
+      }
+    },
+    "bureaucracy": {
+      "name": "帝国官僚",
+      "branch": "statecraft",
+      "tier": 4,
+      "requires": [
+        "laws"
+      ],
+      "cost": 60,
+      "effect": "研究与稳定能力升至 4 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 4
+      }
+    },
+    "caravans": {
+      "name": "远途贸易",
+      "branch": "food",
+      "tier": 5,
+      "requires": [
+        "coinage",
+        "engineering"
+      ],
+      "cost": 80,
+      "effect": "粮食与税收能力升至 5 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 5
+      }
+    },
+    "mechanics": {
+      "name": "机械装置",
+      "branch": "industry",
+      "tier": 5,
+      "requires": [
+        "engineering"
+      ],
+      "cost": 80,
+      "effect": "矿业能力升至 5 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 5
+      }
+    },
+    "philosophy": {
+      "name": "政治哲学",
+      "branch": "statecraft",
+      "tier": 5,
+      "requires": [
+        "laws",
+        "irrigation"
+      ],
+      "cost": 80,
+      "effect": "研究与稳定能力升至 5 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 5
+      }
+    },
+    "credit": {
+      "name": "财政与信用",
+      "branch": "food",
+      "tier": 6,
+      "requires": [
+        "caravans",
+        "bureaucracy"
+      ],
+      "cost": 100,
+      "effect": "粮食与税收能力升至 6 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "agriculture",
+        "level": 6
+      }
+    },
+    "manufacturing": {
+      "name": "军工体系",
+      "branch": "industry",
+      "tier": 6,
+      "requires": [
+        "mechanics",
+        "bureaucracy"
+      ],
+      "cost": 100,
+      "effect": "矿业能力升至 6 级；沿用现有兵种规则",
+      "bonuses": {},
+      "legacy": {
+        "field": "bronze_metallurgy",
+        "level": 6
+      }
+    },
+    "diplomatic_law": {
+      "name": "法理与外交学",
+      "branch": "statecraft",
+      "tier": 6,
+      "requires": [
+        "philosophy",
+        "bureaucracy"
+      ],
+      "cost": 100,
+      "effect": "研究与稳定能力升至 6 级",
+      "bonuses": {},
+      "legacy": {
+        "field": "writing",
+        "level": 6
+      }
+    },
+    "terracing": {
+      "name": "梯田农政",
+      "branch": "food",
+      "tier": 3,
+      "requires": [
+        "storage",
+        "tools"
+      ],
+      "cost": 35,
+      "effect": "全国粮食产出 +12%",
+      "bonuses": {
+        "food": 0.12
+      }
+    },
+    "crop_rotation": {
+      "name": "轮作与育种",
+      "branch": "food",
+      "tier": 5,
+      "requires": [
+        "terracing",
+        "irrigation"
+      ],
+      "cost": 65,
+      "effect": "全国粮食产出再 +15%",
+      "bonuses": {
+        "food": 0.15
+      }
+    },
+    "surveying": {
+      "name": "测绘与驿道",
+      "branch": "transport",
+      "tier": 3,
+      "requires": [
+        "bronze",
+        "script"
+      ],
+      "cost": 35,
+      "effect": "全国道路造价与工期 -15%；现代工程的测绘基础",
+      "bonuses": {
+        "road_discount": 0.15
+      }
+    },
+    "masonry_bridges": {
+      "name": "石拱桥梁",
+      "branch": "transport",
+      "tier": 3,
+      "requires": [
+        "bronze",
+        "storage"
+      ],
+      "cost": 35,
+      "effect": "允许横断面不超过 2 格的跨河道路",
+      "bonuses": {}
+    },
+    "drainage": {
+      "name": "排水与堤道",
+      "branch": "transport",
+      "tier": 5,
+      "requires": [
+        "engineering",
+        "irrigation"
+      ],
+      "cost": 65,
+      "effect": "允许湿地道路；粮食产出 +5%",
+      "bonuses": {
+        "food": 0.05
+      }
+    },
+    "trade_networks": {
+      "name": "商贸网络",
+      "branch": "statecraft",
+      "tier": 5,
+      "requires": [
+        "coinage",
+        "laws",
+        "surveying"
+      ],
+      "cost": 65,
+      "effect": "税收 +15%；道路造价与工期再 -10%",
+      "bonuses": {
+        "tax": 0.15,
+        "road_discount": 0.1
+      }
+    },
+    "civil_service": {
+      "name": "公共行政",
+      "branch": "statecraft",
+      "tier": 5,
+      "requires": [
+        "bureaucracy",
+        "storage"
+      ],
+      "cost": 65,
+      "effect": "建筑维护费 -20%",
+      "bonuses": {
+        "upkeep_discount": 0.2
+      }
+    },
+    "universities": {
+      "name": "大学与实证科学",
+      "branch": "science",
+      "tier": 6,
+      "requires": [
+        "philosophy",
+        "mechanics"
+      ],
+      "cost": 100,
+      "effect": "科研速度 +25%",
+      "bonuses": {
+        "research": 0.25
+      }
+    },
+    "steam_power": {
+      "name": "蒸汽动力",
+      "branch": "industry",
+      "tier": 7,
+      "requires": [
+        "universities",
+        "mechanics"
+      ],
+      "cost": 140,
+      "effect": "矿业产出 +20%；通向现代工程",
+      "bonuses": {
+        "mining": 0.2
+      }
+    },
+    "modern_engineering": {
+      "name": "现代道路工程",
+      "branch": "transport",
+      "tier": 8,
+      "requires": [
+        "steam_power",
+        "credit",
+        "masonry_bridges",
+        "drainage",
+        "surveying"
+      ],
+      "cost": 180,
+      "effect": "解锁现代工程许可：雪山、冻原、沙漠道路；桥梁上限 6 格",
+      "bonuses": {}
+    },
+    "alpine_engineering": {
+      "name": "高寒与隧道工程",
+      "branch": "transport",
+      "tier": 9,
+      "requires": [
+        "modern_engineering"
+      ],
+      "cost": 130,
+      "effect": "道路造价与工期再 -15%；矿业产出 +10%",
+      "bonuses": {
+        "road_discount": 0.15,
+        "mining": 0.1
+      }
+    },
+    "arid_engineering": {
+      "name": "干旱地区工程",
+      "branch": "food",
+      "tier": 9,
+      "requires": [
+        "modern_engineering",
+        "crop_rotation"
+      ],
+      "cost": 130,
+      "effect": "粮食产出 +15%；道路造价与工期再 -15%",
+      "bonuses": {
+        "food": 0.15,
+        "road_discount": 0.15
+      }
+    }
   }
 }

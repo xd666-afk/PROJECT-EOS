@@ -174,7 +174,7 @@ class OpenAICompatibleAgent(CountryAgent):
             "写公开的决策叙事，不要逐步推理链，不要编造观察中不存在的数字。"
             "actions 最多4项，只允许 BUILD(tile,building), SETTLE(tile) 用于开拓相邻无主地块, "
             "ALLOCATE_WORKERS(agriculture,mining,construction), SET_TAX(rate), "
-            "SET_RESEARCH(field), SET_POLICY(priority), "
+            "SET_RESEARCH(node: choose an available research_tree node; prerequisites required), SET_POLICY(priority), BUILD_ROAD_ROUTE(from,to), "
             "TRADE(operation,target,offer_food,request_treasury 或 operation,proposal_id), "
             "DIPLOMACY(GIFT/PROPOSE_PACT/ACCEPT_PACT/REJECT_PACT/REVOKE_PACT/DECLARE_WAR/PROPOSE_PEACE), "
             "MILITARY(RECRUIT(unit,strength[,army_id])/MARCH(tile[,army_id])/ATTACK(target[,army_id][,tile])"

@@ -68,7 +68,7 @@ class Logistics:
     def _refresh(self):
         state = self.state
         signature = (id(state.world), tuple(
-            (cid, tuple(c.tiles), tuple(sorted(c.buildings.items())), tuple(c.at_war_with))
+            (cid, tuple(c.tiles), tuple(sorted(c.buildings.items())), tuple(sorted(getattr(c, "roads", ()))), tuple(c.at_war_with))
             for cid, c in sorted(state.countries.items())),
             tuple((key, p["status"], p["pact"], p["sender"], p["target"])
                   for key, p in sorted(state.pacts.items())))
@@ -78,6 +78,7 @@ class Logistics:
         self.owners = {coord: c.country_id for c in state.countries.values() for coord in c.tiles}
         self.roads = {(int(cell["tile"]["col"]), int(cell["tile"]["row"]))
                       for cell in state.world.road_cells()}
+        self.roads.update(coord for c in state.countries.values() for coord in getattr(c, "roads", ()))
         self.roads.update(coord for c in state.countries.values()
                           for coord, building in c.buildings.items() if building == "ROAD")
 

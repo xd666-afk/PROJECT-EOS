@@ -32,6 +32,16 @@ def test_v3_hex_first_world_has_clean_tile_terrain(tmp_path):
     assert "elevation_m" not in world["terrain"]
     assert len(world["river_cells"]) > 100
     assert len(world["road_cells"]) > 20
+    by_coord = {(t["col"], t["row"]): t for t in world["tiles"]}
+    from core.road import river_width
+    from types import SimpleNamespace
+    road_world = SimpleNamespace(tiles=by_coord)
+    for cell in world["road_cells"]:
+        coord = cell["tile"]["col"], cell["tile"]["row"]
+        tile = by_coord[coord]
+        assert tile["biome"] not in {"alpine", "tundra", "desert"}
+        if tile["river"]:
+            assert 1 <= river_width(road_world, coord) <= 2
     assert world["lake_cells"]
     assert all(cell["depth_m"] > 0 for cell in world["river_cells"])
     assert all(
@@ -78,7 +88,9 @@ def test_v3_hex_first_world_has_clean_tile_terrain(tmp_path):
         road_country.country_id,
         {"type": "BUILD", "tile": {"col": road_coord[0], "row": road_coord[1]}, "building": "FARM"},
     )
-    assert not rejected.accepted and rejected.reason_code == "ROAD_TILE"
+    assert rejected.accepted
+    assert live.world.is_road_cell(road_coord)
+    assert any(tuple(p["tile"]) == road_coord and p["building"] == "FARM" for p in road_country.projects)
 
 
 def test_v3_no_continuous_texture_is_requested_by_the_dashboard():

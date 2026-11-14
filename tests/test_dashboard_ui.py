@@ -98,7 +98,9 @@ def test_tech_panel_derives_unlock_labels_from_content_tables():
     assert "function techUnlockIndex()" in DASHBOARD
     assert "collect(STATE.building_specs,'building')" in DASHBOARD
     assert "collect(STATE.unit_specs,'unit')" in DASHBOARD
-    assert "const gates=unlocks[`${field}:${node.level}`]" in DASHBOARD
+    assert "unlocks[`${n.legacy.field}:${n.legacy.level}`]" in DASHBOARD
+    assert "data-research-node" in DASHBOARD
+    assert "marker-end=\"url(#techArrow)\"" in DASHBOARD
     # rules.json 的 unlocks 文案只做校验，不再当成界面数据源
     assert "node.unlocks" not in DASHBOARD
 

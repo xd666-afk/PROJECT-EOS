@@ -17,13 +17,28 @@ class Construction:
             policy_factor = self.state.config["policies"][country.policy]["construction"]
             daily_progress = labor_factor * policy_factor
             completed = []
+            pending_ids = {p["project_id"] for p in country.projects}
             for project in country.projects:
+                if project.get("depends_on") in pending_ids:
+                    project["blocked_reason"] = "等待前一段道路完工"
+                    continue
+                if project["building"] == "ROAD":
+                    from core.road import road_permit, road_connection_status
+                    permit = road_permit(self.state, country, tuple(project["tile"]))
+                    connected = road_connection_status(self.state, country, tuple(project["tile"]), include_pending=False)[0]
+                    if permit or not connected:
+                        project["blocked_reason"] = permit[1] if permit else "道路接入点失效，等待重新连通"
+                        continue
+                project.pop("blocked_reason", None)
                 project["remaining_days"] = max(
                     0.0, project["remaining_days"] - daily_progress
                 )
                 if project["remaining_days"] <= 1e-12:
                     coord = tuple(project["tile"])
-                    country.buildings[coord] = project["building"]
+                    if project["building"] == "ROAD":
+                        country.roads.add(coord)
+                    else:
+                        country.buildings[coord] = project["building"]
                     completed.append(project)
                     self.state.record(
                         "construction_completed",

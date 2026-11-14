@@ -59,6 +59,7 @@ class Military:
             if isinstance(cell.get("tile"), dict)
         }
         for country in self.state.countries.values():
+            roads.update(getattr(country, "roads", ()))
             roads.update(
                 coord for coord, building in country.buildings.items() if building == "ROAD"
             )
@@ -1683,6 +1684,9 @@ class Military:
             attacker.tiles.append(coord)
             if coord in defender.outposts:
                 defender.outposts.remove(coord)
+            if coord in defender.roads:
+                defender.roads.remove(coord)
+                attacker.roads.add(coord)
             building = defender.buildings.pop(coord, None)
             if building is not None:
                 attacker.buildings[coord] = building
@@ -1765,6 +1769,9 @@ class Military:
         for coord in tiles:
             defender.tiles.remove(coord)
             attacker.tiles.append(coord)
+            if coord in defender.roads:
+                defender.roads.remove(coord)
+                attacker.roads.add(coord)
             building = defender.buildings.pop(coord, None)
             if building is not None:
                 attacker.buildings[coord] = building
@@ -1853,6 +1860,9 @@ class Military:
             attacker.tiles.append(target_tile)
             if target_tile in defender.outposts:
                 defender.outposts.remove(target_tile)
+            if target_tile in defender.roads:
+                defender.roads.remove(target_tile)
+                attacker.roads.add(target_tile)
             seized = defender.buildings.pop(target_tile, None)
             defender.projects = [
                 project for project in defender.projects if tuple(project["tile"]) != target_tile

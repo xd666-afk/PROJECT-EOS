@@ -133,6 +133,7 @@ class WorldStatic:
     def road_nodes(self, country: Any) -> set[tuple[int, int]]:
         """City centers, built ROAD improvements and initial road cells."""
         nodes = {tuple(city.center) for city in country.cities}
+        nodes.update(getattr(country, "roads", ()))
         nodes.update(
             coord for coord, building in country.buildings.items()
             if building == "ROAD"
@@ -807,6 +808,11 @@ class CountryState:
     workers: dict[str, float] = field(default_factory=dict)
     research_field: str = "agriculture"
     research_progress: dict[str, float] = field(default_factory=dict)
+    research_initialized: bool = False
+    known_techs: list[str] = field(default_factory=list)
+    tech_progress: dict[str, float] = field(default_factory=dict)
+    research_node: str | None = None
+    roads: set[tuple[int, int]] = field(default_factory=set)
     policy: str = "BALANCED"
     buildings: dict[tuple[int, int], str] = field(default_factory=dict)
     projects: list[dict[str, Any]] = field(default_factory=list)
@@ -877,6 +883,11 @@ class CountryState:
             "technology": self.technology,
             "tax_rate": self.tax_rate,
             "workers": self.workers,
+            "research_initialized": self.research_initialized,
+            "known_techs": self.known_techs,
+            "tech_progress": self.tech_progress,
+            "research_node": self.research_node,
+            "roads": [list(p) for p in sorted(self.roads)],
             "research_field": self.research_field,
             "research_progress": self.research_progress,
             "policy": self.policy,
@@ -916,6 +927,11 @@ class CountryState:
             technology=data["technology"],
             tax_rate=data["tax_rate"],
             workers=data["workers"],
+            research_initialized=bool(data.get("research_initialized", False)),
+            known_techs=list(data.get("known_techs", [])),
+            tech_progress=dict(data.get("tech_progress", {})),
+            research_node=data.get("research_node"),
+            roads={tuple(p) for p in data.get("roads", [])},
             research_field=data["research_field"],
             research_progress=data["research_progress"],
             policy=data["policy"],
@@ -935,6 +951,13 @@ class CountryState:
             cities=[CityState.from_dict(city) for city in data.get("cities", [])],
             personality=str(data.get("personality", "neutral")),
         )
+        from core.technology import initialize
+        initialize(restored, config)
+        # Migrate the old road improvement into the independent transport layer.
+        for coord, building in list(restored.buildings.items()):
+            if building == "ROAD":
+                restored.roads.add(coord)
+                del restored.buildings[coord]
         for project in restored.projects:
             project["tile"] = tuple(project["tile"])
         return restored
@@ -1027,6 +1050,8 @@ class GameState:
                 stability=float(config["stability"]["initial"]),
                 personality=str(polity.get("personality", "neutral")),
             )
+            from core.technology import initialize
+            initialize(state.countries[country_id], config)
             state.countries[country_id].new_army(tile=capital)
             from core.logistics import reconcile_stocks
             reconcile_stocks(state.countries[country_id], config)
@@ -1160,6 +1185,8 @@ class GameState:
                 country.technology[bonus_field] = min(
                     maximum, country.technology[bonus_field] + 1
                 )
+            from core.technology import initialize
+            initialize(country, self.config, reset=True)
         self.start_astronomical_year = astronomical_year
         self.start_era_index = int(era["index"])
         self.record(
@@ -1284,8 +1311,9 @@ class GameState:
             stability_factor,
         )
 
+        from core.technology import snapshot as research_snapshot
         country_eras = {
-            country_id: era_info(self.config, min(country.technology.values()), self.start_era_index)
+            country_id: ({"index": 7, "name": "现代工程文明", "short": "现代工程", "min_tech_level": 6} if "modern_engineering" in country.known_techs else era_info(self.config, min(country.technology.values()), self.start_era_index))
             for country_id, country in self.countries.items()
         }
         world_era = max(country_eras.values(), key=lambda era: era["index"])
@@ -1320,6 +1348,8 @@ class GameState:
                         key: round(value, 4) for key, value in country.research_progress.items()
                     },
                     "technology": country.technology,
+                    "research": research_snapshot(country, self.config),
+                    "roads": [list(p) for p in sorted(country.roads)],
                     "buildings": {
                         tile_key(coord): building for coord, building in country.buildings.items()
                     },
@@ -1492,7 +1522,7 @@ class GameState:
         state.config = _merge_defaults(default_config, data["rules"])
         # Content/schema updates (tech names, eras, building prerequisites) must come
         # from the current rules so old saves do not keep a superseded tech tree.
-        for content_key in ("tech_tree", "eras", "research_fields", "buildings", "units"):
+        for content_key in ("rules_version", "tech_tree", "research_tree", "road_rules", "eras", "research_fields", "buildings", "units"):
             if content_key in default_config:
                 state.config[content_key] = deepcopy(default_config[content_key])
         validate_content(state.config, {tile["biome"] for tile in world.tiles.values()})

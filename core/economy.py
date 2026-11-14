@@ -108,7 +108,7 @@ class Economy:
                     1.0 + min(max(tile["elevation_m"], 0) / 1500.0, 1.5)
                 )
             road_factor = 1.0 + (
-                self.config["road_production_bonus"] if building == "ROAD" else 0.0
+                self.config["road_production_bonus"] if building == "ROAD" or coord in country.roads else 0.0
             )
             focus = focus_config.get(city_focus.get(coord, "balanced"), focus_config["balanced"])
             zone = zone_config.get(city_zone.get(coord, "unzoned"), zone_config["unzoned"])
@@ -156,6 +156,8 @@ class Economy:
             * social_factor
             * food_buildings
         )
+        from core.technology import bonus
+        food_factor *= 1 + bonus(country, self.config, "food")
         food_production = baseline_food * food_factor
         mine_count = counts.get("MINE", 0)
         extraction_efficiency = 1.0
@@ -213,7 +215,9 @@ class Economy:
                 for city in country.cities
             ) / population_total
             tax_income *= security_tax_factor
-        upkeep = len(country.buildings) * self.config["building_upkeep_per_day"]
+        mine_income *= 1 + bonus(country, self.config, "mining")
+        tax_income *= 1 + bonus(country, self.config, "tax")
+        upkeep = (len(country.buildings) + len(country.roads)) * self.config["building_upkeep_per_day"] * (1 - bonus(country, self.config, "upkeep_discount"))
         food_per_1000 = self.config["food_per_1000_people_per_day"]
         consumption = country.population / 1000.0 * food_per_1000
         logistics_loss = 0.0
@@ -236,7 +240,7 @@ class Economy:
         rural_output = rural_food_base * food_factor
         budget_config = self.config["city_budgets"]
         service_rate = self.config["city_service_cost_per_1000"]
-        upkeep_per_building = self.config["building_upkeep_per_day"]
+        upkeep_per_building = self.config["building_upkeep_per_day"] * (1 - bonus(country, self.config, "upkeep_discount"))
         city_tax_weight = {
             city.city_id: max(
                 1e-9,
@@ -256,7 +260,7 @@ class Economy:
                 if baseline_mining > 1e-12 else 0.0
             )
             building_upkeep = (
-                sum(1 for coord in city.tiles if coord in country.buildings)
+                sum((coord in country.buildings) + (coord in country.roads) for coord in city.tiles)
                 * upkeep_per_building
             )
             budget = budget_config.get(city.budget, budget_config["balanced"])
@@ -383,8 +387,6 @@ class Economy:
     def advance_research(self, country: CountryState) -> None:
         field = country.research_field
         level = country.technology[field]
-        if level >= self.config["research_max_level"]:
-            return
         writing_level = country.technology.get("writing", 0)
         writing_factor = 1.0 + writing_level * self.config["writing_research_bonus_per_level"]
         policy_factor = self.config["policies"][country.policy]["research"]
@@ -418,17 +420,8 @@ class Economy:
             * stability_factor(country.stability, self.config)
             * city_research_multiplier
         )
-        country.research_progress[field] += points
-        threshold = self.config["research_base_threshold"] * level
-        if country.research_progress[field] + 1e-12 >= threshold:
-            country.research_progress[field] -= threshold
-            country.technology[field] += 1
-            self.state.record(
-                "research_completed",
-                country_id=country.country_id,
-                field=field,
-                level=country.technology[field],
-            )
+        from core.technology import advance
+        advance(self.state, country, points)
 
     def grow_population_monthly(self) -> None:
         for country in self.state.countries.values():

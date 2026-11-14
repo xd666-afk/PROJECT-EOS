@@ -12,7 +12,7 @@ def test_observation_is_limited_to_country_and_action_protocol():
     assert len(observation["tiles"]) == 19
     assert "monthly_temp_c" not in observation["tiles"][0]
     assert set(observation["rules"]["allowed_actions"]) == {
-        "BUILD", "ALLOCATE_WORKERS", "SET_TAX", "SET_RESEARCH", "TRADE", "SET_POLICY",
+        "BUILD", "BUILD_ROAD_ROUTE", "ALLOCATE_WORKERS", "SET_TAX", "SET_RESEARCH", "TRADE", "SET_POLICY",
         "SETTLE", "DIPLOMACY", "MILITARY", "SET_CITY_FOCUS", "SET_CITY_ZONE",
         "SET_CITY_GOVERNANCE", "SET_CITY_BUDGET",
     }
@@ -100,7 +100,7 @@ def test_four_mock_agents_run_365_days_and_change_real_state(tmp_path):
         assert country.policy != "BALANCED"
         assert sum(city.population for city in country.cities) == country.population
         assert len(country.cities) >= 1
-        assert country.buildings or country.projects
+        assert country.buildings or country.projects or country.roads
     save = tmp_path / "year.json"
     simulation.state.save(save)
     restored = Simulation.load(save)

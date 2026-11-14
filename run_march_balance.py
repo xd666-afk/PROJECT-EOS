@@ -206,7 +206,7 @@ def run_one(seed: int, assignment: list[str], scenario: dict) -> dict:
                 "roads": sum(
                     1 for building in simulation.state.countries[country_id].buildings.values()
                     if building == "ROAD"
-                ),
+                ) + len(simulation.state.countries[country_id].roads),
                 "barracks_target": camp_targets.get(mapping[country_id], 0),
                 "territory": len(country["tiles"]),
                 "cities": len(country.get("cities", [])),

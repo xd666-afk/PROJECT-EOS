@@ -11,6 +11,8 @@ from core.construction import Construction
 from core.content import field_cap
 from core.access import PACT_SPECS
 from core.military import Military
+from core.road import road_permit
+from core.technology import snapshot as research_snapshot
 from core.society import (
     city_static_metrics,
     city_tier,
@@ -93,7 +95,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "elevation_m": tile["elevation_m"], "river": tile["river"],
             "annual_precip_mm": tile["annual_precip_mm"],
             "building": country.buildings.get(coord),
-            "road_cell": coord in road_cells,
+            "road_cell": coord in road_cells or coord in country.roads,
+            "road_permit": road_permit(state, country, coord) is None,
             "road_connected": road_connected,
             "road_denied": road_denied,
             "project": None if project is None else {
@@ -131,6 +134,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "treasury": country.treasury,
             "tax_rate": country.tax_rate,
             "workers": country.workers,
+            "research": research_snapshot(country, state.config),
+            "roads": [list(p) for p in sorted(country.roads)],
             "research_field": country.research_field,
             "research_progress": country.research_progress,
             "technology": country.technology,
@@ -211,6 +216,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "military": state.config["military"],
             "movement": state.config["movement"],
             "research_fields": state.config["research_fields"],
+            "road_rules": state.config["road_rules"],
+            "research_tree": state.config["research_tree"],
             "policies": sorted(state.config["policies"]),
             "maximum_tax_rate": state.config["maximum_tax_rate"],
             "expansion": state.config["expansion"],

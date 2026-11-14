@@ -21,7 +21,9 @@ SPECIALIZATION_NAMES = {
 
 
 def building_counts(country) -> Counter:
-    return Counter(country.buildings.values())
+    counts = Counter(country.buildings.values())
+    counts["ROAD"] += len(getattr(country, "roads", ()))
+    return counts
 
 
 def housing_capacity(country, config: dict[str, Any]) -> float:
@@ -67,6 +69,7 @@ def city_housing(city, country, config: dict[str, Any]) -> float:
     counts = Counter(
         country.buildings[coord] for coord in city.tiles if coord in country.buildings
     )
+    counts["ROAD"] += sum(p in getattr(country, "roads", ()) for p in city.tiles)
     total += counts.get("ROAD", 0) * housing["road_bonus"]
     for building, bonus in housing["per_building_bonus"].items():
         total += counts.get(building, 0) * bonus
@@ -109,6 +112,7 @@ def city_service_targets(city, country, config: dict[str, Any]) -> dict[str, flo
     counts = Counter(
         country.buildings[coord] for coord in city.tiles if coord in country.buildings
     )
+    counts["ROAD"] += sum(p in getattr(country, "roads", ()) for p in city.tiles)
     zones = Counter(city.zones.values())
     crowding = max(
         0.0, city.population / 1000.0 - city_housing(city, country, config)
@@ -218,6 +222,8 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
             1.1 if tile["river"] else 1.0
         )
         mining += 1 + min(max(tile["elevation_m"], 0) / 1500, 1.5)
+        if coord in getattr(country, "roads", ()):
+            building_counts_for_city["ROAD"] += 1
         if coord in country.buildings:
             building_counts_for_city[country.buildings[coord]] += 1
     dominant = biomes.most_common(1)[0][0] if biomes else "unknown"
@@ -263,6 +269,7 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
         "mining_potential": round(mining, 2),
         "dominant_biome": dominant,
         "buildings": dict(building_counts_for_city),
+        "roads": [list(p) for p in city.tiles if p in getattr(country, "roads", ())],
         "building_tiles": {
             tile_key(coord): country.buildings[coord]
             for coord in city.tiles if coord in country.buildings

@@ -812,6 +812,20 @@ class LiveSession:
             result = self.simulation.engine.apply_action(actor, action)
             return {"ok": result.accepted, "result": result.to_dict()}
 
+    def road_preview(self, actor, start, end):
+        from core.actions import ActionRejected, validate_action
+        from core.road_planner import plan
+        with self.lock:
+            if actor != self.player_country or actor not in self.simulation.state.countries:
+                return {"ok": False, "error": "请先接管道路所属国家"}
+            try:
+                action = validate_action(actor, {"type": "BUILD_ROAD_ROUTE", "from": start, "to": end}, self.simulation.state.config)
+                quote = plan(self.simulation.state, self.simulation.state.countries[actor],
+                             (action["from"]["col"], action["from"]["row"]), (action["to"]["col"], action["to"]["row"]))
+                return {"ok": True, "quote": quote}
+            except ActionRejected as exc:
+                return {"ok": False, "code": exc.code, "error": exc.text}
+
     def map_preview(self, draft: dict) -> dict:
         """Playability report for a painted draft — pure, so hovering never blocks the sim."""
         from mapgen_custom import draft_report
@@ -877,6 +891,7 @@ class LiveSession:
                 deepcopy(event) for event in self.simulation.state.event_log
                 if event["type"] not in {"economy_daily"}
             ][-35:]
+            from core.road import road_permit, road_quote, river_width
             buildings = []
             projects = []
             for country_id, country in self.simulation.state.countries.items():
@@ -890,6 +905,8 @@ class LiveSession:
                         round(project["remaining_days"], 1),
                         round(1.0 - project["remaining_days"] / total, 4),
                         total,
+                        project.get("blocked_reason") or ("等待前一段道路完工" if project.get("depends_on") in {p["project_id"] for p in country.projects} else "施工中"),
+                        project.get("route_id"),
                     ])
             llm_calls = [
                 deepcopy(event) for event in self.simulation.state.event_log
@@ -928,6 +945,10 @@ class LiveSession:
                 "policy_options": sorted(self.simulation.state.config["policies"]),
                 "research_fields": self.simulation.state.config["research_fields"],
                 "tech_tree": self.simulation.state.config["tech_tree"],
+                "research_tree": state.config["research_tree"],
+                "road_rules": state.config["road_rules"],
+                "road_permits": {cid: {f"{p[0]},{p[1]}": {"allowed": permit is None, "reason": permit[1] if permit else "", "cost": road_quote(state, country, p)[0], "days": road_quote(state, country, p)[1], "bridge_plan": bool(state.world.tile(p).get("river") and river_width(state.world, p) != 1)} for p in country.tiles for permit in [road_permit(state, country, p)]} for cid, country in state.countries.items()},
+                "roads": [[p[0], p[1], cid] for cid, country in state.countries.items() for p in sorted(country.roads)],
                 "eras": self.simulation.state.config["eras"],
                 "research_max_level": self.simulation.state.config["research_max_level"],
                 "research_base_threshold": self.simulation.state.config["research_base_threshold"],
@@ -1064,7 +1085,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path not in {
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
             "/api/agents/budget", "/api/agents/personality", "/api/new_game", "/api/saves",
-            "/api/map_preview", "/api/march_preview",
+            "/api/map_preview", "/api/march_preview", "/api/road_preview",
         }:
             self._json({"error": "not found"}, 404)
             return
@@ -1111,6 +1132,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.session.march_preview(
                     payload.get("draft") or {}, payload.get("from"), payload.get("to")
                 )
+            elif self.path == "/api/road_preview":
+                result = self.session.road_preview(str(payload.get("actor", "")), payload.get("from"), payload.get("to"))
             elif self.path == "/api/action":
                 result = self.session.player_action(
                     str(payload.get("actor", "")), payload.get("action")

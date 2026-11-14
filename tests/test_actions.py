@@ -604,6 +604,7 @@ def test_road_build_must_connect_to_city_or_existing_road(engine):
         coord for coord in owned
         if hex_distance(coord, capital) == 1
         and coord not in country.buildings
+        and not state.world.tile(coord)["river"]
     )
     accepted = engine.apply_action(
         "ELAR", build({"col": adjacent[0], "row": adjacent[1]}, "ROAD")
