@@ -707,6 +707,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
   body:has(.modal:not([hidden])) #worldLeft{display:none}
 }
 </style>
+<link rel="stylesheet" href="/assets/ui/strategy.css">
 </head>
 <body>
 <div class="screen menu" id="menuScreen">
@@ -765,11 +766,8 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
     <button data-deck="system" title="系统与存档"><b>系</b><span>系统</span></button>
   </nav>
   <header class="topbar">
-    <div class="brand">
-      <div class="sigil"><span>E</span></div>
-      <div><h1>PROJECT EOS</h1><small id="eraLine">时代 I · 青铜时代早期</small></div>
-    </div>
-    <div class="power" id="powerBar"></div>
+    <button class="realm-home" id="realmHome" title="打开本国概览与财政"><span class="realm-emblem" id="realmEmblem">E</span><span><b id="realmName">PROJECT EOS</b><small id="eraLine">实时文明沙盘</small></span></button>
+    <div class="power" id="powerBar"></div><div id="hudUtilities"></div>
     <div class="timebox">
       <div class="hud-actions">
         <button class="notify" id="notifyBtn" title="通知中心">动态<span class="notify-badge" id="notifyBadge">0</span></button>
@@ -788,7 +786,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
   </header>
   <main class="workspace">
     <aside class="left" id="worldLeft">
-      <div class="side-head"><span>世界导航</span><button id="collapseLeft">收起</button></div>
+      <div class="side-head"><span>国家与领土</span><button id="collapseLeft">收起</button></div>
       <div class="object-header"><label for="realmPicker">正在查看的国家</label><select id="realmPicker"></select>      <div class="modebar">
         <button id="observeBtn">观战</button>
         <button id="interveneBtn">介入</button>
@@ -807,7 +805,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
       <canvas id="map"></canvas>
       <div class="diary-bubbles" id="diaryBubbles"></div>
       <div class="notice-stack" id="noticeStack"></div>
-      <div class="side-reopen left-open" id="leftReopen" hidden><button id="reopenLeft">列国</button></div>
+      <div class="side-reopen left-open" id="leftReopen" hidden><button id="reopenLeft">国家</button></div>
       <div class="side-reopen right-open" id="rightReopen" hidden><button id="reopenRight">详情</button></div>
       <div class="map-toolbar">
         <div class="map-tools">
@@ -819,7 +817,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
           <button data-layer="resources">资源</button>
           <button data-layer="routes">交通</button>
           <span class="panel-toggle">
-            <button class="on" id="toggleLeft">列国</button>
+            <button class="on" id="toggleLeft">国家</button>
             <button class="on" id="toggleRight">详情</button>
           </span>
         </div>
@@ -831,7 +829,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
       <div class="toast" id="toast"></div>
     </section>
     <aside class="right" id="worldRight">
-      <div class="side-head"><span>详情检视</span><button id="collapseRight">收起</button></div>
+      <div class="side-head"><span>当前对象</span><button id="collapseRight">返回国家</button></div>
       <div class="tabs">
         <button data-tab="country">国家</button>
         <button data-tab="tile">地块</button>
@@ -844,6 +842,11 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
       </div>
     </aside>
   </main>
+  <footer id="commandDock" class="command-dock" aria-label="对象命令">
+    <div id="selectionSummary" class="selection-summary"></div>
+    <div class="command-tray"><div id="commandHint" class="command-hint" aria-live="polite"></div><div id="commandActions" class="command-actions"></div></div>
+  </footer>
+  <aside id="timeDock" class="time-dock" aria-label="实时演进控制"><span id="timeState">实时演进</span></aside>
 </div>
 <div class="end-modal" id="endModal" hidden>
   <div class="end-card">
@@ -957,10 +960,12 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
     </div>
     <div class="deck-tabs" id="nationTabs">
       <button data-nation-tab="overview" class="on">概览与政策</button>
+      <button data-nation-tab="finance">财政与劳力</button>
       <button data-nation-tab="cities">城市</button>
       <button data-nation-tab="ranking">世界排名</button>
     </div>
     <div class="deck-section" id="nationOverview"></div>
+    <div class="deck-section" id="nationFinance" hidden></div>
     <div class="deck-section" id="nationCities" hidden></div>
     <div class="deck-section" id="nationRanking" hidden></div>
   </div>
@@ -2276,6 +2281,7 @@ function renderTop(){
     <div class="res"><small>人口 / 住房</small><b>${fmtInt(country.population)} / ${fmtNum(country.housing,0)}k</b></div>
     <div class="res"><small>稳定度</small><b style="color:${country.stability<35?'var(--bad)':country.stability>65?'var(--good)':'var(--ink)'}">${fmtNum(country.stability,0)}</b></div>
     <div class="res"><small>${esc(country.city_tier||'聚落')} · 世界第 ${rank+1}</small><b>${fmtNum(country.total,0)} 分</b></div>`;
+  renderStrategyHeader();
   const banner=$('playerBanner');
   if(STATE.player_country){
     banner.hidden=false;banner.innerHTML=`<b>治理权 · ${esc(STATE.player_country)}</b>你正在接管该国。AI 决策已暂停，点击己方地块即可建造。`;
@@ -3038,6 +3044,7 @@ function renderRight(){
   const tick=events.slice(0,2).map(e=>`<b>${e[0]}</b> ${e[1]}`).join('　·　');
   $('ticker').innerHTML=tick||'等待世界动态';
   refreshInspector();
+  refreshStrategyUI();
 }
 function fmtAction(a){
   if(!a)return'无动作';
@@ -3125,9 +3132,9 @@ function selectTab(name){
   for(const b of document.querySelectorAll('#worldRight .tabs button'))b.classList.toggle('on',b.dataset.tab===name);
   for(const p of document.querySelectorAll('#worldRight .panel'))p.classList.toggle('on',p.id==='panel-'+name);
 }
-function showDetailTab(){setSidePanel('right',true);selectTab('tile');}
+function showDetailTab(){setSidePanel('right',true);selectTab('tile');refreshStrategyUI();}
 function selectCountry(cid){
-  selectedCountry=cid;selectedTile=null;setSidePanel('right',false);
+  selectedCountry=cid;selectedTile=null;selectedArmy=null;strategyCommand='inspect';setSidePanel('right',false);
   if(STATE?.mode==='player'&&STATE.player_country!==cid)showToast(`当前治理 ${STATE.player_country}；切换到 ${cid} 需要重新介入。`);
   renderTop();renderCountries();renderRight();render(true);
 }
@@ -3150,6 +3157,7 @@ async function submitPlayerAction(action,successText){
     if(data.ok)showToast(successText);
     else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
     await poll(true);
+    return data;
   }catch(err){showToast('命令请求失败',true);}
 }
 function submitBuild(col,row,building){
@@ -3250,7 +3258,7 @@ canvas.addEventListener('dblclick',async e=>{
   await openDeck('city',true);
   openCityDetail(hit.city.city_id);
 });
-canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
+canvas.addEventListener('pointerdown',e=>{if(e.button!==0)return;drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
 canvas.addEventListener('pointermove',e=>{
   if(drag){
     const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;
@@ -3269,7 +3277,7 @@ canvas.addEventListener('pointerup',e=>{
   if(!drag)return;const wasMoved=moved;
   drag=null;canvas.classList.remove('drag');
   if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near){
-    pickMapArmy(near);selectedTile=near;renderRight();render(true);showDetailTab();
+    selectStrategyTile(near);
   }}
   try{canvas.releasePointerCapture(e.pointerId);}catch(_){}
 });
@@ -3505,6 +3513,7 @@ function alignDrawerMap(){
 function setRail(name){
   if(name==='world'&&drawerMapShift){panX-=drawerMapShift;drawerMapShift=0;render(true);}
   activeDeck=name;
+  refreshStrategyUI();
   for(const b of document.querySelectorAll('#primaryRail [data-deck]'))b.classList.toggle('on',b.dataset.deck===name);
 }
 async function closeDeck(name){
@@ -3562,6 +3571,8 @@ function setNationTab(name){
   nationTab=name;
   for(const b of document.querySelectorAll('#nationTabs [data-nation-tab]'))b.classList.toggle('on',b.dataset.nationTab===name);
   $('nationOverview').hidden=name!=='overview';
+  $('nationFinance').hidden=name!=='finance';
+  if(name==='finance')renderStrategyFinance();
   $('nationCities').hidden=name!=='cities';
   $('nationRanking').hidden=name!=='ranking';
 }
@@ -3658,6 +3669,8 @@ function setSidePanel(side,open){
   panel.classList.toggle('collapsed',!open);
   if(side==='right')document.body.classList.toggle('right-panel-open',open);
   reopen.hidden=open;toggle.classList.toggle('on',open);
+  if(side==='right'&&open){$('worldLeft').classList.remove('collapsed');$('leftReopen').hidden=true;}
+  refreshStrategyUI();
 }
 for(const [id,side] of [['collapseLeft','left'],['collapseRight','right'],['toggleLeft','left'],['toggleRight','right']]){
   const btn=$(id);if(btn)btn.onclick=()=>{
@@ -4565,6 +4578,7 @@ async function startSession(){
   WORLD.tileMap={};for(const t of WORLD.tiles)WORLD.tileMap[t[0]+','+t[1]]=t;
   loadTerrainTexture(WORLD.metadata?.terrain_texture_url||null);
   roadPathCache={};roadNetworkCache={key:'',segments:[]};
+  strategyCommand='inspect';selectedArmy=null;roadPlan=null;
   selectedCountry=(WORLD.metadata?.schema_version>=2?centralCountryId():WORLD.polities[0].id);selectedTile=null;endShown=false;
   $('endModal').hidden=true;
   const wantedLayer=bootParams.get('layer');
@@ -5125,7 +5139,7 @@ function renderDiplomacy(){
   const isPlayer=STATE.player_country===selectedCountry;
   $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 协定决定贸易合作、民用货运和军事通行`;
   for(const b of document.querySelectorAll('#diploTabs button'))b.classList.toggle('on',b.dataset.diploFilter===diploFilter);
-  const rows=livePolities().filter(p=>p.id!==selectedCountry).map(p=>{
+  const rows=livePolities().filter(p=>p.id!==selectedCountry).sort((a,b)=>Number(b.id===diplomacyFocus)-Number(a.id===diplomacyFocus)).map(p=>{
     const relation=dip.relations[p.id]||0;
     const levelLabel=diplomacyLevelName(dip.levels?.[p.id]);
     const active=dip.active_pacts?.find(pact=>pact.pact==='TRADE'&&pact.status==='ACTIVE'&&[pact.sender,pact.target].includes(p.id));
@@ -5133,7 +5147,7 @@ function renderDiplomacy(){
     const atWar=(c.at_war_with||[]).includes(p.id);
     const pct=Math.max(0,Math.min(100,(relation+100)/2));
     const actions=diplomacyActions(p.id,dip,isPlayer,relation,atWar);
-    return `<div class="diplo-row" style="--dc:${countryColor(p.id)}">
+    return `<div class="diplo-row ${p.id===diplomacyFocus?'focus-target':''}" data-diplo-country="${p.id}" style="--dc:${countryColor(p.id)}">
       <span class="diplo-color"></span>
       <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${esc(levelLabel)} · ${(dip.active_pacts||[]).some(a=>a.status==='ACTIVE'&&[a.sender,a.target].includes(p.id))?'协定生效':'无协定'}</small></div>
       <div><div class="relation-track"><span class="relation-marker" style="left:${pct}%"></span></div>
@@ -5456,7 +5470,8 @@ async function boot(){
     else if(wanted&&latestSaves.some(save=>save.id===wanted))await loadSave(wanted);
   }catch(e){showToast('无法读取存档',true);}
 }
-boot();
 </script>
+<script src="/assets/ui/strategy.js"></script>
+<script>boot();</script>
 </body>
 </html>

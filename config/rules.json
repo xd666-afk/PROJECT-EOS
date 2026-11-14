@@ -1,5 +1,5 @@
 {
-  "rules_version": "0.48.0-map-sizes",
+  "rules_version": "0.49.0-realtime-strategy-ui",
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,

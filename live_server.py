@@ -1085,6 +1085,7 @@ class Handler(BaseHTTPRequestHandler):
             target = (ASSETS_DIR / path.removeprefix("/assets/")).resolve()
             if target.is_relative_to(ASSETS_DIR.resolve()) and target.is_file():
                 content_types = {
+                    ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8",
                     ".png": "image/png", ".jpg": "image/jpeg",
                     ".jpeg": "image/jpeg", ".webp": "image/webp",
                 }

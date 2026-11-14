@@ -1,12 +1,23 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-15，v0.48，401 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-15，v0.49，401 项测试。
 >
 > 最新整合说明见 `INTEGRATION_REPORT_2026-11-14.md`；直接试玩用 `live_server.py --load examples/hexfirst/save.json --paused --open`。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
 ---
+
+## v0.49 更新：实时战略交互
+
+完整交接见 [`STRATEGY_UI_2026-11-15.md`](STRATEGY_UI_2026-11-15.md)。沿用六边形地图、实时逐日演进和原规则，参考 AoH II 经典版的对象/命令布局。
+
+- `assets/ui/strategy.css` 管理主界面布局与响应式；`assets/ui/strategy.js` 管理对象命令、治理权与查看对象、财政管理。主页面先加载两个模块，再启动 `boot()`。
+- `refreshStrategyUI()` 随现有渲染刷新；`selectStrategyTile()` 统一地图点选；底部操作调用既有 `submitPlayerAction()`，由规则引擎校验。提交函数现在返回服务器回执，供确认按钮区分成功与失败。
+- 右键只选择移动目的地，确认后才提交；Esc 取消待确认选点；空格只在非输入状态暂停/继续。读面板不暂停世界，没有回合制入口。
+- 财政页读取 `last_economy` 的民政账、税率、劳力与城市预算，明确标记民政结余；军费/招募/外交维持原有账目。外国财政只读，顶部资源锁定玩家执政国家。
+- 本地资源服务增加 CSS / JavaScript MIME 类型。新模块必须随源代码发布，不能只复制 `dashboard.html`。
+- 浏览器验收：`.venv\Scripts\python.exe scripts/verify_strategy_ui.py --output runs/ui_checks/strategy`，需要已安装 Playwright 和 Edge。脚本创建临时存档和独立端口，验证真实操作后清理，不写入玩家存档。
 
 ## v0.48 更新：地图尺寸
 
