@@ -19,7 +19,8 @@ def test_observation_is_limited_to_country_and_action_protocol():
     assert len(observation["country"]["cities"]) == 1
     city = observation["country"]["cities"][0]
     assert city["city_id"] and "managed_by" in city and city["tiles_detail"]
-    assert len(observation) <= 15
+    assert len(observation) <= 16
+    assert observation["incoming_threats"] == []
 
 
 def test_ai_rejects_unfair_incoming_trade():

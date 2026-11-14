@@ -111,12 +111,17 @@ def test_aggressive_mock_recruits_earlier_than_conservative():
         country.personality = personality
         country.treasury = 110.0
         country.food = 200.0
-        country.army_strength = 0
+        country.armies = []
         simulation.state.day_index = 100
         observation = build_observation(simulation.state, "ELAR")
         decision = asyncio.run(HeuristicAgent("ELAR").decide(observation))
-        recruited = any(
-            action["type"] == "MILITARY" and action["operation"] == "RECRUIT"
-            for action in decision["actions"]
+        recruit = next(
+            (action for action in decision["actions"]
+             if action["type"] == "MILITARY" and action["operation"] == "RECRUIT"),
+            None,
         )
-        assert recruited is should_recruit, personality
+        assert (recruit is not None) is should_recruit, personality
+        if should_recruit:
+            # 激进档偏爱突击兵种，但 90 天前只买得起无科技门槛的征召民兵。
+            assert recruit["strength"] == 2
+            assert recruit["unit"] in simulation.state.config["units"]

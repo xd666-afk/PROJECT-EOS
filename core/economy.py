@@ -216,7 +216,7 @@ class Economy:
         consumption = country.population / 1000.0 * food_per_1000
         logistics_config = self.config["city_logistics"]
         initial_road_presence = 1.0 if any(
-            cell.get("owner_id") == country.country_id
+            (int(cell["tile"]["col"]), int(cell["tile"]["row"])) in country.tiles
             for cell in self.state.world.data.get("road_cells", [])
         ) else 0.0
         road_relief = min(

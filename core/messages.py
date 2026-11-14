@@ -9,6 +9,11 @@ RESEARCH_LABELS = {
     "agriculture": "经济",
 }
 HAZARD_LABELS = {"flood": "洪水", "drought": "干旱"}
+BIOME_LABELS = {
+    "grassland": "草原", "forest": "森林", "rainforest": "雨林", "savanna": "稀树草原",
+    "steppe": "半干旱草原", "wetland": "湿地", "desert": "沙漠", "alpine": "高山",
+    "tundra": "冻原", "ocean": "海洋",
+}
 
 
 def _country_name(state, country_id: str) -> str:
@@ -18,6 +23,16 @@ def _country_name(state, country_id: str) -> str:
 
 def _building_name(state, building: str) -> str:
     return state.config.get("buildings", {}).get(building, {}).get("label", building)
+
+
+def _unit_name(state, unit_id: str) -> str:
+    return state.config.get("units", {}).get(unit_id, {}).get("label", unit_id)
+
+
+def _loss_text(state, units: dict[str, Any]) -> str:
+    if not units:
+        return "无人阵亡"
+    return "、".join(f"{_unit_name(state, unit_id)}×{count}" for unit_id, count in units.items())
 
 
 def _messages_for_event(state, event: dict[str, Any]) -> list[dict[str, Any]]:
@@ -38,25 +53,84 @@ def _messages_for_event(state, event: dict[str, Any]) -> list[dict[str, Any]]:
     if kind == "battle":
         attacker, defender = event.get("attacker"), event.get("defender")
         captured = bool(event.get("captured"))
+        ground = BIOME_LABELS.get(event.get("biome"), "边境")
+        attacker_losses = _loss_text(state, event.get("attacker_units") or {})
+        defender_losses = _loss_text(state, event.get("defender_units") or {})
+        mass = len(event.get("attacker_mass") or [])
+        mass_text = f"{mass} 支军队在同一缺口集结，" if captured and mass > 1 else ""
+        levy = event.get("tribute") or {}
+        levy_share = f"{levy.get('share', 0.0) * 100:.0f}%"
+        for_attacker = (
+            f"那儿的{levy.get('label')}此后 {levy.get('days')} 天要向我们交出其收入的 {levy_share}"
+            f"（约每日 {levy.get('daily')}）。" if levy else ""
+        )
+        for_defender = (
+            f"我们的{levy.get('label')}落进了敌手，此后 {levy.get('days')} 天要白交收入的 {levy_share}"
+            f"（每日约 {levy.get('daily')}）。" if levy else ""
+        )
         if captured:
             return [
                 {
                     "country_id": attacker, "priority": 95, "title": "边境得手", "mood": "振奋",
-                    "text": f"刚从{_country_name(state, defender)}手里拿下一块边境地。不能松劲，补给要跟上。",
+                    "text": f"刚从{_country_name(state, defender)}手里拿下一块{ground}。{mass_text}我军{attacker_losses}，补给要跟上。{for_attacker}",
                 },
                 {
                     "country_id": defender, "priority": 95, "title": "边境失地", "mood": "焦虑",
-                    "text": f"{_country_name(state, attacker)}夺走了我们一块边境地。先稳住阵脚，别让恐慌蔓延。",
+                    "text": f"{_country_name(state, attacker)}夺走了我们一块{ground}，{defender_losses}。先稳住阵脚，别让恐慌蔓延。{for_defender}",
                 },
             ]
         return [
             {
                 "country_id": attacker, "priority": 92, "title": "边境交火", "mood": "谨慎",
-                "text": f"在边境和{_country_name(state, defender)}打了一仗，谁也没占到便宜。先补兵。",
+                "text": f"在{ground}和{_country_name(state, defender)}打了一仗，谁也没占到便宜，我军{attacker_losses}。先补兵。",
             },
             {
                 "country_id": defender, "priority": 92, "title": "边境交火", "mood": "谨慎",
-                "text": f"{_country_name(state, attacker)}在边境试探我们。守住阵线，别贸然追击。",
+                "text": f"{_country_name(state, attacker)}在{ground}试探我们，{defender_losses}。守住阵线，别贸然追击。",
+            },
+        ]
+    if kind == "siege_started":
+        attacker, defender = event.get("attacker"), event.get("defender")
+        days = event.get("days_left")
+        promise = f"按圈内现有兵力约 {days} 天城破" if days else "圈里暂时凑不出兵力，账不会动"
+        wall = "他们那儿还有城墙，得多啃几天。" if event.get("walls") else "中心格还没起城墙。"
+        return [
+            {
+                "country_id": attacker, "priority": 94, "title": "围城开局", "mood": "谨慎",
+                "text": f"我军已经站进{_country_name(state, defender)}的{event.get('city', '城池')}封锁圈，账开下来了：{promise}。{wall}兵不能撤，撤了这账就作废。",
+            },
+            {
+                "country_id": defender, "priority": 96, "title": "城池被围", "mood": "焦虑",
+                "text": f"{_country_name(state, attacker)}围住了{event.get('city', '城池')}，{promise}。要解围就得把圈里的兵打掉或夺回那一格，不然只能先求和——野地打赢一仗不会让墙停下来。",
+            },
+        ]
+    if kind == "city_fallen":
+        attacker, defender = event.get("attacker"), event.get("defender")
+        seized = "、".join(_building_name(state, building) for building in event.get("buildings") or []) or "空地"
+        levy = event.get("tribute") or []
+        paid = f"往后 {levy[0]['days']} 天还要交其收入的 {levy[0]['share'] * 100:.0f}%。" if levy else ""
+        return [
+            {
+                "country_id": attacker, "priority": 98, "title": "敌城陷落", "mood": "振奋",
+                "text": f"{event.get('city', '城池')}整座归了我们：{event.get('tiles')} 格城域、{event.get('population')} 口人、{seized}都换了主人。{paid}迁入的民政要先接住。",
+            },
+            {
+                "country_id": defender, "priority": 99, "title": "城池易主", "mood": "焦虑",
+                "text": f"{event.get('city', '城池')}守不住了，{event.get('tiles')} 格城域和 {event.get('population')} 口人一起落到{_country_name(state, attacker)}手里。民心已经跌下去，先稳住剩下的城。",
+            },
+        ]
+    if kind == "realm_annexed":
+        attacker = event.get("attacker")
+        cities = len(event.get("cities") or [])
+        return [
+            {
+                "country_id": attacker, "priority": 100, "title": "敌国覆灭", "mood": "振奋",
+                "text": (
+                    f"{event.get('name', '敌国')}的都城一破就散了架：{event.get('tiles')} 格土地、"
+                    f"{cities} 座城、{event.get('population')} 口人整建制归了我们，库里的 "
+                    f"{event.get('treasury')} 财政与 {event.get('food')} 粮草也搬进我们的账上。"
+                    "它已经不在这张地图上了——留下的兵营明天就能募兵，但别国也会学这一手。"
+                ),
             },
         ]
     if kind == "peace_accepted":
@@ -143,15 +217,24 @@ def _messages_for_event(state, event: dict[str, Any]) -> list[dict[str, Any]]:
         }]
     if kind == "army_recruited":
         cid = event.get("country_id")
+        unit = _unit_name(state, event.get("unit", ""))
         return [{
             "country_id": cid, "priority": 45, "title": "招募军队", "mood": "谨慎",
-            "text": f"又招了{event.get('amount', 1)}点兵。军费不低，但边境不能空着。",
+            "text": f"又募了{event.get('amount', 1)}支{unit}。军费不低，但边境不能空着。",
+        }]
+    if kind == "barracks_recruit":
+        cid = event.get("country_id")
+        unit = _unit_name(state, event.get("unit", ""))
+        return [{
+            "country_id": cid, "priority": 42, "title": "兵营募兵", "mood": "踏实",
+            "text": f"兵营练出一支{unit}，军饷是按天扣的，养兵得看国库。",
         }]
     if kind == "army_desertion":
         cid = event.get("country_id")
+        unit = _unit_name(state, event.get("unit", ""))
         return [{
             "country_id": cid, "priority": 72, "title": "军队逃散", "mood": "焦虑",
-            "text": "军饷跟不上，跑了些兵。得先稳住军队。",
+            "text": f"军饷跟不上，跑掉了{unit}。得先稳住军队。",
         }]
     if kind == "hazard_impact":
         cid = event.get("country_id")

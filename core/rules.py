@@ -62,6 +62,7 @@ class RuleEngine:
             "result": result.to_dict(),
         }
         self.state.action_log.append(entry)
+        self.state.add_receipt(result, entry["action"])
         self.state.record(
             "action_result",
             action_id=result.action_id,
@@ -235,6 +236,12 @@ class RuleEngine:
                     raise ActionRejected(
                         "BUILDING_UNIQUE_LIMIT", f"{building} 全国最多建设 {limit} 座"
                     )
+            if spec.get("on_city_center") and not any(
+                city.center == coord for city in country.cities
+            ):
+                raise ActionRejected(
+                    "NOT_CITY_CENTER", f"{building} 只能建在城池中心格上：先选中一座城"
+                )
             cost = float(spec["cost"])
             if country.treasury + 1e-9 < cost:
                 raise ActionRejected("INSUFFICIENT_TREASURY", f"建设需要 {cost} 财政单位")
@@ -375,10 +382,22 @@ class RuleEngine:
         if action_type == "MILITARY":
             operation = action["operation"]
             if operation == "RECRUIT":
-                return self.military.recruit(actor, action["strength"])
+                return self.military.recruit(
+                    actor, action["unit"], action["strength"], action.get("army_id")
+                )
             if operation == "MARCH":
-                return self.military.march(actor, (action["tile"]["col"], action["tile"]["row"]))
-            return self.military.attack(actor, action["target"])
+                return self.military.march(
+                    actor, (action["tile"]["col"], action["tile"]["row"]), action.get("army_id")
+                )
+            if operation == "SET_RECRUITING":
+                return self.military.set_recruiting(actor, action.get("army_id"), action["recruiting"])
+            if operation == "SET_RECRUIT_UNIT":
+                return self.military.set_recruit_unit(actor, action.get("army_id"), action["unit"])
+            objective = action.get("tile")
+            return self.military.attack(
+                actor, action["target"], action.get("army_id"),
+                None if objective is None else (objective["col"], objective["row"]),
+            )
         if action_type == "SET_POLICY":
             previous = country.policy
             country.policy = action["priority"]
@@ -400,6 +419,12 @@ class RuleEngine:
                 self.planner.plan(self)
             if self.enable_city_manager:
                 self.city_manager.plan(self)
+        elif self.planner is not None:
+            # A council held every 90 days cannot answer a 17-day blockade, so the realms the
+            # alert is about sit down today; everyone else keeps the ordinary rhythm.
+            alarmed = self.military.alarm_watch()
+            if alarmed:
+                self.planner.plan(self, only=alarmed)
         if self.enable_frontier_ai:
             self._expand_frontiers()
         current_weather = self.state.weather.sample(self.state.day_index)
@@ -407,8 +432,12 @@ class RuleEngine:
             current_weather["rain"], current_weather["temperature"]
         )
         self.economy.settle_all(current_weather)
+        self.military.tribute_daily()
+        self.military.march_daily()
+        self.military.siege_daily()
         self.military.upkeep_daily()
         self.construction.advance_all()
+        self.military.barracks_daily()
         for country in self.state.countries.values():
             self.economy.advance_research(country)
         if self.state.weather.is_month_end(self.state.day_index):
@@ -455,7 +484,11 @@ class RuleEngine:
     def _apply_hazards(self, monthly: dict[str, Any]) -> None:
         weather_config = self.state.config["weather"]
         for country_id, summary in monthly["countries"].items():
-            country = self.state.countries[country_id]
+            country = self.state.countries.get(country_id)
+            if country is None:
+                # A realm taken at its capital still gets weather over its soil, but there is
+                # no treasury left to burn and no granary left to empty.
+                continue
             capital = self.state.world.polities[country_id]["capital"]
             tile = self.state.world.tile((capital["col"], capital["row"]))
             rain_ratio = summary["rain_anomaly_ratio"]

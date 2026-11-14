@@ -164,6 +164,45 @@
       },
       "max_per_country": 1
     },
+    "BARRACKS": {
+      "cost": 40.0,
+      "days": 70.0,
+      "label": "兵营",
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 2
+      }
+    },
+    "WALL": {
+      "cost": 60.0,
+      "days": 90.0,
+      "label": "城墙",
+      "allowed_biomes": [
+        "grassland",
+        "forest",
+        "savanna",
+        "steppe",
+        "wetland",
+        "desert",
+        "alpine",
+        "tundra"
+      ],
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 3
+      },
+      "on_city_center": true
+    },
     "LIBRARY": {
       "cost": 26.0,
       "days": 55.0,
@@ -277,6 +316,160 @@
         "level": 3
       },
       "max_per_country": 1
+    }
+  },
+  "units": {
+    "MILITIA": {
+      "label": "征召民兵",
+      "color": "#a3a897",
+      "power": 1.0,
+      "defense": 1.0,
+      "max_count": 8,
+      "cost": {
+        "treasury": 12.5,
+        "food": 3.0
+      },
+      "upkeep_per_day": 0.018,
+      "required_technology": null,
+      "counters": {},
+      "terrain": {}
+    },
+    "ARCHER": {
+      "label": "投射弓手",
+      "color": "#c9b45d",
+      "power": 1.15,
+      "defense": 0.95,
+      "max_count": 6,
+      "cost": {
+        "treasury": 15.0,
+        "food": 3.5
+      },
+      "upkeep_per_day": 0.02,
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 1
+      },
+      "counters": {
+        "CHARIOT": 0.25,
+        "MILITIA": 0.1,
+        "HEAVY_INFANTRY": -0.2
+      },
+      "terrain": {
+        "forest": 1.1,
+        "desert": 0.9,
+        "wetland": 0.85
+      }
+    },
+    "CHARIOT": {
+      "label": "青铜战车",
+      "color": "#c78b6e",
+      "power": 1.3,
+      "defense": 0.9,
+      "max_count": 4,
+      "cost": {
+        "treasury": 23.75,
+        "food": 5.0
+      },
+      "upkeep_per_day": 0.028,
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 2
+      },
+      "counters": {
+        "MILITIA": 0.3,
+        "SIEGE": 0.2,
+        "ARCHER": -0.25,
+        "CAVALRY": -0.2
+      },
+      "terrain": {
+        "steppe": 1.15,
+        "savanna": 1.15,
+        "forest": 0.6,
+        "alpine": 0.5,
+        "wetland": 0.7
+      }
+    },
+    "HEAVY_INFANTRY": {
+      "label": "重装步兵",
+      "color": "#7fa6cf",
+      "power": 1.2,
+      "defense": 1.3,
+      "max_count": 5,
+      "cost": {
+        "treasury": 21.25,
+        "food": 4.0
+      },
+      "upkeep_per_day": 0.025,
+      "required_technology": {
+        "field": "writing",
+        "level": 3
+      },
+      "counters": {
+        "CAVALRY": 0.3,
+        "CHARIOT": 0.15,
+        "ARCHER": 0.1
+      },
+      "terrain": {
+        "grassland": 1.1,
+        "forest": 0.85,
+        "alpine": 0.8
+      }
+    },
+    "CAVALRY": {
+      "label": "马上贵族",
+      "color": "#d19a66",
+      "power": 1.45,
+      "defense": 0.85,
+      "max_count": 4,
+      "cost": {
+        "treasury": 28.75,
+        "food": 6.0
+      },
+      "upkeep_per_day": 0.033,
+      "required_technology": {
+        "field": "agriculture",
+        "level": 3
+      },
+      "counters": {
+        "ARCHER": 0.3,
+        "SIEGE": 0.35,
+        "MILITIA": 0.15,
+        "HEAVY_INFANTRY": -0.3
+      },
+      "terrain": {
+        "steppe": 1.2,
+        "grassland": 1.1,
+        "savanna": 1.1,
+        "forest": 0.7,
+        "alpine": 0.6,
+        "wetland": 0.75
+      }
+    },
+    "SIEGE": {
+      "label": "攻城器械",
+      "color": "#b7a18a",
+      "power": 1.35,
+      "defense": 0.6,
+      "max_count": 3,
+      "cost": {
+        "treasury": 37.5,
+        "food": 6.0
+      },
+      "upkeep_per_day": 0.036,
+      "required_technology": {
+        "field": "bronze_metallurgy",
+        "level": 4
+      },
+      "counters": {
+        "HEAVY_INFANTRY": 0.25,
+        "CAVALRY": -0.35
+      },
+      "terrain": {
+        "forest": 0.7,
+        "desert": 0.75,
+        "alpine": 0.65,
+        "tundra": 0.65
+      }
     }
   },
   "city_zones": {
@@ -481,17 +674,75 @@
   },
   "building_upkeep_per_day": 0.004,
   "military": {
-    "recruit_cost_treasury": 25.0,
-    "recruit_food_cost": 4.0,
-    "upkeep_per_strength_per_day": 0.035,
     "maximum_strength": 12,
-    "march_range": 4,
+    "recruit_batch_max": 4,
+    "default_unit": "MILITIA",
     "attacker_loss_rate": 0.32,
     "defender_loss_rate": 0.38,
+    "unopposed_loss_rate": 0.08,
+    "defense_bonus_flat": 1.5,
+    "expedition_factor": 0.78,
+    "metallurgy_power_per_level": 0.04,
+    "battle_random_range": [
+      0.85,
+      1.15
+    ],
     "capture_stability_loss": 4.0,
     "war_exhaustion_per_month": 0.8,
     "war_stability_penalty_per_exhaustion": 0.6,
-    "peace_relation_reset": -20
+    "war_exhaustion_relief": 0.4,
+    "peace_relation_reset": -20,
+    "strike_columns": 3,
+    "mass_radius": 1,
+    "minimum_mass_share": 0.5,
+    "capture_tribute_share": 0.02,
+    "capture_tribute_days": 180,
+    "capture_tribute_cap": 0.08,
+    "capture_tribute_resolve": 25.0,
+    "capture_tribute_exempt": ["ROAD"],
+    "barracks": {
+      "daily_cost": 0.5,
+      "garrison_capacity": 4,
+      "default_unit": "MILITIA",
+      "progress_cap_ratio": 1.0,
+      "stall_notice_days": 60
+    },
+    "siege": {
+      "daily_progress": 0.06,
+      "wall_bonus": 1.6,
+      "fall_threshold": 1.0,
+      "blockade_radius": 1,
+      "exhaustion_per_day": 0.05,
+      "stability_loss": 8.0,
+      "peace_pressure": 10.0
+    },
+    "annexation": {
+      "treasury_seizure": 1.0,
+      "food_seizure": 1.0,
+      "peace_pressure": 30.0
+    },
+    "rout": {
+      "survivor_rate": 0.4,
+      "barracks_lost_survivor_rate": 0.0,
+      "retreat_radius": 1
+    }
+  },
+  "movement": {
+    "daily_budget": 3.0,
+    "road_cost": 0.35,
+    "hostile_cost": 1.25,
+    "maximum_order_cost": 60.0,
+    "biome_cost": {
+      "grassland": 1.0,
+      "steppe": 1.0,
+      "savanna": 1.2,
+      "wetland": 1.7,
+      "forest": 1.8,
+      "desert": 1.9,
+      "tundra": 2.1,
+      "rainforest": 2.2,
+      "alpine": 2.4
+    }
   },
   "social_events": {
     "festival_chance": 0.22,
@@ -572,7 +823,8 @@
           "name": "青铜冶炼",
           "effect": "矿业 +16%，军队战力 +8%",
           "unlocks": [
-            "工坊"
+            "工坊",
+            "兵营"
           ]
         },
         {
@@ -580,7 +832,8 @@
           "name": "铁器锻造",
           "effect": "矿业 +24%，军队战力 +12%",
           "unlocks": [
-            "大工坊"
+            "大工坊",
+            "城墙"
           ]
         },
         {

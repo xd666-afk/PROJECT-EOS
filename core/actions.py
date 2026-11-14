@@ -88,8 +88,8 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
         raise ActionRejected("UNKNOWN_ACTION", f"不支持的动作类型: {action_type!r}")
     _keys(raw, {"type", "tile", "building", "agriculture", "mining", "construction",
                 "rate", "field", "priority", "operation", "target", "offer_food",
-                "request_treasury", "proposal_id", "amount", "pact", "strength",
-                "focus", "city_id", "zone", "managed_by", "budget"})
+                "request_treasury", "proposal_id", "amount", "pact", "strength", "unit",
+                "focus", "city_id", "zone", "managed_by", "budget", "army_id", "recruiting"})
 
     if action_type == "NO_OP":
         _keys(raw, {"type"})
@@ -160,27 +160,63 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             raise ActionRejected("INVALID_PARAMETER", "budget 只能是紧缩、均衡或投资")
         return {"type": action_type, "city_id": city_id, "budget": budget}
     if action_type == "MILITARY":
-        _keys(raw, {"type", "operation", "tile", "strength", "target"})
+        _keys(raw, {"type", "operation", "tile", "strength", "target", "unit",
+                    "army_id", "recruiting"})
         operation = raw.get("operation")
+        army_id = raw.get("army_id")
+        if army_id is not None and (not isinstance(army_id, str) or not army_id):
+            raise ActionRejected("INVALID_PARAMETER", "army_id 必须是非空字符串或省略")
         if operation == "ATTACK":
-            _keys(raw, {"type", "operation", "target"})
+            _keys(raw, {"type", "operation", "target", "army_id", "tile"})
             target = raw.get("target")
             if not isinstance(target, str) or not target:
                 raise ActionRejected("INVALID_PARAMETER", "target 必须是国家 ID")
-            return {"type": action_type, "operation": operation, "target": target}
-        if operation == "RECRUIT":
+            tile = raw.get("tile")
+            if tile is None:
+                objective = None
+            else:
+                if not isinstance(tile, dict) or set(tile) != {"col", "row"}:
+                    raise ActionRejected("INVALID_PARAMETER", "tile 必须仅含 col、row 整数，或省略")
+                objective = {"col": _integer(tile["col"], "col"),
+                             "row": _integer(tile["row"], "row")}
             return {
                 "type": action_type, "operation": operation,
-                "strength": _integer(raw.get("strength"), "strength"),
+                "target": target, "army_id": army_id, "tile": objective,
+            }
+        if operation == "RECRUIT":
+            _keys(raw, {"type", "operation", "unit", "strength", "army_id"})
+            unit = raw.get("unit")
+            if not isinstance(unit, str) or unit not in config["units"]:
+                raise ActionRejected("INVALID_PARAMETER", f"未知兵种: {unit!r}")
+            return {
+                "type": action_type, "operation": operation, "unit": unit,
+                "strength": _integer(raw.get("strength"), "strength"), "army_id": army_id,
             }
         if operation == "MARCH":
+            _keys(raw, {"type", "operation", "tile", "army_id"})
             tile = raw.get("tile")
             if not isinstance(tile, dict) or set(tile) != {"col", "row"}:
                 raise ActionRejected("INVALID_PARAMETER", "tile 必须仅含 col、row 整数")
             return {
                 "type": action_type, "operation": operation,
                 "tile": {"col": _integer(tile["col"], "col"), "row": _integer(tile["row"], "row")},
+                "army_id": army_id,
             }
+        if operation == "SET_RECRUITING":
+            _keys(raw, {"type", "operation", "army_id", "recruiting"})
+            recruiting = raw.get("recruiting")
+            if not isinstance(recruiting, bool):
+                raise ActionRejected("INVALID_PARAMETER", "recruiting 必须是布尔值")
+            return {
+                "type": action_type, "operation": operation,
+                "army_id": army_id, "recruiting": recruiting,
+            }
+        if operation == "SET_RECRUIT_UNIT":
+            _keys(raw, {"type", "operation", "army_id", "unit"})
+            unit = raw.get("unit")
+            if not isinstance(unit, str) or unit not in config["units"]:
+                raise ActionRejected("INVALID_PARAMETER", f"未知兵种: {unit!r}")
+            return {"type": action_type, "operation": operation, "army_id": army_id, "unit": unit}
         raise ActionRejected("INVALID_PARAMETER", "未知军事操作")
     if action_type == "DIPLOMACY":
         _keys(raw, {"type", "operation", "target", "amount", "pact", "proposal_id"})
