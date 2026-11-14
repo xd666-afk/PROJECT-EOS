@@ -18,7 +18,8 @@ COUNTRIES = [
 
 def test_v2_world_has_continuous_terrain_and_cell_entities(tmp_path):
     world, world_path = generate_fair_world(
-        COUNTRIES, base_seed=32100, attempts=1, generation_version="v2"
+        COUNTRIES, base_seed=32100, attempts=1, generation_version="v2",
+        output_dir=tmp_path,
     )
     assert validate_v2(world)
     assert world["metadata"]["schema_version"] == 2
@@ -77,9 +78,10 @@ def test_v2_world_has_continuous_terrain_and_cell_entities(tmp_path):
     assert restored.countries["A"].tiles
 
 
-def test_v2_has_fine_hexes_but_keeps_old_tile_contract():
+def test_v2_has_fine_hexes_but_keeps_old_tile_contract(tmp_path):
     world, _ = generate_fair_world(
-        COUNTRIES, base_seed=32101, attempts=1, generation_version="v2"
+        COUNTRIES, base_seed=32101, attempts=1, generation_version="v2",
+        output_dir=tmp_path,
     )
     tile = world["tiles"][0]
     required = {

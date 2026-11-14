@@ -59,6 +59,9 @@ def test_v2_terrain_and_entity_layers_are_wired():
     assert "riverDepthColor" in DASHBOARD
     assert "WORLD?.river_cells" in DASHBOARD
     assert "roadEntityCells" in DASHBOARD
+    assert "function roadChainsFromCells(" in DASHBOARD
+    assert "function smoothRoadPath(" in DASHBOARD
+    assert "const initial=(WORLD?.road_cells" in DASHBOARD
     assert "drawImage(terrainImage" in DASHBOARD
 
 

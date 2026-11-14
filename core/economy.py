@@ -215,9 +215,14 @@ class Economy:
         food_per_1000 = self.config["food_per_1000_people_per_day"]
         consumption = country.population / 1000.0 * food_per_1000
         logistics_config = self.config["city_logistics"]
+        initial_road_presence = 1.0 if any(
+            cell.get("owner_id") == country.country_id
+            for cell in self.state.world.data.get("road_cells", [])
+        ) else 0.0
         road_relief = min(
             logistics_config["max_road_loss_reduction"],
-            counts.get("ROAD", 0) * logistics_config["road_loss_reduction"],
+            (counts.get("ROAD", 0) + initial_road_presence)
+            * logistics_config["road_loss_reduction"],
         )
         export_loss_rate = max(0.01, logistics_config["export_loss"] - road_relief)
         import_loss_rate = max(0.02, logistics_config["import_loss"] - road_relief)

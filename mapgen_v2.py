@@ -1221,7 +1221,7 @@ def _lake_cells(lakes: list[dict[str, Any]], elev: np.ndarray) -> list[dict[str,
 def validate_v2(world: dict[str, Any]) -> bool:
     metadata = world["metadata"]
     width, height = metadata["grid_width"], metadata["grid_height"]
-    assert metadata["schema_version"] == 2
+    assert metadata["schema_version"] in (2, 3)
     assert len(world["tiles"]) == width * height
     tiles = {(tile["col"], tile["row"]): tile for tile in world["tiles"]}
     summary = world["world_summary"]
@@ -1386,6 +1386,7 @@ def generate_fair_world_v2(
     countries: list[dict[str, Any]] | None = None,
     base_seed: int | None = None,
     attempts: int = 8,
+    output_dir: str | Path | None = None,
 ) -> tuple[dict[str, Any], Path]:
     normalized = mapgen.normalize_countries(countries)
     import secrets
@@ -1412,7 +1413,7 @@ def generate_fair_world_v2(
         "attempts": min(attempts, world["metadata"]["seed"] - base + 1),
         "fairness_floor": 0.72,
     }
-    directory = BASE_DIR / "runs" / "worlds"
+    directory = Path(output_dir) if output_dir is not None else BASE_DIR / "runs" / "worlds"
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"world_v2_custom_{world['metadata']['seed']}.json"
     path.write_text(json.dumps(world, ensure_ascii=False, indent=1), encoding="utf-8")

@@ -213,6 +213,8 @@ class RuleEngine:
                 raise ActionRejected("BUILDING_CONFLICT", "目标地块已有建筑或在建工程")
             building = action["building"]
             spec = self.state.config["buildings"][building]
+            if self.state.world.is_road_cell(coord) and building != "ROAD":
+                raise ActionRejected("ROAD_TILE", "该地块是道路，不能建设其他设施")
             if tile["biome"] not in spec["allowed_biomes"]:
                 raise ActionRejected("INVALID_TERRAIN", f"{tile['biome']} 不适合建设 {building}")
             if building == "FARM" and tile["biome"] == "desert" and not tile["river"]:
@@ -236,6 +238,22 @@ class RuleEngine:
             cost = float(spec["cost"])
             if country.treasury + 1e-9 < cost:
                 raise ActionRejected("INSUFFICIENT_TREASURY", f"建设需要 {cost} 财政单位")
+            if building == "ROAD":
+                if self.state.world.is_road_cell(coord):
+                    raise ActionRejected("ROAD_EXISTS", "该地块已经是道路")
+                from core.road import road_connection_status
+                connected, denied, _ = road_connection_status(self.state, country, coord)
+                if not connected:
+                    if denied:
+                        names = "、".join(denied)
+                        raise ActionRejected(
+                            "ROAD_DIPLOMACY_REQUIRED",
+                            f"与 {names} 的外交等级不足以连通道路",
+                        )
+                    raise ActionRejected(
+                        "ROAD_NOT_CONNECTED",
+                        "道路必须与城市或已有道路相邻",
+                    )
             country.treasury -= cost
             project_id = f"P{self.state.next_project_number:06d}"
             self.state.next_project_number += 1

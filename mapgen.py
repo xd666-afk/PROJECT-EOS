@@ -254,11 +254,19 @@ def generate_fair_world(
     base_seed: int | None = None,
     attempts: int = 8,
     generation_version: str = "v1",
+    output_dir: str | Path | None = None,
 ) -> tuple[dict[str, Any], Path]:
     normalized = normalize_countries(countries)
     if generation_version == "v2":
         from mapgen_v2 import generate_fair_world_v2
-        return generate_fair_world_v2(normalized, base_seed=base_seed, attempts=attempts)
+        return generate_fair_world_v2(
+            normalized, base_seed=base_seed, attempts=attempts, output_dir=output_dir
+        )
+    if generation_version == "v3":
+        from mapgen_v3 import generate_fair_world_v3
+        return generate_fair_world_v3(
+            normalized, base_seed=base_seed, attempts=attempts, output_dir=output_dir
+        )
     base = secrets.randbelow(2_000_000_000) if base_seed is None else int(base_seed)
     best = None
     for offset in range(max(1, attempts)):
@@ -281,7 +289,7 @@ def generate_fair_world(
         "attempts": min(attempts, world["metadata"]["seed"] - base + 1),
         "fairness_floor": 0.72,
     }
-    directory = BASE_DIR / "runs" / "worlds"
+    directory = Path(output_dir) if output_dir is not None else BASE_DIR / "runs" / "worlds"
     directory.mkdir(parents=True, exist_ok=True)
     path = directory / f"world_custom_{world['metadata']['seed']}.json"
     path.write_text(json.dumps(world, ensure_ascii=False, indent=1), encoding="utf-8")

@@ -1,0 +1,55 @@
+PROJECT EOS 建筑图标映射
+版本：v0.34
+图标来源：C:\Users\XD\Downloads\EOS建筑图标（32 个，320×320 透明 PNG）
+本目录：assets/icons/buildings/
+
+当前 UI 使用的映射
+----------------------------------------------------------------------
+农田          farm.png             FARM（农田建筑）
+矿场          mine.png             MINE（矿场建筑）
+工坊          workshop.png         WORKSHOP（为缺失的“工坊”单独补绘的同风格图标）
+粮仓          granary.png          GRANARY（粮仓建筑）
+灌溉渠        irrigation.png       IRRIGATION（灌溉渠建筑）
+书库          academy.png          LIBRARY（书库建筑；学院图标更接近研究建筑）
+市场          market.png           MARKET（市场建筑）
+神庙          temple.png           TEMPLE（神庙建筑）
+大粮仓        great_granary.png    GREAT_GRANARY（奇观）
+大工坊        great_forge.png      GREAT_FORGE（奇观）
+大书库        great_library.png    GREAT_LIBRARY（奇观）
+道路          road.png             ROAD（建造菜单图标；地图上的道路仍按道路格渲染）
+
+地图标记 / 城市分区
+----------------------------------------------------------------------
+宫殿          palace.png           首都标记
+市中心        city_center.png      非首都城市标记；住宅区图标
+军营          military_camp.png    地图军队标记
+采石场        quarry.png           工矿区图标
+商业中心      commercial_hub.png   商贸区图标
+学院          academy.png          学术区图标
+
+已归档、暂未使用的图标
+----------------------------------------------------------------------
+伐木场        lumber_camp.png
+兵营          barracks.png
+剧院广场      theater_square.png
+古树林        ancient_grove.png
+圣林          sacred_grove.png
+娱乐中心      entertainment_complex.png
+广场          plaza.png
+引水渠        aqueduct.png
+木栅城墙      palisade_walls.png
+港口          harbor.png
+灯塔          lighthouse.png
+牧场          pasture.png
+祖庙          ancestral_temple.png
+祭坛          altar.png
+竞技场        arena.png
+露天剧场      amphitheater.png
+
+说明
+----------------------------------------------------------------------
+1. 所有图标均已统一到 assets/icons/buildings/ 英文文件名。
+2. 根目录 assets/icons/ 中是当前 UI 直接加载的图标；子目录中是完整图标库。
+3. 旧图标已备份到 runs/old_icons_backup/，可随时恢复。
+4. 如果以后扩展新建筑（港口、城墙、竞技场、牧场等），可以直接引用
+   assets/icons/buildings/ 中已归档的图标，不需要重新生成。

@@ -95,14 +95,23 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         and event["type"] not in {"economy_daily", "action_result"}
     ][-10:]
     tiles = []
+    from core.road import road_connection_status
+    road_cells = {
+        (int(cell["tile"]["col"]), int(cell["tile"]["row"]))
+        for cell in state.world.road_cells()
+    }
     for coord in country.tiles:
         tile = state.world.tile(coord)
         project = Construction.project_for_tile(country, coord)
+        road_connected, road_denied, _ = road_connection_status(state, country, coord)
         tiles.append({
             "col": coord[0], "row": coord[1], "biome": tile["biome"],
             "elevation_m": tile["elevation_m"], "river": tile["river"],
             "annual_precip_mm": tile["annual_precip_mm"],
             "building": country.buildings.get(coord),
+            "road_cell": coord in road_cells,
+            "road_connected": road_connected,
+            "road_denied": road_denied,
             "project": None if project is None else {
                 "building": project["building"],
                 "remaining_days": round(project["remaining_days"], 3),

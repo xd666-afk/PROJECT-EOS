@@ -109,6 +109,28 @@ class WorldStatic:
             self.data["metadata"]["grid_height"],
         )
 
+    def road_cells(self) -> list[dict[str, Any]]:
+        return self.data.get("road_cells", [])
+
+    def is_road_cell(self, coord: tuple[int, int]) -> bool:
+        return any(
+            cell["tile"]["col"] == coord[0] and cell["tile"]["row"] == coord[1]
+            for cell in self.road_cells()
+        )
+
+    def road_nodes(self, country: Any) -> set[tuple[int, int]]:
+        """City centers, built ROAD improvements and initial road cells."""
+        nodes = {tuple(city.center) for city in country.cities}
+        nodes.update(
+            coord for coord, building in country.buildings.items()
+            if building == "ROAD"
+        )
+        nodes.update(
+            (int(cell["tile"]["col"]), int(cell["tile"]["row"]))
+            for cell in self.road_cells()
+        )
+        return nodes
+
 
 @dataclass
 class CityState:
@@ -478,6 +500,36 @@ class GameState:
             "countries": progress,
         }
 
+    def diplomatic_level(self, left: str, right: str) -> int:
+        if left == right:
+            return 4
+        if right in self.countries[left].at_war_with:
+            return 0
+        relation = int(self.relations.get(relation_key(left, right), 0))
+        levels = self.config.get("diplomacy", {}).get("levels") or [
+            {"id": 0, "label": "敌对", "min_relation": -100},
+            {"id": 1, "label": "冷淡", "min_relation": -30},
+            {"id": 2, "label": "中立", "min_relation": 0},
+            {"id": 3, "label": "友好", "min_relation": 25},
+            {"id": 4, "label": "同盟", "min_relation": 60},
+        ]
+        level = 0
+        for item in sorted(levels, key=lambda entry: int(entry["id"])):
+            if relation >= int(item["min_relation"]):
+                level = int(item["id"])
+        return level
+
+    def diplomatic_level_label(self, left: str, right: str) -> str:
+        level = self.diplomatic_level(left, right)
+        levels = self.config.get("diplomacy", {}).get("levels") or []
+        for item in levels:
+            if int(item["id"]) == level:
+                return str(item["label"])
+        return "中立"
+
+    def road_connection_level(self) -> int:
+        return int(self.config.get("diplomacy", {}).get("road_connection_level", 3))
+
     def summary(self) -> dict[str, Any]:
         from core.society import (
             city_static_metrics,
@@ -534,6 +586,10 @@ class GameState:
                     "diplomacy": {
                         "relations": {
                             other: self.relations.get(relation_key(country_id, other), 0)
+                            for other in self.countries if other != country_id
+                        },
+                        "levels": {
+                            other: self.diplomatic_level(country_id, other)
                             for other in self.countries if other != country_id
                         },
                         "active_pacts": [

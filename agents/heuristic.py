@@ -322,7 +322,15 @@ class HeuristicAgent(CountryAgent):
 
     @staticmethod
     def _choose_tile(tiles: list[dict[str, Any]], building: str) -> dict[str, Any] | None:
-        candidates = [tile for tile in tiles if not tile["building"] and not tile["project"]]
+        candidates = [
+            tile for tile in tiles
+            if not tile["building"] and not tile["project"] and not tile.get("road_cell")
+        ]
+        if building == "ROAD":
+            candidates = [
+                tile for tile in candidates
+                if tile.get("road_connected") and not tile.get("road_cell")
+            ]
         if not candidates:
             return None
         def score(tile: dict[str, Any]) -> tuple[float, int, int]:
@@ -332,6 +340,8 @@ class HeuristicAgent(CountryAgent):
                 value = biome + (1.5 if tile["river"] else 0.0) - tile["elevation_m"] / 2000.0
             elif building == "MINE":
                 value = tile["elevation_m"] / 500.0 + (0.4 if tile["river"] else 0.0)
+            elif building == "ROAD":
+                value = 1.8 - abs(tile["elevation_m"] - 400.0) / 1000.0 + (0.4 if tile["river"] else 0.0)
             else:
                 value = 2.0 - abs(tile["elevation_m"] - 400.0) / 1000.0 + (0.5 if tile["river"] else 0.0)
             return value, -tile["row"], -tile["col"]

@@ -1,0 +1,646 @@
+PROJECT EOS 图标素材清单
+版本：v0.34
+日期：2026-11-12
+用途：重制现有建筑图标，并为当前文字/色块界面补充可读的状态、资源、动作和事件图标。
+
+======================================================================
+0. 统一规范
+======================================================================
+
+建议分成两套图标：
+
+[A] HUD / 状态 / 动作符号图标
+   半写实符号，24–32 px 也能看清，适合顶部资源条、国家详情、
+   胜利进度、城市服务、灾害、外交军事按钮和通知事件。
+
+[B] 地图 / 资源 / 建筑物件图标
+   等距 3/4 视角的手绘 3D 微缩物件，适合资源层、城市分区、
+   建筑设施和地图对象。
+
+[A] 符号图标后缀：
+single centered symbolic object, semi-realistic hand-painted game
+UI icon, clean readable silhouette, soft warm light from upper left,
+subtle bronze rim light, earthy Bronze Age palette of terracotta,
+bronze, olive, limestone and ivory, transparent background, no text,
+no letters, no frame, no border, no background scene, no realistic
+people, 1:1, 320x320, readable at 24-32 px
+
+[B] 物件图标后缀：
+single centered object, isometric three-quarter view, hand-painted
+3D miniature game asset, warm light from upper left, subtle contact
+shadow only, transparent background, no text, no border, no ground
+plane, no people, 1:1, 320x320
+
+[NEG] 通用负面提示词：
+photo, photorealism, modern objects, realistic people, text, letters,
+numbers, logo, watermark, frame, border, card background, dark navy
+background, pedestal, ground plane, multiple objects, clutter, neon
+colors, oversaturation, blur, low resolution, flat vector, cartoon
+outline
+
+使用方式：
+每条提示词 = 主题句 + 对应后缀（[A] 或 [B]）。
+负面提示词单独填入 negative prompt。
+最终统一导出为 320×320 透明 PNG，物体约占画面 80%，四周留 10% 安全边。
+图标不要带文字、边框、卡片底色或完整地面场景。
+
+======================================================================
+1. 建筑设施图标（11 个，当前 UI 已引用）
+======================================================================
+
+1.1 farm.png — 农田
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：最基础的粮食设施，建在草原、森林、稀树草原、湿地或沙漠边缘；
+提高所在地块的粮食产出。造价 18，工期 45 天，无科技前置。
+提示词：
+A compact Bronze Age farm icon: two or three curved terraces of
+golden wheat and green barley, a narrow stone-lined irrigation
+channel with flowing water, a simple wooden hand plow and a bundle of
+harvested sheaves + [B]
+
+1.2 mine.png — 矿场
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：建在丘陵或山地，提高所在地块的矿业产出，是财政和建设的重要来源。
+造价 24，工期 60 天，需要青铜冶炼 1 级。
+提示词：
+A small Bronze Age copper mine entrance cut into a rocky hillside,
+reinforced with rough timber beams, a wooden winch and rope, a tiny
+ore cart carrying turquoise and copper-rich rocks, a pickaxe leaning
+against the rock + [B]
+
+1.3 granary.png — 粮仓
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：提高全国粮食产出、粮食仓容和住房容量，并少量提升稳定度；
+全国限 1 座。造价 22，工期 40 天，需要农业 2 级。
+提示词：
+A raised Bronze Age granary: round clay storage silos with conical
+thatched roofs, timber stilts, woven baskets and tied sacks of grain,
+a small wooden ladder, a few clay jars + [B]
+
+1.4 irrigation.png — 灌溉渠
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：必须建在河流旁；提高全国粮食产出和仓容，增加住房与稳定度。
+造价 26，工期 50 天，需要农业 3 级，全国限 2 座。
+提示词：
+A Bronze Age irrigation sluice gate: a stone-lined water channel with
+a wooden lifting mechanism and sluice board, clear water rushing
+through, wet mossy stones, reeds and a small cultivated field edge + [B]
+
+1.5 workshop.png — 工坊
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：提高全国矿业产出；适合工矿型和财政型城市。造价 30，工期 60 天，
+需要青铜冶炼 2 级，全国限 1 座。
+提示词：
+A small Bronze Age workshop: an open timber shed with a clay furnace,
+a stone anvil, bronze ingots, a heavy hammer, clay casting molds and
+a hand-cranked leather bellows + [B]
+
+1.6 library.png — 书库
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：提高全国研究速度，是知识胜利路线的基础设施。造价 26，工期 55 天，
+需要文字 1 级，全国限 1 座。
+提示词：
+A Bronze Age archive room: wooden shelves filled with clay tablets and
+rolled papyrus, a low scribe table with a clay tablet and stylus, a
+small oil lamp, an arched mud-brick niche + [B]
+
+1.7 market.png — 市场
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：提高贸易与税收，并改善稳定度、治安、卫生和宜居度；全国限 1 座。
+造价 28，工期 50 天，需要农业 3 级。
+提示词：
+A small Bronze Age market stall with a striped linen awning, baskets
+of grain, figs and olives, clay amphorae, a copper balance scale and
+a few bronze coins + [B]
+
+1.8 temple.png — 神庙
+用途：地块详情“城市建造”、城市建造面板、地块设施图标。
+说明：显著提升稳定度，并改善治安、卫生和宜居度；适合稳定度紧张的城市。
+造价 22，工期 45 天，需要文字 1 级，全国限 1 座。
+提示词：
+A small Bronze Age stepped stone temple with two columns, a stone
+altar holding a bronze bowl and a thin wisp of incense smoke,
+geometric carvings and terracotta accents + [B]
+
+1.9 great_granary.png — 大粮仓
+用途：地块详情“城市建造”、城市建造面板、奇观设施图标。
+说明：奇观级粮食设施，大幅提高全国粮食产出、仓容和住房；全国唯一。
+造价 220，工期 160 天，需要农业 3 级。
+提示词：
+A monumental Bronze Age granary complex: three massive clay silos
+with conical roofs, a wide stone stair, bronze doors, hanging banners,
+grain sacks and a wooden cart + [B]
+
+1.10 great_forge.png — 大工坊
+用途：地块详情“城市建造”、城市建造面板、奇观设施图标。
+说明：奇观级工矿设施，大幅提高全国矿业产出；全国唯一。
+造价 260，工期 180 天，需要青铜冶炼 3 级。
+提示词：
+A monumental Bronze Age foundry: a huge domed clay furnace with a
+tall chimney, glowing molten bronze channels, a massive stone anvil,
+timber scaffolding and giant leather bellows + [B]
+
+1.11 great_library.png — 大书库
+用途：地块详情“城市建造”、城市建造面板、奇观设施图标。
+说明：奇观级研究设施，大幅提高全国研究速度并提升稳定度；全国唯一。
+造价 300，工期 200 天，需要文字 3 级。
+提示词：
+A grand Bronze Age library palace: a colonnaded mud-brick entrance,
+arched archive halls, shelves of clay tablets and scrolls,
+astronomical instruments and hanging oil lamps + [B]
+
+======================================================================
+2. 第一批：HUD / 状态 / 胜利 / 服务 / 资源 / 灾害（24 个）
+======================================================================
+
+2.1 顶部资源条 / 国家状态（[A]）
+
+stat_food.png — 存粮 / 仓容
+用途：顶部“存粮 / 仓容”、国家详情“存粮”。
+说明：全国粮食储备。存粮见底会损失人口。
+提示词：
+a tied golden wheat sheaf beside a small clay grain jar + [A]
+
+stat_treasury.png — 财政
+用途：顶部“财政”、国家详情“财政”。
+说明：国库、税收与建造资金；用于建设、建城、赠礼和军队维护。
+提示词：
+three stacked bronze coins with a small balance scale + [A]
+
+stat_population.png — 人口
+用途：顶部“人口 / 住房”、城市人口。
+说明：人口规模与劳动力基础。
+提示词：
+three small clay figurines of a household, abstract, no faces + [A]
+
+stat_housing.png — 住房
+用途：顶部“人口 / 住房”、城市住房容量。
+说明：住房接近上限时人口增长放慢。
+提示词：
+a small Bronze Age house with a thatched roof and one warm window + [A]
+
+stat_stability.png — 稳定度
+用途：顶部“稳定度”、国家详情“稳定度”。
+说明：低于 35 会拖累产出并增加内部风险。
+提示词：
+a bronze balance scale with an olive branch on one pan + [A]
+
+stat_score.png — 综合评分 / 排名
+用途：顶部“综合评分”、右侧排名。
+说明：国家发展评分和世界排名。
+提示词：
+a laurel wreath around a small bronze star + [A]
+
+2.2 四条胜利路线（[A]）
+
+victory_knowledge.png — 知识胜利
+用途：右侧“知识胜利”进度。
+说明：科技线满级。
+提示词：
+an open clay tablet with a stylus and a small star above + [A]
+
+victory_prosperity.png — 繁荣胜利
+用途：右侧“繁荣胜利”进度。
+说明：人口、财政、存粮达到目标。
+提示词：
+a wheat sheaf, a bronze coin and a small amphora + [A]
+
+victory_dominion.png — 疆域胜利
+用途：右侧“疆域胜利”进度。
+说明：领土与城市数量达到目标。
+提示词：
+a bronze banner on a staff over a small hex map tile + [A]
+
+victory_stability.png — 安定胜利
+用途：右侧“安定胜利”进度。
+说明：稳定、宜居和人口达到目标。
+提示词：
+a round shield with an olive branch and a balanced scale + [A]
+
+2.3 城市服务（[A]）
+
+service_security.png — 治安
+用途：城市服务“治安”、城市详情。
+说明：治安与秩序；过低会触发事件和损失。
+提示词：
+a bronze-bound round shield with a small watchtower + [A]
+
+service_health.png — 卫生
+用途：城市服务“卫生”、城市详情。
+说明：卫生与疫病控制。
+提示词：
+a clay water jar with a green herb sprig and a clean water drop + [A]
+
+service_livability.png — 宜居度
+用途：城市“宜居度”、城市卡片。
+说明：城市宜居程度；影响增长和服务。
+提示词：
+a small house with a sun and a green leaf + [A]
+
+2.4 资源层（[B]）
+
+res_grain.png — 粮食
+用途：资源图层“粮食”、地块详情。
+说明：粮食潜力。
+提示词：
+a small pile of golden grain with three wheat stalks + [B]
+
+res_metal.png — 金属
+用途：资源图层“金属”、地块详情。
+说明：金属/矿业潜力。
+提示词：
+two copper ingots and a small pickaxe + [B]
+
+res_timber.png — 木材
+用途：资源图层“木材”、地块详情。
+说明：木材潜力。
+提示词：
+three stacked cut logs with an axe + [B]
+
+res_stone.png — 石料
+用途：资源图层“石料”、地块详情。
+说明：石料潜力。
+提示词：
+three cut stone blocks stacked + [B]
+
+res_pasture.png — 牧草
+用途：资源图层“牧草”、地块详情。
+说明：牧草/畜牧潜力。
+提示词：
+a tuft of tall grass and a small animal horn + [B]
+
+2.5 灾害（[A]）
+
+hazard_flood.png — 洪水
+用途：灾害事件、地块灾害提示、通知气泡。
+说明：洪水风险与粮食损失。
+提示词：
+a dark wave curling over a small house + [A]
+
+hazard_drought.png — 干旱
+用途：灾害事件、地块灾害提示。
+说明：干旱风险与粮食损失。
+提示词：
+cracked earth with a blazing sun + [A]
+
+hazard_earthquake.png — 地震
+用途：灾害事件、地块灾害提示。
+说明：地震风险与稳定度损失。
+提示词：
+a cracked ground fissure with tremor lines + [A]
+
+hazard_volcano.png — 火山
+用途：灾害事件、地块灾害提示。
+说明：火山喷发风险。
+提示词：
+a small volcano with lava and ash + [A]
+
+hazard_wildfire.png — 野火
+用途：灾害事件、地块灾害提示。
+说明：野火风险与粮食损失。
+提示词：
+a flame wrapping a tree trunk + [A]
+
+hazard_cyclone.png — 热带气旋
+用途：灾害事件、地块灾害提示。
+说明：低纬沿海的气旋风险。
+提示词：
+a spiral storm cloud over a wave + [A]
+
+======================================================================
+3. 第二批：城市、外交、军事、AI、地图图层、事件、存档
+======================================================================
+
+3.1 城市分区（[B]）
+
+zone_residential.png — 住宅区
+用途：城市规划分区按钮、城市地图图例。
+说明：提高住房，略增税收。
+提示词：
+a small cluster of Bronze Age houses around a courtyard + [B]
+
+zone_farm.png — 农业区
+用途：城市规划分区按钮、城市地图图例。
+说明：大幅提高粮食。
+提示词：
+a neat patch of wheat rows with a narrow water channel + [B]
+
+zone_industry.png — 工矿区
+用途：城市规划分区按钮、城市地图图例。
+说明：大幅提高矿业，略增税收。
+提示词：
+a mine cart, pickaxe and copper ore chunks + [B]
+
+zone_commerce.png — 商贸区
+用途：城市规划分区按钮、城市地图图例。
+说明：提高税收，少量住房。
+提示词：
+a striped market awning with coins, baskets and an amphora + [B]
+
+zone_scholar.png — 学术区
+用途：城市规划分区按钮、城市地图图例。
+说明：提高研究。
+提示词：
+a clay tablet, scroll and oil lamp on a low table + [B]
+
+3.2 城市预算 / 治理（[A]）
+
+budget_austerity.png — 紧缩预算
+用途：城市预算按钮、城市详情。
+说明：服务支出降低，但宜居和增长下降。
+提示词：
+a small locked purse with one coin + [A]
+
+budget_balanced.png — 均衡预算
+用途：城市预算按钮、城市详情。
+说明：服务与支出平衡，默认预算。
+提示词：
+a balanced scale with two equal coin piles + [A]
+
+budget_investment.png — 投资预算
+用途：城市预算按钮、城市详情。
+说明：服务支出提高，宜居和增长加快。
+提示词：
+a purse with coins and a small green sprout + [A]
+
+gov_ai.png — 规则 AI 托管
+用途：城市治理下拉、国家 AI 席位。
+说明：规则市长自动调整分区和预算。
+提示词：
+a bronze gear with a simple eye in the center + [A]
+
+gov_manual.png — 手动治理
+用途：城市治理下拉、城市详情。
+说明：玩家亲自管理分区、预算和建造。
+提示词：
+a bronze hand holding a stylus + [A]
+
+gov_llm.png — LLM 托管
+用途：城市治理下拉、国家 AI 席位。
+说明：模型在规划周期读取城市并下发规划动作。
+提示词：
+a clay mask with glowing constellation lines + [A]
+
+3.3 外交 / 军事动作（[A]）
+
+action_settle.png — 建立新城
+用途：地块详情“建立新城”、前哨按钮。
+说明：在相邻无主地块建立新城，自动纳入约 5 格城域。
+提示词：
+a small tent with a banner planted on a hex tile + [A]
+
+action_gift.png — 赠礼
+用途：外交页“赠礼 5”。
+说明：赠礼提升双边关系。
+提示词：
+a woven basket with grain and a bronze coin + [A]
+
+action_trade.png — 贸易协定
+用途：外交页“提议贸易协定”。
+说明：关系达到 15 后可提议；有效协定提供税收加成。
+提示词：
+two hands clasping over a clay tablet + [A]
+
+action_peace.png — 请求和平
+用途：军事页、外交页“和平提案”。
+说明：结束战争，降低战争疲劳。
+提示词：
+an olive branch over a sheathed sword + [A]
+
+action_war.png — 宣战
+用途：军事页“宣战”、外交页。
+说明：进入战争状态，边境可进攻。
+提示词：
+two crossed bronze swords over a round shield + [A]
+
+action_recruit.png — 招募
+用途：军事页“招募 1 / 招募 2”。
+说明：扩充战略军队规模。
+提示词：
+a bronze spear and round shield + [A]
+
+action_march.png — 行军
+用途：军事页“行军至已选地块”。
+说明：单次最多移动 4 格。
+提示词：
+a pair of worn sandals and a forward arrow + [A]
+
+action_attack.png — 边境进攻
+用途：军事页“边境进攻”。
+说明：需要双方领土接壤；胜利可占领边境领土。
+提示词：
+a spear striking a border stone + [A]
+
+3.4 AI 性格 / 文明类型（[A]）
+
+personality_aggressive.png — 激进
+用途：AI 席位性格下拉、国家列表、AI 卡片。
+说明：更早建军、更多战争和领土扩张，稳定度更容易下降。
+提示词：
+a forward-leaning bronze spearhead with a red banner + [A]
+
+personality_neutral.png — 中立
+用途：AI 席位性格下拉、国家列表、AI 卡片。
+说明：粮食、财政、军备和外交均衡。
+提示词：
+a balanced scale with a teal banner + [A]
+
+personality_conservative.png — 保守
+用途：AI 席位性格下拉、国家列表、AI 卡片。
+说明：不主动宣战，军备较低，赠礼和协定更多。
+提示词：
+a round shield with an olive branch and an amber banner + [A]
+
+archetype_river_valley.png — 河谷
+用途：新建世界文明类型下拉、国家详情。
+说明：河流农业型开局。
+提示词：
+a river curve beside a small wheat field + [A]
+
+archetype_maritime.png — 海湾
+用途：新建世界文明类型下拉、国家详情。
+说明：海岸贸易型开局。
+提示词：
+a wave and a small Bronze Age boat + [A]
+
+archetype_highland.png — 高地
+用途：新建世界文明类型下拉、国家详情。
+说明：山地冶金型开局。
+提示词：
+a mountain peak with a pickaxe + [A]
+
+archetype_semiarid.png — 半干旱
+用途：新建世界文明类型下拉、国家详情。
+说明：河岸灌溉型开局。
+提示词：
+a sun over cracked earth and a small well + [A]
+
+3.5 地图图层（[A]）
+
+layer_satellite.png — 卫星
+用途：地图工具条“卫星”。
+说明：地形总览。
+提示词：
+a small hex tile with a mountain and river + [A]
+
+layer_political.png — 政治
+用途：地图工具条“政治”。
+说明：国界与领土。
+提示词：
+a small flag planted on a hex tile + [A]
+
+layer_elevation.png — 海拔
+用途：地图工具条“海拔”。
+说明：地势与高程。
+提示词：
+a mountain contour line symbol + [A]
+
+layer_rain.png — 降水
+用途：地图工具条“降水”。
+说明：降水分布。
+提示词：
+a raindrop over a small cloud + [A]
+
+layer_resources.png — 资源
+用途：地图工具条“资源”。
+说明：粮食、金属、木材、石料和牧草潜力。
+提示词：
+a pickaxe and a small gem + [A]
+
+layer_routes.png — 交通
+用途：地图工具条“交通”。
+说明：河流与道路。
+提示词：
+a road and river crossing + [A]
+
+3.6 通知事件（[A]）
+
+event_build.png — 建设
+用途：通知气泡、通知中心、事件列表。
+说明：开工、完工、施工进度。
+提示词：
+a hammer and chisel over a stone block + [A]
+
+event_research.png — 科研
+用途：通知气泡、通知中心。
+说明：科研完成、科技升级。
+提示词：
+a clay tablet and stylus + [A]
+
+event_diplomacy.png — 外交
+用途：通知气泡、通知中心。
+说明：赠礼、贸易协定、和平提案。
+提示词：
+two hands clasping + [A]
+
+event_war.png — 战争
+用途：通知气泡、通知中心。
+说明：宣战、行军、边境进攻。
+提示词：
+crossed swords + [A]
+
+event_disaster.png — 灾害
+用途：通知气泡、通知中心。
+说明：洪水、干旱等灾害损失。
+提示词：
+a flame and a wave + [A]
+
+event_economy.png — 经济
+用途：通知气泡、通知中心。
+说明：粮食、财政、税收变化。
+提示词：
+a coin and wheat sheaf + [A]
+
+3.7 存档 / 主菜单（[A]）
+
+ui_new_world.png — 新建世界
+用途：主菜单“新建世界”、开局页面。
+说明：生成新的公平随机世界。
+提示词：
+a small hex globe with a spark + [A]
+
+ui_save.png — 保存
+用途：暂停菜单、系统页“保存”。
+说明：写入当前进度。
+提示词：
+a clay tablet with a bronze seal + [A]
+
+ui_load.png — 载入存档
+用途：主菜单“载入存档”、暂停菜单。
+说明：读取已有时间线。
+提示词：
+an open archive box with tablets + [A]
+
+ui_delete.png — 删除存档
+用途：载入存档列表“删除”。
+说明：删除存档。
+提示词：
+a cracked clay tablet + [A]
+
+ui_menu.png — 菜单
+用途：顶部“菜单”、暂停菜单。
+说明：暂停、保存、载入、AI 席位、返回主菜单。
+提示词：
+three bronze bars in a rounded frame + [A]
+
+======================================================================
+4. 第三批：可选，不是刚需
+======================================================================
+
+这些位置已经有颜色、文字或几何标记，图标属于锦上添花：
+
+- 左侧一级导航：世界、国家、城市、科技、外交、军事、AI、系统。
+  目前用汉字，建议改成“图标 + 汉字”，不要只留图标。
+- 地图标记：首都星标、城市方块、军队圆圈。可以换成王冠/城墙/军旗，
+  但必须保证缩放后仍清楚。
+- 生物群系图例：森林、草原、干旱、高山、海洋、湖泊、河流。
+  可用小树/草/沙丘/山峰/波浪图标。
+- 天气：降雨、降雪、高温。当前天气主要在事件里出现，优先级低。
+- 排名奖牌：第 1/2/3 名的金/银/铜牌。
+- 时代图标：青铜时代、铁器时代等，可放在顶部日期旁边。
+- AI 提供商：建议用通用“芯片/云”图标，不使用厂商商标。
+- 城市等级：聚落/城邑/都城，可各配一个轮廓图标。
+- 外交关系：友好/中立/敌对，可用握手/天平/断剑图标。
+- 胜利结算：桂冠/奖杯，用于最终胜利弹窗。
+
+======================================================================
+5. 实施建议
+======================================================================
+
+1. 先做第一批 24 个：它们会出现在顶部、国家详情、城市服务、
+   灾害提示和通知里，收益最大。
+2. 建筑图标沿用第 1 节的 11 个等距微缩提示词；不要和 HUD 符号
+   图标混成同一种风格。
+3. 全部存成 320×320 透明 PNG，文件名严格按本清单；
+   放入 assets/icons/ 后我再接进 UI。
+4. HUD 图标不要放太多细节，24–32 px 下能看出轮廓最重要。
+5. 建议采用“图标 + 文字”，不要只放图标，避免新玩家猜不出含义。
+6. civic_contact.png、facilities_contact.png 目前代码没有引用，
+   可以删除；road.png 目前也没有被建筑图标映射使用，可选。
+7. 如果生图工具默认带深色底，先抠成透明再放进项目；
+   不要让图标自带圆角卡片或深蓝色背景。
+
+======================================================================
+6. 建议生成顺序
+======================================================================
+
+第一批（24）：
+stat_food, stat_treasury, stat_population, stat_housing,
+stat_stability, stat_score,
+victory_knowledge, victory_prosperity, victory_dominion,
+victory_stability,
+service_security, service_health, service_livability,
+res_grain, res_metal, res_timber, res_stone, res_pasture,
+hazard_flood, hazard_drought, hazard_earthquake,
+hazard_volcano, hazard_wildfire, hazard_cyclone
+
+第二批（约 40）：
+城市分区 5、城市预算 3、治理 3、外交/军事动作 8、
+AI 性格 3、文明类型 4、地图图层 6、通知事件 6、存档/菜单 5。
+
+第三批（可选）：
+左侧导航、地图标记、生物群系图例、天气、排名奖牌、时代图标。
+
+======================================================================
+完
+======================================================================

@@ -268,7 +268,8 @@ body.right-panel-open .notice-stack{right:354px}
 .job{border:1px solid var(--line);border-radius:7px;padding:6px 7px;background:#0b2029}
 .job-head{display:flex;justify-content:space-between;gap:7px;font-size:9.5px;color:var(--muted)}
 .job-head b{color:var(--ink);font-weight:600;font-size:10px;display:flex;gap:5px;align-items:center}
-.job-head img{width:18px;height:18px;object-fit:cover;border-radius:4px;flex:none}
+.job-head img{width:22px;height:22px;object-fit:contain;border-radius:0;flex:none}
+.zone-btn img{width:24px;height:24px;object-fit:contain;flex:none}
 .job-bar{height:4px;border-radius:4px;background:#1b363f;margin-top:5px;overflow:hidden}
 .job-bar i{display:block;height:100%;border-radius:4px;background:var(--c);width:0;transition:width .45s linear}
 .job-sub{display:flex;justify-content:space-between;color:var(--faint);font-size:8.5px;margin-top:3px}
@@ -346,8 +347,8 @@ body.right-panel-open .notice-stack{right:354px}
 .build-card{border:1px solid var(--line);border-radius:7px;overflow:hidden}
 .build-option{display:grid;grid-template-columns:38px 1fr auto;gap:7px;align-items:center;
   padding:7px 8px;border-bottom:1px solid #1f3843;background:#0b2029}
-.build-thumb{width:38px;height:38px;object-fit:cover;border-radius:6px;border:1px solid #2f4853;
-  background:#142832;display:grid;place-items:center;color:var(--muted);font-size:13px}
+.build-thumb{width:38px;height:38px;object-fit:contain;border-radius:0;border:0;
+  background:transparent;display:grid;place-items:center;color:var(--muted);font-size:13px}
 .road-thumb i{display:block;width:27px;height:3px;border-radius:3px;background:#d8b476;
   box-shadow:0 0 0 2px #2d2a23,0 0 7px #d8b47655;position:relative}
 .road-thumb i::before,.road-thumb i::after{content:"";position:absolute;top:-3px;width:7px;height:9px;
@@ -850,12 +851,15 @@ const BUILD_NAMES={FARM:'农田',MINE:'矿场',ROAD:'道路',GRANARY:'粮仓',IR
 const BUILD_COLORS={FARM:'#d9b268',MINE:'#b7a18a',ROAD:'#8da4a7',GRANARY:'#c7b36c',
   IRRIGATION:'#67a7a3',WORKSHOP:'#b89a7a',LIBRARY:'#829bc3',MARKET:'#c1a05a',TEMPLE:'#ad8fbe',
   GREAT_GRANARY:'#f5d67d',GREAT_FORGE:'#e0b279',GREAT_LIBRARY:'#9db8e8'};
-const BUILD_ICON={FARM:'farm',MINE:'mine',GRANARY:'granary',
+const BUILD_ICON={FARM:'farm',MINE:'mine',ROAD:'road',GRANARY:'granary',
   IRRIGATION:'irrigation',WORKSHOP:'workshop',LIBRARY:'library',MARKET:'market',TEMPLE:'temple',
   GREAT_GRANARY:'great_granary',GREAT_FORGE:'great_forge',GREAT_LIBRARY:'great_library'};
+const ZONE_ICON={residential:'city_center',farm:'farm',industry:'quarry',
+  commerce:'commercial_hub',scholar:'academy'};
 const ICONS={};
-for(const name of ['farm','mine','granary','irrigation','workshop',
-  'library','market','temple','great_granary','great_forge','great_library']){
+for(const name of ['farm','mine','road','granary','irrigation','workshop',
+  'library','market','temple','great_granary','great_forge','great_library',
+  'palace','city_center','military_camp']){
   const image=new Image();image.src='/assets/icons/'+name+'.png';
   image.onload=()=>{if(WORLD)render(true);};
   ICONS[name]=image;
@@ -965,14 +969,20 @@ let roadPathCache={},roadNetworkCache={key:'',segments:[]};
 function roadSegments(){
   if(!STATE||!WORLD)return [];
   const roadTiles=STATE.buildings.filter(item=>item[2]==='ROAD');
-  const key=Object.keys(STATE.countries).map(id=>(STATE.countries[id].tiles?.length||0)).join('|')+'~'+
+  const territoryKey=Object.entries(STATE.countries).map(([id,country])=>
+    id+':'+(country.tiles||[]).map(coord=>coord[0]+','+coord[1]).sort().join(';')
+  ).join('|');
+  const key=territoryKey+'~'+
     roadTiles.map(item=>item[0]+','+item[1]+','+item[3]).sort().join('|');
   if(roadNetworkCache.key===key)return roadNetworkCache.segments;
   const segments=[];
   for(const polity of WORLD.polities){
     const ownRoads=roadTiles.filter(item=>item[3]===polity.id).map(item=>[item[0],item[1]]);
     if(!ownRoads.length)continue;
-    const network=[[polity.capital.col,polity.capital.row]];
+    const initial=(WORLD?.road_cells||[])
+      .filter(cell=>cell.owner_id===polity.id)
+      .map(cell=>[cell.tile.col,cell.tile.row]);
+    const network=[[polity.capital.col,polity.capital.row],...initial];
     ownRoads.sort((a,b)=>hexDistance(a,network[0])-hexDistance(b,network[0]));
     for(const road of ownRoads){
       let nearest=network[0],best=hexDistance(road,nearest);
@@ -1004,24 +1014,161 @@ function roadEntityCells(){
   }
   return [...cells.values()];
 }
+function roadEdgeKey(a,b){
+  const ka=a.col+','+a.row,kb=b.col+','+b.row;
+  return ka<kb?ka+'|'+kb:kb+'|'+ka;
+}
+function roadChainsFromCells(cells){
+  const map=new Map();
+  for(const cell of cells)map.set(cell.col+','+cell.row,cell);
+  if(!map.size)return [];
+  const adj=cell=>hexNeighbors(cell.col,cell.row)
+    .map(([x,y])=>map.get(x+','+y)).filter(Boolean);
+  const degree=new Map();
+  for(const cell of map.values())degree.set(cell.col+','+cell.row,adj(cell).length);
+  const used=new Set();
+  const chains=[];
+  const addChain=(start,chain)=>{
+    if(chain.length>=2)chains.push({owner:start.owner||'road',chain});
+  };
+  const starts=[...map.values()].filter(cell=>degree.get(cell.col+','+cell.row)!==2);
+  if(!starts.length)starts.push(map.values().next().value);
+  for(const start of starts){
+    for(const next of adj(start)){
+      if(used.has(roadEdgeKey(start,next)))continue;
+      const chain=[start,next];used.add(roadEdgeKey(start,next));
+      let prev=start,cur=next,guard=0;
+      while(degree.get(cur.col+','+cur.row)===2&&guard++<map.size+2){
+        const following=adj(cur).find(cell=>cell!==prev&&!used.has(roadEdgeKey(cur,cell)));
+        if(!following)break;
+        used.add(roadEdgeKey(cur,following));prev=cur;cur=following;chain.push(cur);
+      }
+      addChain(start,chain);
+    }
+  }
+  // Remaining loops or isolated edges.
+  for(const start of map.values()){
+    for(const next of adj(start)){
+      const edge=roadEdgeKey(start,next);
+      if(used.has(edge))continue;
+      const chain=[start,next];used.add(edge);
+      let prev=start,cur=next,guard=0;
+      while(cur!==start&&guard++<map.size+2){
+        const following=adj(cur).find(cell=>cell!==prev&&!used.has(roadEdgeKey(cur,cell)));
+        if(!following)break;
+        used.add(roadEdgeKey(cur,following));prev=cur;cur=following;chain.push(cur);
+      }
+      addChain(start,chain);
+    }
+  }
+  return chains;
+}
+function roadHash01(seed,index){
+  let value=Math.imul(seed^Math.imul(index,374761393),668265263);
+  value=Math.imul(value^(value>>>13),1274126177);
+  return ((value^(value>>>16))>>>0)/4294967295;
+}
+function roadValueNoise(seed,position){
+  const index=Math.floor(position),fraction=position-index;
+  const smooth=fraction*fraction*(3-2*fraction);
+  const first=roadHash01(seed,index);
+  const second=roadHash01(seed,index+1);
+  return first+(second-first)*smooth;
+}
+function roadSeed(cells,owner){
+  let seed=2166136261;
+  const first=cells[0],last=cells[cells.length-1];
+  for(const value of [first.col,first.row,last.col,last.row,owner.length,cells.length]){
+    seed^=value;seed=Math.imul(seed,16777619);
+  }
+  return seed>>>0;
+}
+function smoothRoadPath(cells,owner){
+  let pts=cells.map(cell=>[cx([cell.col,cell.row]),cy([cell.col,cell.row])]);
+  pts=pts.filter((point,index)=>index===0||Math.hypot(point[0]-pts[index-1][0],point[1]-pts[index-1][1])>1e-5);
+  if(pts.length<2)return pts;
+  for(let pass=0;pass<3;pass++){
+    const next=[pts[0]];
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i],b=pts[i+1];
+      next.push([.75*a[0]+.25*b[0],.75*a[1]+.25*b[1]]);
+      next.push([.25*a[0]+.75*b[0],.25*a[1]+.75*b[1]]);
+    }
+    next.push(pts[pts.length-1]);
+    pts=next;
+  }
+  const lengths=[0];
+  for(let i=1;i<pts.length;i++){
+    lengths.push(lengths[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  }
+  const total=lengths[lengths.length-1];
+  if(total<.2)return pts;
+  const seed=roadSeed(cells,owner);
+  const amplitudeScale=.82+.36*roadHash01(seed,101);
+  const amplitude=Math.min(.46,(.16+total*.006)*amplitudeScale);
+  const step=Math.max(.18,total/220);
+  const count=Math.max(2,Math.ceil(total/step));
+  const samples=[];
+  let cursor=0;
+  for(let index=0;index<=count;index++){
+    const target=total*index/count;
+    while(cursor<lengths.length-2&&lengths[cursor+1]<target)cursor++;
+    const span=Math.max(1e-6,lengths[cursor+1]-lengths[cursor]);
+    const local=Math.min(1,Math.max(0,(target-lengths[cursor])/span));
+    const x=pts[cursor][0]+(pts[cursor+1][0]-pts[cursor][0])*local;
+    const y=pts[cursor][1]+(pts[cursor+1][1]-pts[cursor][1])*local;
+    samples.push([target,x,y]);
+  }
+  const curved=[];
+  for(let index=0;index<samples.length;index++){
+    const point=samples[index];
+    const before=samples[Math.max(0,index-1)];
+    const after=samples[Math.min(samples.length-1,index+1)];
+    let tx=after[1]-before[1],ty=after[2]-before[2];
+    const norm=Math.hypot(tx,ty)||1;
+    tx/=norm;ty/=norm;
+    const envelope=Math.pow(Math.sin(Math.PI*Math.min(1,Math.max(0,point[0]/total))),.55);
+    const low=roadValueNoise(seed,point[0]/9.4+.37)*2-1;
+    const mid=roadValueNoise(seed^0x9e3779b9,point[0]/4.15+1.73)*2-1;
+    const offset=amplitude*envelope*(low*.72+mid*.28);
+    curved.push([point[1]-ty*offset,point[2]+tx*offset]);
+  }
+  curved[0]=[pts[0][0],pts[0][1]];
+  curved[curved.length-1]=[pts[pts.length-1][0],pts[pts.length-1][1]];
+  return curved;
+}
+function strokeRoadPath(points){
+  if(points.length<2)return;
+  ctx.beginPath();
+  ctx.moveTo(points[0][0],points[0][1]);
+  for(let i=1;i<points.length;i++)ctx.lineTo(points[i][0],points[i][1]);
+  ctx.stroke();
+}
 function drawRoadNetwork(scale,strong=false){
-  const cells=roadEntityCells();if(!cells.length)return;
-  const visible=cells.map(cell=>{
-    const tile=getTile(cell.col,cell.row);
-    return tile&&tile[2]?{cell,tile,bridge:cell.kind==='bridge'||tile[5]}:null;
-  }).filter(Boolean);
-  for(const item of visible){
-    const {cell,tile,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
-    hexPath(x,y,.84);
-    ctx.fillStyle=bridge?bridgeColor():roadColor(strong);ctx.fill();
-    ctx.strokeStyle=bridge?'#263a44':'#2e1d14';
-    ctx.lineWidth=Math.max(.03,1.3/scale);ctx.stroke();
+  const cells=roadEntityCells();
+  if(!cells.length)return;
+  const paths=roadChainsFromCells(cells).map(item=>smoothRoadPath(item.chain,item.owner));
+  if(!paths.length)return;
+  ctx.save();
+  ctx.lineCap='round';ctx.lineJoin='round';
+  ctx.save();
+  ctx.translate(.045,.075);
+  ctx.strokeStyle='rgba(0,0,0,.24)';
+  ctx.lineWidth=Math.max(.09,2.3/scale);
+  for(const path of paths)strokeRoadPath(path);
+  ctx.restore();
+  ctx.strokeStyle='rgba(44,27,17,.94)';
+  ctx.lineWidth=Math.max(.075,2.0/scale);
+  for(const path of paths)strokeRoadPath(path);
+  ctx.strokeStyle=(strong||scale<12)?roadColor(true):roadColor(false);
+  ctx.lineWidth=Math.max(.04,(scale<12?1.35:1.05)/scale);
+  for(const path of paths)strokeRoadPath(path);
+  if(scale>13){
+    ctx.strokeStyle='rgba(255,232,190,.30)';
+    ctx.lineWidth=Math.max(.018,.45/scale);
+    for(const path of paths)strokeRoadPath(path);
   }
-  for(const item of visible){
-    const {cell,bridge}=item,x=cx([cell.col,cell.row]),y=cy([cell.col,cell.row]);
-    hexPath(x,y,.84);
-    ctx.fillStyle=bridge?bridgeColor():roadColor(strong);ctx.fill();
-  }
+  ctx.restore();
 }
 function settleConditions(tile){
   const empty={adjacent:false,ok:false,checks:[]};
@@ -1066,6 +1213,68 @@ function hexNeighbors(col,row){
     ?[[col,row-1],[col+1,row-1],[col-1,row],[col+1,row],[col,row+1],[col+1,row+1]]
     :[[col-1,row-1],[col,row-1],[col-1,row],[col+1,row],[col-1,row+1],[col,row+1]];
 }
+function roadCellAt(col,row){
+  return !!(WORLD?.road_cells||[]).some(cell=>cell.tile.col===col&&cell.tile.row===row);
+}
+function diplomacyLevel(countryId,otherId){
+  if(!STATE||!countryId||!otherId)return 0;
+  const country=STATE.countries?.[countryId];
+  if(!country)return 0;
+  if((country.at_war_with||[]).includes(otherId))return 0;
+  const relation=Number(country.diplomacy?.relations?.[otherId]??0);
+  const levels=(STATE.diplomacy_levels?.length?STATE.diplomacy_levels:[
+    {id:0,label:'敌对',min_relation:-100},
+    {id:1,label:'冷淡',min_relation:-30},
+    {id:2,label:'中立',min_relation:0},
+    {id:3,label:'友好',min_relation:25},
+    {id:4,label:'同盟',min_relation:60}
+  ]).slice().sort((a,b)=>Number(a.id)-Number(b.id));
+  let level=0;
+  for(const item of levels)if(relation>=Number(item.min_relation))level=Number(item.id);
+  return level;
+}
+function diplomacyLevelName(levelId){
+  const levels=STATE?.diplomacy_levels||[];
+  const found=levels.find(item=>Number(item.id)===Number(levelId));
+  if(found)return found.label;
+  return Number(levelId)>=4?'同盟':Number(levelId)>=3?'友好':Number(levelId)>=2?'中立':Number(levelId)>=1?'冷淡':'敌对';
+}
+function roadConnectionLevelLabel(){
+  const wanted=Number(STATE?.road_connection_level??3);
+  const levels=STATE?.diplomacy_levels||[];
+  return levels.find(item=>Number(item.id)===wanted)?.label||'友好';
+}
+function roadConnectionInfo(col,row,countryId=STATE?.player_country){
+  if(!STATE||!WORLD||!countryId)return {connected:false,denied:[]};
+  const owners=new Map();
+  const add=(coord,owner)=>{
+    if(!owner)return;
+    const key=coord[0]+','+coord[1];
+    if(!owners.has(key))owners.set(key,new Set());
+    owners.get(key).add(owner);
+  };
+  const country=STATE.countries?.[countryId];
+  for(const city of country?.cities||[])add(city.center,countryId);
+  for(const [otherId,other] of Object.entries(STATE.countries||{})){
+    if(otherId===countryId)continue;
+    for(const city of other.cities||[])add(city.center,otherId);
+  }
+  for(const [c,r,b,cid] of STATE.buildings){
+    if(b==='ROAD'&&cid===countryId)add([c,r],countryId);
+  }
+  for(const cell of WORLD.road_cells||[])add([cell.tile.col,cell.tile.row],cell.owner_id);
+  const adjacent=new Set();
+  for(const [c,r] of hexNeighbors(col,row)){
+    const set=owners.get(c+','+r);
+    if(set)for(const owner of set)adjacent.add(owner);
+  }
+  const threshold=Number(STATE.road_connection_level??3);
+  const denied=[...adjacent].filter(owner=>owner!==countryId&&diplomacyLevel(countryId,owner)<threshold);
+  return {connected:adjacent.size>0&&denied.length===0,denied};
+}
+function roadConnectedTo(col,row,countryId=STATE?.player_country){
+  return roadConnectionInfo(col,row,countryId).connected;
+}
 function adjacencyOwner(col,row){
   if(!STATE)return null;
   for(const [cid,c] of Object.entries(STATE.countries))if((c.tiles||[]).some(coord=>hexDistance([col,row],coord)===1))return cid;
@@ -1089,28 +1298,62 @@ function elevationColor(elev){
 }
 function satelliteColor(t){
   if(!t[2]){
-    const depth=Math.max(0,Math.min(1,(-t[7])/1400));
-    return rgb(mix([35,89,112],[7,30,45],depth));
+    return waterColor();
   }
   const elev=Math.max(0,t[7]),precip=t[8],biome=t[3];
   let base;
-  if(biome==='desert')base=[201,177,124];
-  else if(biome==='alpine')base=[153,162,158];
-  else if(biome==='tundra')base=[151,164,144];
-  else if(biome==='forest')base=[72,119,84];
-  else if(biome==='rainforest')base=[46,104,74];
-  else if(biome==='wetland')base=[92,145,128];
-  else if(biome==='steppe')base=[164,156,111];
-  else if(biome==='savanna')base=[158,166,98];
-  else base=[124,158,105];
+  if(biome==='desert')base=[192,162,108];
+  else if(biome==='alpine')base=[112,120,116];
+  else if(biome==='tundra')base=[135,148,127];
+  else if(biome==='forest')base=[50,105,70];
+  else if(biome==='rainforest')base=[36,92,64];
+  else if(biome==='wetland')base=[76,130,115];
+  else if(biome==='steppe')base=[150,140,92];
+  else if(biome==='savanna')base=[140,152,82];
+  else base=[104,145,86];
   const dry=1-Math.min(1,precip/1200);
-  base=mix(base,[142,117,81],dry*.5);
-  base=mix(base,[176,180,168],Math.min(1,elev/3000)*.45);
+  base=mix(base,[125,100,70],dry*.35);
+  base=mix(base,[180,184,172],Math.min(1,elev/3000)*.28);
   const west=getTile(t[0]-1,t[1]),north=getTile(t[0],t[1]-1);
-  const relief=((west?west[7]-elev:0)+(north?north[7]-elev:0))*.00032;
-  const shade=Math.max(-.16,Math.min(.16,relief));
+  const east=getTile(t[0]+1,t[1]),south=getTile(t[0],t[1]+1);
+  const relief=((west?west[7]-elev:0)+(north?north[7]-elev:0)
+    +(east?elev-east[7]:0)+(south?elev-south[7]:0))*.00022;
+  const shade=Math.max(-.2,Math.min(.2,relief));
   const noise=((Math.sin(t[0]*12.9898+t[1]*78.233)*43758.5453)%1)*7;
   return rgb(base.map(v=>Math.max(0,Math.min(255,v*(1+shade)+noise))));
+}
+function drawTerrainDetail(t,x,y){
+  const h=(t[0]*73856093^t[1]*19349663)>>>0;
+  const biome=t[3];
+  ctx.save();
+  if(biome==='forest'||biome==='rainforest'){
+    ctx.fillStyle=biome==='rainforest'?'rgba(15,55,38,.62)':'rgba(22,62,43,.55)';
+    for(let i=0;i<3;i++){
+      const a=((h>>(i*5))&31)/31*Math.PI*2;
+      const r=.16+((h>>(i*3))&7)/55;
+      const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;
+      ctx.beginPath();ctx.moveTo(px,py-.13);ctx.lineTo(px+.085,py+.08);ctx.lineTo(px-.085,py+.08);ctx.closePath();ctx.fill();
+    }
+  }else if(biome==='alpine'){
+    ctx.fillStyle='rgba(76,86,90,.32)';
+    ctx.beginPath();ctx.moveTo(x-.34,y+.22);ctx.lineTo(x,y-.38);ctx.lineTo(x+.34,y+.22);ctx.closePath();ctx.fill();
+    ctx.fillStyle='rgba(245,246,240,.62)';
+    ctx.beginPath();ctx.moveTo(x-.13,y-.08);ctx.lineTo(x,y-.36);ctx.lineTo(x+.13,y-.08);ctx.closePath();ctx.fill();
+  }else if(biome==='desert'||biome==='steppe'){
+    ctx.strokeStyle='rgba(118,90,55,.26)';ctx.lineWidth=.035;
+    for(let i=0;i<2;i++){
+      const yy=y-.14+i*.23;
+      ctx.beginPath();ctx.moveTo(x-.21,yy);ctx.quadraticCurveTo(x,yy-.08,x+.21,yy);ctx.stroke();
+    }
+  }else if(biome==='savanna'||biome==='grassland'||biome==='tundra'){
+    ctx.fillStyle='rgba(42,76,44,.22)';
+    for(let i=0;i<2;i++){
+      const px=x-.14+((h>>(i*4))&15)/55;
+      const py=y+.08+((h>>(i*3))&15)/70;
+      ctx.beginPath();ctx.arc(px,py,.024,0,Math.PI*2);ctx.fill();
+    }
+  }
+  ctx.restore();
 }
 function rainColor(t){return rgb(mix([206,190,147],[31,93,127],Math.min(1,t[8]/1500)));}
 function dominantResource(t){
@@ -1363,12 +1606,32 @@ function render(force=false){
       Math.sqrt(3)*(WORLD.metadata.grid_width+1),
       1.5*(WORLD.metadata.grid_height+1));
   }
+  const hexFill=WORLD.metadata?.terrain_mode==='hex_fill';
+  const vx0=(-(baseOffX+panX))/scale,vx1=(w-(baseOffX+panX))/scale;
+  const vy0=(-(baseOffY+panY))/scale,vy1=(h-(baseOffY+panY))/scale;
   for(const t of WORLD.tiles){
     const owner=owners[t[0]+','+t[1]]||t[4];
-    const x=cx(t),y=cy(t);hexPath(x,y);
+    const x=cx(t),y=cy(t);
+    if(x<vx0-1.2||x>vx1+1.2||y<vy0-1.2||y>vy1+1.2)continue;
+    hexPath(x,y);
     if(mapMode==='satellite'){
       if(!useTerrain){ctx.fillStyle=satelliteColor(t);ctx.fill();}
-      ctx.strokeStyle=useTerrain?'rgba(6,20,26,.12)':'rgba(6,20,26,.08)';ctx.stroke();
+      if(hexFill&&!useTerrain&&scale>=14&&t[2]){
+        const grad=ctx.createLinearGradient(x-.72,y-.72,x+.72,y+.72);
+        grad.addColorStop(0,'rgba(255,255,255,.055)');
+        grad.addColorStop(.5,'rgba(255,255,255,0)');
+        grad.addColorStop(1,'rgba(0,0,0,.075)');
+        ctx.fillStyle=grad;ctx.fill();
+        drawTerrainDetail(t,x,y);
+      }
+      const dirs=t[1]&1?HEX_DIR_ODD:HEX_DIR_EVEN;
+      const coastal=hexFill&&t[2]&&dirs.some(([dx,dy])=>{
+        const neighbor=getTile(t[0]+dx,t[1]+dy);
+        return neighbor&&!neighbor[2];
+      });
+      ctx.strokeStyle=useTerrain?'rgba(6,20,26,.12)':(coastal?'rgba(8,30,39,.58)':'rgba(6,20,26,.09)');
+      ctx.lineWidth=coastal?Math.max(.05,.24/scale):Math.max(.03,.11/scale);
+      ctx.stroke();
       if(owner){
         ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.23;ctx.fill();ctx.globalAlpha=1;
         ctx.strokeStyle=countryColor(owner)+'dd';ctx.lineWidth=Math.max(.06,.2/scale);ctx.stroke();
@@ -1407,7 +1670,7 @@ function render(force=false){
       if(building==='ROAD')continue;
       const p=[col,row],x=cx(p),y=cy(p),image=ICONS[BUILD_ICON[building]];
       if(image&&image.complete&&image.naturalWidth){
-        ctx.drawImage(image,x-.66,y-.66,1.32,1.32);
+        ctx.drawImage(image,x-.58,y-.58,1.16,1.16);
       }else{
         ctx.beginPath();ctx.arc(x,y,.32,0,Math.PI*2);ctx.fillStyle=BUILD_COLORS[building]||'#ddd';ctx.fill();
         ctx.strokeStyle='#07171e';ctx.lineWidth=.1;ctx.stroke();
@@ -1416,14 +1679,14 @@ function render(force=false){
     ctx.lineWidth=Math.max(.12,.11/scale);
     for(const [col,row,building,cid,remaining,progress] of STATE.projects){
       const p=[col,row],x=cx(p),y=cy(p),image=ICONS[BUILD_ICON[building]];
-      ctx.beginPath();ctx.arc(x,y,.56,0,Math.PI*2);ctx.strokeStyle=countryColor(cid)||'#fff';ctx.globalAlpha=.42;ctx.stroke();
-      ctx.beginPath();ctx.arc(x,y,.56,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.02,Math.min(1,progress)));
+      ctx.beginPath();ctx.arc(x,y,.66,0,Math.PI*2);ctx.strokeStyle=countryColor(cid)||'#fff';ctx.globalAlpha=.42;ctx.stroke();
+      ctx.beginPath();ctx.arc(x,y,.66,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(.02,Math.min(1,progress)));
       ctx.strokeStyle=countryColor(cid)||'#fff';ctx.globalAlpha=1;ctx.stroke();
       if(building==='ROAD'){
         ctx.setLineDash([.18,.12]);ctx.strokeStyle='#e5c07b';ctx.lineWidth=Math.max(.07,.09/scale);
         ctx.beginPath();ctx.moveTo(x-.42,y+.24);ctx.lineTo(x+.42,y-.24);ctx.stroke();ctx.setLineDash([]);
       }else if(image&&image.complete&&image.naturalWidth){
-        ctx.globalAlpha=.66;ctx.drawImage(image,x-.5,y-.5,1,1);ctx.globalAlpha=1;
+        ctx.globalAlpha=.66;ctx.drawImage(image,x-.47,y-.47,.94,.94);ctx.globalAlpha=1;
       }else{
         ctx.beginPath();ctx.arc(x,y,.19,0,Math.PI*2);ctx.fillStyle=BUILD_COLORS[building]||'#ddd';ctx.fill();
       }
@@ -1433,24 +1696,41 @@ function render(force=false){
     for(const [cid,c] of Object.entries(STATE.countries)){
       for(const city of c.cities||[]){
         if(city.city_id===`${cid}-C1`)continue;
-        const x=cx(city.center),y=cy(city.center);
-        ctx.beginPath();ctx.rect(x-.18,y-.18,.36,.36);ctx.fillStyle='#e8ddc4';ctx.fill();
-        ctx.strokeStyle=countryColor(cid);ctx.lineWidth=Math.max(.05,.16/scale);ctx.stroke();
+        const x=cx(city.center),y=cy(city.center),cityImage=ICONS.city_center;
+        if(cityImage&&cityImage.complete&&cityImage.naturalWidth){
+          ctx.drawImage(cityImage,x-.36,y-.36,.72,.72);
+        }else{
+          ctx.beginPath();ctx.rect(x-.18,y-.18,.36,.36);ctx.fillStyle='#e8ddc4';ctx.fill();
+          ctx.strokeStyle=countryColor(cid);ctx.lineWidth=Math.max(.05,.16/scale);ctx.stroke();
+        }
       }
       if(!c.army_position||c.army_strength<=0)continue;
-      const x=cx(c.army_position),y=cy(c.army_position);
-      ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
-      ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=countryColor(cid);
-      ctx.lineWidth=Math.max(.07,.2/scale);ctx.stroke();
-      ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(c.army_strength),x,y+.02);
+      const x=cx(c.army_position),y=cy(c.army_position),armyImage=ICONS.military_camp;
+      if(armyImage&&armyImage.complete&&armyImage.naturalWidth){
+        ctx.drawImage(armyImage,x-.44,y-.44,.88,.88);
+      }else{
+        ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
+        ctx.fillStyle='#0b1d24';ctx.fill();
+      }
+      ctx.beginPath();ctx.arc(x,y,.2,0,Math.PI*2);ctx.fillStyle='#0b1d24';ctx.fill();
+      ctx.strokeStyle=countryColor(cid);ctx.lineWidth=Math.max(.06,.16/scale);ctx.stroke();
+      ctx.fillStyle='#f2ead8';ctx.font=`600 ${.26}px system-ui`;
+      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(c.army_strength),x,y+.01);
     }
   }
   for(const p of WORLD.polities){
-    const c=p.capital,x=cx([c.col,c.row]),y=cy([c.col,c.row]);
-    ctx.beginPath();ctx.arc(x,y,.6,0,Math.PI*2);ctx.fillStyle=countryColor(p.id)||'#fff';ctx.fill();
-    ctx.strokeStyle='#07171e';ctx.lineWidth=.14;ctx.stroke();
-    ctx.fillStyle='#fff9ea';ctx.font=`600 ${.72}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y+.03);
+    const c=p.capital,x=cx([c.col,c.row]),y=cy([c.col,c.row]),palace=ICONS.palace;
+    if(palace&&palace.complete&&palace.naturalWidth){
+      ctx.drawImage(palace,x-.58,y-.58,1.16,1.16);
+      const bx=x+.38,by=y-.38,br=.18;
+      ctx.beginPath();ctx.arc(bx,by,br,0,Math.PI*2);ctx.fillStyle='#0b1d24';ctx.fill();
+      ctx.strokeStyle='#f4d27a';ctx.lineWidth=.07;ctx.stroke();
+      ctx.fillStyle='#fff4cf';ctx.font=`600 ${.22}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',bx,by+.01);
+    }else{
+      ctx.beginPath();ctx.arc(x,y,.6,0,Math.PI*2);ctx.fillStyle=countryColor(p.id)||'#fff';ctx.fill();
+      ctx.strokeStyle='#07171e';ctx.lineWidth=.14;ctx.stroke();
+      ctx.fillStyle='#fff9ea';ctx.font=`600 ${.72}px system-ui`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('★',x,y+.03);
+    }
   }
   if(selectedTile){
     const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
@@ -1625,13 +1905,15 @@ function renderRight(){
       const existing=Object.values(player.buildings).filter(x=>x===key).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===key).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
       const moneyOk=player.treasury>=spec.cost;
-      const blocked=!!b || !allowed || !techOk || !riverOk || !limitOk || !moneyOk;
+      const roadInfo=roadConnectionInfo(tile.col,tile.row);
+      const roadOk=key!=='ROAD'||(!roadCellAt(tile.col,tile.row)&&roadInfo.connected);
+      const roadTileBlocked=roadCellAt(tile.col,tile.row)&&key!=='ROAD';
+      const blocked=!!b || roadTileBlocked || !allowed || !techOk || !riverOk || !roadOk || !limitOk || !moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
-      const why=!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
+      const roadWhy=roadCellAt(tile.col,tile.row)?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
+      const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[key];
-      const thumb=key==='ROAD'
-        ?'<span class="build-thumb road-thumb"><i></i></span>'
-        :(icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`);
+      const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`;
       return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
     }).join(''):'';
     $('panel-tile').innerHTML=`
@@ -2827,7 +3109,14 @@ function renderCityDetail(){
     const building=city.building_tiles?.[tile.coord.join(',')];
     const image=ICONS[BUILD_ICON[building]];
     if(building==='ROAD'){
-      c.strokeStyle='#e0b975';c.lineWidth=2;c.beginPath();c.moveTo(x-scale*.55,y);c.lineTo(x+scale*.55,y);c.stroke();
+      c.save();c.lineCap='round';c.lineJoin='round';
+      c.strokeStyle='#3a2a18';c.lineWidth=3.2;
+      c.beginPath();c.moveTo(x-scale*.5,y+scale*.16);
+      c.quadraticCurveTo(x-scale*.05,y-scale*.22,x+scale*.5,y-scale*.06);c.stroke();
+      c.strokeStyle='#e0b975';c.lineWidth=1.5;
+      c.beginPath();c.moveTo(x-scale*.5,y+scale*.16);
+      c.quadraticCurveTo(x-scale*.05,y-scale*.22,x+scale*.5,y-scale*.06);c.stroke();
+      c.restore();
     }else if(image&&image.complete&&image.naturalWidth){
       c.drawImage(image,x-scale*.5,y-scale*.5,scale,scale);
     }
@@ -2848,7 +3137,7 @@ function renderCityDetail(){
     ?`地块 ${selected.coord[0]},${selected.coord[1]} · ${BIOME_NAMES[selected.biome]||selected.biome} · ${STATE.city_zones[selected.zone]?.label||selected.zone}${bonuses?' · '+bonuses:''}`
     :'点击地图选择地块';
   $('cityZonePalette').innerHTML=Object.entries(STATE.city_zones).map(([key,zone])=>
-    `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'?'':'disabled'}><i></i>${esc(zone.label)}</button>`
+    `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'?'':'disabled'}>${ZONE_ICON[key]?`<img src="/assets/icons/buildings/${ZONE_ICON[key]}.png" alt="">`:'<i></i>'}${esc(zone.label)}</button>`
   ).join('');
   $('cityZoneHint').textContent=!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':city.managed_by==='llm'?'这座城市由 LLM 托管；LLM 会在规划周期调整分区与预算。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
   const player=STATE.countries[STATE.player_country];
@@ -2872,9 +3161,13 @@ function renderCityDetail(){
       const existing=Object.values(player.buildings||{}).filter(x=>x===kind).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===kind).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
       const moneyOk=player.treasury>=spec.cost;
-      const blocked=!!building||!!project||!allowed||!techOk||!riverOk||!limitOk||!moneyOk;
+      const roadInfo=roadConnectionInfo(selected.coord[0],selected.coord[1]);
+      const roadOk=kind!=='ROAD'||(!roadCellAt(selected.coord[0],selected.coord[1])&&roadInfo.connected);
+      const roadTileBlocked=roadCellAt(selected.coord[0],selected.coord[1])&&kind!=='ROAD';
+      const blocked=!!building||!!project||roadTileBlocked||!allowed||!techOk||!riverOk||!roadOk||!limitOk||!moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
-      const why=!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))));
+      const roadWhy=roadCellAt(selected.coord[0],selected.coord[1])?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
+      const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[kind];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[kind]||kind).slice(0,1))}</span>`;
       return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${spec.cost} 财政 · ${spec.days} 日 · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
@@ -2964,6 +3257,7 @@ function renderDiplomacy(){
   $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 与该国的关系影响贸易接受度和协定提案`;
   const rows=WORLD.polities.filter(p=>p.id!==selectedCountry).map(p=>{
     const relation=dip.relations[p.id]||0;
+    const levelLabel=diplomacyLevelName(dip.levels?.[p.id]);
     const active=dip.active_pacts?.find(pact=>pact.pact==='TRADE'&&pact.status==='ACTIVE'&&[pact.sender,pact.target].includes(p.id));
     const pending=dip.outgoing_proposals?.find(proposal=>proposal.target===p.id);
     const atWar=(c.at_war_with||[]).includes(p.id);
@@ -2976,7 +3270,7 @@ function renderDiplomacy(){
     </div>`:(active?'<span class="pact-pill">贸易协定</span>':'');
     return `<div class="diplo-row" style="--dc:${countryColor(p.id)}">
       <span class="diplo-color"></span>
-      <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${active?'协定生效':'无协定'}</small></div>
+      <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${esc(levelLabel)} · ${active?'协定生效':'无协定'}</small></div>
       <div><div class="relation-track"><span class="relation-marker" style="left:${pct}%"></span></div>
       <div class="relation-meta"><span>敌对 -100</span><span>${relation>0?'友好':relation<0?'紧张':'中立'} ${relation}</span><span>+100</span></div></div>
       ${actions}
@@ -2989,7 +3283,7 @@ function renderDiplomacy(){
   </div>`).join('');
   $('diploBody').innerHTML=`<div class="diplo-section" data-diplo-section="relations">
       <div class="diplo-list">${rows}</div>
-      <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。有效贸易协定为国家税收提供 +5%。</div>
+      <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。关系达到 25（友好）后，双方道路网络才允许连通；有效贸易协定为国家税收提供 +5%。</div>
     </div>
     <div class="diplo-section" data-diplo-section="incoming" hidden>
       <div class="sect" style="margin-top:2px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>

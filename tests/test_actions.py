@@ -560,3 +560,67 @@ def test_settle_rejects_river_water_tile(engine):
     })
     assert not result.accepted
     assert result.reason_code == "RIVER_TILE"
+
+
+def test_road_build_must_connect_to_city_or_existing_road(engine):
+    from worldgen import hex_distance
+
+    state = engine.state
+    country = state.countries["ELAR"]
+    capital = country.cities[0].center
+    owned = [coord for coord in country.tiles if state.world.tile(coord)["land"]]
+    disconnected = next(
+        coord for coord in owned
+        if hex_distance(coord, capital) >= 2
+        and not any(
+            hex_distance(coord, city.center) == 1
+            for entity in state.countries.values() for city in entity.cities
+        )
+    )
+    rejected = engine.apply_action(
+        "ELAR", build({"col": disconnected[0], "row": disconnected[1]}, "ROAD")
+    )
+    assert not rejected.accepted
+    assert rejected.reason_code == "ROAD_NOT_CONNECTED"
+
+    adjacent = next(
+        coord for coord in owned
+        if hex_distance(coord, capital) == 1
+        and coord not in country.buildings
+    )
+    accepted = engine.apply_action(
+        "ELAR", build({"col": adjacent[0], "row": adjacent[1]}, "ROAD")
+    )
+    assert accepted.accepted, accepted
+
+
+def test_cross_border_road_requires_diplomatic_level():
+    from types import SimpleNamespace
+    from core.road import road_connection_status
+
+    country_a = SimpleNamespace(country_id="A", cities=[], buildings={})
+    country_b = SimpleNamespace(country_id="B", cities=[], buildings={})
+    world = SimpleNamespace(road_cells=lambda: [
+        {"tile": {"col": 1, "row": 0}, "owner_id": "B"}
+    ])
+    level = {"value": 2}
+
+    def diplomatic_level(left, right):
+        assert (left, right) == ("A", "B")
+        return level["value"]
+
+    state = SimpleNamespace(
+        countries={"A": country_a, "B": country_b},
+        world=world,
+        diplomatic_level=diplomatic_level,
+        road_connection_level=lambda: 3,
+    )
+    connected, denied, owners = road_connection_status(state, country_a, (0, 0))
+    assert not connected
+    assert denied == ["B"]
+    assert owners == {"B"}
+
+    level["value"] = 3
+    connected, denied, owners = road_connection_status(state, country_a, (0, 0))
+    assert connected
+    assert denied == []

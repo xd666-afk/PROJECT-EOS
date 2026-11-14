@@ -328,7 +328,7 @@ class LiveSession:
         with self.lock:
             normalized = normalize_countries(countries)
             world, path = generate_fair_world(
-                normalized, base_seed=base_seed, generation_version="v2"
+                normalized, base_seed=base_seed, generation_version="v3"
             )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
@@ -763,6 +763,7 @@ class LiveSession:
                 "hex_radius_km": metadata["hex_radius_km"],
                 "schema_version": metadata.get("schema_version", 1),
                 "generator": metadata.get("generator", "mapgen_v1"),
+                "terrain_mode": metadata.get("terrain_mode"),
                 "river_depth_model": metadata.get("river_depth_model"),
                 "hydrology_model": metadata.get("hydrology_model"),
                 "seed": metadata.get("seed"),
@@ -832,6 +833,8 @@ class LiveSession:
                 "city_zones": self.simulation.state.config["city_zones"],
                 "city_budgets": self.simulation.state.config["city_budgets"],
                 "maximum_tax_rate": self.simulation.state.config["maximum_tax_rate"],
+                "diplomacy_levels": self.simulation.state.config.get("diplomacy", {}).get("levels", []),
+                "road_connection_level": self.simulation.state.road_connection_level(),
                 "expansion": self.simulation.state.config["expansion"],
                 "countries": summary["countries"],
                 "ranking": summary["ranking"],

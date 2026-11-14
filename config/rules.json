@@ -769,5 +769,35 @@
     "maximum_food_loss_fraction": 0.25
   },
   "politics_stability_per_level": 0.6,
-  "economy_tax_bonus_per_level": 0.015
+  "economy_tax_bonus_per_level": 0.015,
+  "diplomacy": {
+    "levels": [
+      {
+        "id": 0,
+        "label": "敌对",
+        "min_relation": -100
+      },
+      {
+        "id": 1,
+        "label": "冷淡",
+        "min_relation": -30
+      },
+      {
+        "id": 2,
+        "label": "中立",
+        "min_relation": 0
+      },
+      {
+        "id": 3,
+        "label": "友好",
+        "min_relation": 25
+      },
+      {
+        "id": 4,
+        "label": "同盟",
+        "min_relation": 60
+      }
+    ],
+    "road_connection_level": 3
+  }
 }
