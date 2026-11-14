@@ -160,6 +160,13 @@ class CityState:
     food_need: float = 0.0
     food_balance: float = 0.0
     food_loss: float = 0.0
+    food_stock: float | None = None
+    food_capacity: float = 0.0
+    food_imported: float = 0.0
+    food_exported: float = 0.0
+    food_unmet: float = 0.0
+    logistics_status: str = "待结算"
+    logistics_routes: list[dict[str, Any]] = field(default_factory=list)
     budget: str = "balanced"
     local_revenue: float = 0.0
     local_upkeep: float = 0.0
@@ -184,6 +191,13 @@ class CityState:
             "food_need": self.food_need,
             "food_balance": self.food_balance,
             "food_loss": self.food_loss,
+            "food_stock": self.food_stock,
+            "food_capacity": self.food_capacity,
+            "food_imported": self.food_imported,
+            "food_exported": self.food_exported,
+            "food_unmet": self.food_unmet,
+            "logistics_status": self.logistics_status,
+            "logistics_routes": self.logistics_routes,
             "budget": self.budget,
             "local_revenue": self.local_revenue,
             "local_upkeep": self.local_upkeep,
@@ -210,6 +224,13 @@ class CityState:
             food_need=float(data.get("food_need", 0.0)),
             food_balance=float(data.get("food_balance", 0.0)),
             food_loss=float(data.get("food_loss", 0.0)),
+            food_stock=float(data["food_stock"]) if data.get("food_stock") is not None else None,
+            food_capacity=float(data.get("food_capacity", 0.0)),
+            food_imported=float(data.get("food_imported", 0.0)),
+            food_exported=float(data.get("food_exported", 0.0)),
+            food_unmet=float(data.get("food_unmet", 0.0)),
+            logistics_status=data.get("logistics_status", "待结算"),
+            logistics_routes=data.get("logistics_routes", []),
             budget=data.get("budget", "balanced"),
             local_revenue=float(data.get("local_revenue", 0.0)),
             local_upkeep=float(data.get("local_upkeep", 0.0)),
@@ -231,6 +252,7 @@ class MarchOrder:
     objective: tuple[int, int] | None = None
     expedition: bool = False
     spent: float = 0.0
+    crossed_borders: list[str] = field(default_factory=list)
 
     @property
     def destination(self) -> tuple[int, int] | None:
@@ -261,6 +283,7 @@ class MarchOrder:
             "route": [list(coord) for coord in self.route],
             "cumulative": [round(value, 4) for value in self.cumulative],
             "spent": round(self.spent, 4),
+            "crossed_borders": list(self.crossed_borders),
         }
 
     @classmethod
@@ -275,6 +298,7 @@ class MarchOrder:
             objective=(int(objective[0]), int(objective[1])) if objective else None,
             expedition=bool(data.get("expedition", False)),
             spent=max(0.0, float(data.get("spent", 0.0) or 0.0)),
+            crossed_borders=list(data.get("crossed_borders", [])),
         )
 
 
@@ -733,6 +757,7 @@ def proposal_row(proposal: dict[str, Any], country_id: str, day: int, kind: str)
         "target": proposal["target"],
         "status": status,
         "status_label": PROPOSAL_STATUS_LABELS.get(status, status),
+        "pact": proposal.get("pact"),
         "created_day": int(proposal.get("created_day", 0)),
         "resolved_day": proposal.get("resolved_day"),
         "days_left": max(0, int(proposal["expires_day"]) - day) if status == "PENDING" else None,
@@ -1003,6 +1028,8 @@ class GameState:
                 personality=str(polity.get("personality", "neutral")),
             )
             state.countries[country_id].new_army(tile=capital)
+            from core.logistics import reconcile_stocks
+            reconcile_stocks(state.countries[country_id], config)
         state.record("simulation_initialized", seed=seed, rules_version=config["rules_version"])
         return state
 
@@ -1520,4 +1547,6 @@ class GameState:
                             city.center, coord, world.tiles[coord]
                         )
             state.sync_city_population(country)
+            from core.logistics import reconcile_stocks
+            reconcile_stocks(country, state.config if any(c.food_capacity <= 0 for c in country.cities) else None)
         return state

@@ -65,6 +65,12 @@ class Diplomacy:
         for pact in self.state.pacts.values():
             if pact["status"] == "ACTIVE" and {pact["sender"], pact["target"]} == {actor, target_id}:
                 pact["status"] = "BROKEN"
+                proposal = self.state.diplomatic_proposals.get(pact["proposal_id"])
+                if proposal:
+                    proposal["status"] = "BROKEN"
+        for proposal in self.state.diplomatic_proposals.values():
+            if proposal["status"] == "PENDING" and {proposal["sender"], proposal["target"]} == {actor, target_id}:
+                proposal["status"] = "BROKEN"
         self.state.record("war_declared", attacker=actor, defender=target_id)
         return {"attacker": actor, "defender": target_id, "relation": -100}
 
@@ -99,9 +105,11 @@ class Diplomacy:
         if target_id in self.state.countries[actor].at_war_with:
             raise ActionRejected("AT_WAR", "交战中不能签订贸易协定")
         relation = self.relation(actor, target_id)
-        if relation < MINIMUM_PACT_RELATION:
+        from core.access import PACT_SPECS
+        minimum = PACT_SPECS[action["pact"]]["min_relation"]
+        if relation < minimum:
             raise ActionRejected(
-                "RELATION_TOO_LOW", f"关系低于 {MINIMUM_PACT_RELATION}，需先改善外交关系"
+                "RELATION_TOO_LOW", f"关系低于 {minimum}，需先改善外交关系"
             )
         for pact in self.state.pacts.values():
             if pact["status"] == "ACTIVE" and pact["pact"] == action["pact"] and {
@@ -109,7 +117,7 @@ class Diplomacy:
             } == {actor, target_id}:
                 raise ActionRejected("PACT_EXISTS", "双方已有同类有效协定")
         for proposal in self.state.diplomatic_proposals.values():
-            if proposal["status"] == "PENDING" and {
+            if proposal["status"] == "PENDING" and proposal["pact"] == action["pact"] and {
                 proposal["sender"], proposal["target"]
             } == {actor, target_id}:
                 raise ActionRejected("PACT_PENDING", "已有待回应的同类提案")
@@ -138,6 +146,8 @@ class Diplomacy:
             proposal["status"] = "EXPIRED"
             raise ActionRejected("PACT_EXPIRED", "协定提案已过期")
         if action["operation"] == "ACCEPT_PACT":
+            if proposal["pact"] != "PEACE" and proposal["sender"] in self.state.countries[actor].at_war_with:
+                raise ActionRejected("AT_WAR", "交战中不能接受通行或合作协定")
             proposal["status"] = "ACCEPTED"
             proposal["resolved_day"] = self.state.day_index
             if proposal["pact"] == "PEACE":
@@ -171,6 +181,22 @@ class Diplomacy:
         self.change_relation(actor, proposal["sender"], -2)
         self.state.record("pact_rejected", proposal_id=proposal["proposal_id"], actor=actor)
         return proposal
+
+    def revoke_pact(self, actor: str, proposal_id: str) -> dict:
+        pact = self.state.pacts.get(proposal_id)
+        if pact is None:
+            raise ActionRejected("UNKNOWN_PACT", "有效协定不存在")
+        if actor not in (pact["sender"], pact["target"]):
+            raise ActionRejected("PERMISSION_DENIED", "只有协定双方可以终止协定")
+        if pact["status"] != "ACTIVE":
+            raise ActionRejected("PACT_NOT_ACTIVE", "协定已失效")
+        pact["status"] = "BROKEN"
+        pact["resolved_day"] = self.state.day_index
+        if proposal_id in self.state.diplomatic_proposals:
+            self.state.diplomatic_proposals[proposal_id].update(status="BROKEN", resolved_day=self.state.day_index)
+        self.state.record("pact_revoked", country_id=actor, proposal_id=proposal_id,
+                          sender=pact["sender"], target=pact["target"], pact=pact["pact"])
+        return dict(pact)
 
     def expire_proposals(self) -> None:
         for proposal in self.state.diplomatic_proposals.values():

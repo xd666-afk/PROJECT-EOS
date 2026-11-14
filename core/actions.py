@@ -244,10 +244,17 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             pact = raw.get("pact")
             if not isinstance(target, str) or not target or not isinstance(pact, str):
                 raise ActionRejected("INVALID_PARAMETER", "target 与 pact 必须是字符串")
-            if pact not in {"TRADE"}:
-                raise ActionRejected("INVALID_PARAMETER", "当前只支持 TRADE 贸易协定")
+            from core.access import PACT_SPECS
+            if pact not in PACT_SPECS:
+                raise ActionRejected("INVALID_PARAMETER", "未知协定类型")
             return {"type": action_type, "operation": operation, "target": target, "pact": pact}
         if operation in {"ACCEPT_PACT", "REJECT_PACT"}:
+            _keys(raw, {"type", "operation", "proposal_id"})
+            proposal_id = raw.get("proposal_id")
+            if not isinstance(proposal_id, str) or not proposal_id:
+                raise ActionRejected("INVALID_PARAMETER", "proposal_id 必须是非空字符串")
+            return {"type": action_type, "operation": operation, "proposal_id": proposal_id}
+        if operation == "REVOKE_PACT":
             _keys(raw, {"type", "operation", "proposal_id"})
             proposal_id = raw.get("proposal_id")
             if not isinstance(proposal_id, str) or not proposal_id:

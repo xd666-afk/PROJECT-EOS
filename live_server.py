@@ -868,6 +868,11 @@ class LiveSession:
         with self.lock:
             summary = self.simulation.state.summary()
             threats = Military(self.simulation.state).incoming_threats()
+            from core.access import access_rights, PACT_SPECS
+            state = self.simulation.state
+            access = {cid: {other: access_rights(state, cid, other)
+                            for other in state.countries if cid != other}
+                      for cid in state.countries}
             recent = [
                 deepcopy(event) for event in self.simulation.state.event_log
                 if event["type"] not in {"economy_daily"}
@@ -911,6 +916,13 @@ class LiveSession:
                 "unit_specs": self.simulation.state.config["units"],
                 "military_specs": self.simulation.state.config["military"],
                 "movement_specs": self.simulation.state.config["movement"],
+                "pact_specs": PACT_SPECS,
+                "border_access": access,
+                "transport_specs": state.config["transport"],
+                "transport_network": {
+                    cid: self.simulation.engine.economy.logistics.routes(country)
+                    for cid, country in state.countries.items()
+                },
                 "campaign_quotes": self.campaign_quotes(),
                 "incoming_threats": threats,
                 "policy_options": sorted(self.simulation.state.config["policies"]),

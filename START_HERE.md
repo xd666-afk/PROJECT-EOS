@@ -2,7 +2,9 @@
 
 **先读 [`DEVELOPER_MANUAL.md`](DEVELOPER_MANUAL.md)。** 这是当前项目的完整开发说明书：启动、架构、动作协议、城市系统、API、存档/回放、测试与协作规范。
 
-**最新整合请读 [`INTEGRATION_REPORT_2026-11-14.md`](INTEGRATION_REPORT_2026-11-14.md)。** 地图 v0.35 与军事 v0.43 已整合；旧交接报告保留作历史记录。
+**当前 v0.45：先读 [`CIVIL_NETWORKS_2026-11-14.md`](CIVIL_NETWORKS_2026-11-14.md)。** 已实现城市粮仓与真实道路调运、外交通行、物流图层和地图军队直接选择。
+
+**此前整合请读 [`INTEGRATION_REPORT_2026-11-14.md`](INTEGRATION_REPORT_2026-11-14.md)。** 地图 v0.35 与军事 v0.43 已整合；旧交接报告保留作历史记录。
 
 **此前交接请读 [`PROJECT_EOS_HANDOFF_2026-11-14.md`](PROJECT_EOS_HANDOFF_2026-11-14.md)**（也可打印/传阅 `Project_Eos_开发交接报告_2026-11-14.docx` 或打开 `.html` 版）：当前状态、v3 地图、道路/外交门槛、已知限制、安全约束、Git 状态与后续路线。
 
@@ -13,13 +15,13 @@
 - 世界 + 城市双层视角：城市人口、分区、邻接、宜居度、粮食物流、地方预算、AI 市长与手动托管。
 - 本地实时指挥台、存档槽、动作回放、公平随机地图与自定义国家。
 - 道路连通校验、外交等级与跨边界修路门槛。
-- 339 项 pytest；全 Mock 可零 API 费用运行。
+- 355 项 pytest；全 Mock 可零 API 费用运行。
 
 快速验证：
 
 ```bash
 ./.venv/Scripts/python -m pytest -q
-./.venv/Scripts/python live_server.py --load examples/hexfirst/save.json --days 365 --paused --open
+./.venv/Scripts/python live_server.py --load examples/civil_networks/save.json --days 365 --paused --open
 ```
 
 地图生成管线仍保留：

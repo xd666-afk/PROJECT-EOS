@@ -1,12 +1,23 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-14，v0.44 整合版，339 项测试。
+> 面向共同开发者的工程手册。最后更新：2026-11-14，v0.45，355 项测试。
 >
 > 最新整合说明见 `INTEGRATION_REPORT_2026-11-14.md`；直接试玩用 `live_server.py --load examples/hexfirst/save.json --paused --open`。
 >
 > 代码是最终事实来源；当本文与代码不一致时，以代码为准，并请顺手更新本文。
 
 ---
+
+## v0.45 更新：库存与通行
+
+最新规则见 [`CIVIL_NETWORKS_2026-11-14.md`](CIVIL_NETWORKS_2026-11-14.md)。以下旧章节仍可用于定位代码，但粮食结算以新模块为准：
+
+- `core/logistics.py`：城市库存、仓容、受容量约束的真实陆路物流；全国粮食是城市分账合计，单城无运输损耗。
+- `core/access.py`：开放边境、军事通行与同盟的共享权限，实际越境的外交事件；不修改战斗参数。
+- `DIPLOMACY.PROPOSE_PACT` 接受 `TRADE / OPEN_BORDERS / MILITARY_ACCESS / ALLIANCE`；`REVOKE_PACT(proposal_id)` 终止有效协定。
+- `/api/state` 新增 `pact_specs`、`border_access`、`transport_specs`、`transport_network`；城市行增加库存、运量、损耗和缺口；按格行军报价的行增加 `route`。
+- 读档时兼容缺少新字段的旧存档；`MarchOrder.crossed_borders` 防止同一道在途命令读档后重复产生越境事件。
+- 两城试玩：`live_server.py --load examples/civil_networks/save.json --paused --open`，进入后选择国家 A。
 
 ## 目录
 
@@ -56,7 +67,7 @@ Project Eos 是一个本地运行的文明模拟沙盘：
 | 军事 | 招募、行军、宣战、边境/远征战斗、占领、占领贡金、围城与整城易主（含开赴封锁圈）、战争疲劳、和平；按地块看驻军、按地块下令攻打并预报价 |
 | 目标 | 综合评分、四条正式胜利路线、自动结算、继续本局 |
 | AI | 多国规则 AI、OpenAI 兼容模型、逐国切换、预算/Token 记录、失败回退 |
-| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、339 项 pytest |
+| 工程 | 存档槽、自动保存、动作日志回放、世界哈希校验、355 项 pytest |
 
 设计原则（来自 `PROJECT_PLAN.md`）：
 
@@ -1400,7 +1411,7 @@ POST /api/agents/budget
 | `test_agents_replay.py` | 观察隔离、AI 贸易、研究、玩家跳过、365 日、回放、断点续跑 |
 | `test_llm_adapter.py` | OpenAI 兼容协议、重试、预算、Usage、混用、失败回退 |
 
-当前：**339 passed**（`python -m pytest -q --basetemp=.tmp_pytest`）。
+当前：**355 passed**（`python -m pytest -q --basetemp=.tmp_pytest`）。
 
 ### 15.2 测试原则
 
@@ -1758,7 +1769,7 @@ siege(city_id/name/center/attacker/defender/open/armies/garrison/walls/attack_po
 - 每兵养护 `units.*.upkeep_per_day`（v0.43 后整体下调约四成）：`MILITIA` 0.018、`ARCHER` 0.02、`HEAVY_INFANTRY` 0.025、`CHARIOT` 0.028、`CAVALRY` 0.033、`SIEGE` 0.036 财政/日，付不起当日由 `_desert()` 先遣走养护最贵的那一支（贵→贱次序未变）。
 - 回执与账本上限：`RECEIPT_LIMIT` = `LEDGER_LIMIT` = 12 条（外交页收发两列各取最近 12 行）。
 - 提案到期：贸易与协定都用 `trade_expiry_days` = 180 日（**没有** `pact_expiry_days` 这个键）；到期当日账上仍是 `PENDING` 且 `days_left = 0`，次日才翻 `EXPIRED`。
-- 测试：339 项。
+- 测试：355 项。
 - 实时服务默认端口：8765。
 
 ---

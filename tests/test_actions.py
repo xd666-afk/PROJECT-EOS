@@ -269,7 +269,8 @@ def test_city_food_ledger_and_logistics_loss(engine):
     for city in country.cities:
         assert city.food_need > 0
         assert city.food_balance == pytest.approx(city.food_output - city.food_need)
-    assert metrics["food_logistics_loss"] > 0
+    # A single city does not ship grain to itself: losses now require real transport.
+    assert metrics["food_logistics_loss"] == 0
     assert metrics["food_logistics_loss"] == pytest.approx(
         sum(city.food_loss for city in country.cities)
     )

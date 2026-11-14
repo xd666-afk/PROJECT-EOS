@@ -48,6 +48,9 @@ class RuleEngine:
             normalized = validate_action(actor, raw_action, self.state.config)
             action_type = normalized["type"]
             effects = self._execute(actor, normalized)
+            from core.logistics import reconcile_stocks
+            for entity in self.state.countries.values():
+                reconcile_stocks(entity, self.state.config)
             result = ActionResult(
                 action_id, actor, action_type, True, "OK", "动作已审核并执行",
                 self.state.day_index, effects,
@@ -378,6 +381,8 @@ class RuleEngine:
                 return self.diplomacy.declare_war(actor, action["target"])
             if operation == "PROPOSE_PEACE":
                 return self.diplomacy.propose_peace(actor, action["target"])
+            if operation == "REVOKE_PACT":
+                return self.diplomacy.revoke_pact(actor, action["proposal_id"])
             return self.diplomacy.respond_pact(actor, action)
         if action_type == "MILITARY":
             operation = action["operation"]
@@ -450,6 +455,9 @@ class RuleEngine:
             self.economy.update_stability_monthly()
             self.military.update_monthly()
             self.economy.apply_social_events()
+        from core.logistics import reconcile_stocks
+        for country in self.state.countries.values():
+            reconcile_stocks(country, self.state.config)
         self.state.day_index += 1
         return True
 

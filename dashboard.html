@@ -730,6 +730,7 @@ body.right-panel-open .notice-stack{right:354px}
       <div class="side-head"><span>世界列国 · 点击选择</span><button id="collapseLeft">收起</button></div>
       <div class="scroll">
         <div class="threat-stack" id="worldThreats" hidden></div>
+        <div id="worldSupply" hidden></div>
         <div class="player-banner" id="playerBanner" hidden></div>
         <div class="country-list" id="countries"></div>
         <div class="sect" style="margin-top:8px"><span>建设进度</span><span id="jobCount">0 项</span></div>
@@ -745,6 +746,7 @@ body.right-panel-open .notice-stack{right:354px}
       <div class="map-toolbar">
         <div class="map-tools">
           <button class="on" data-layer="satellite">卫星</button>
+          <button data-layer="logistics">物流</button>
           <button data-layer="political">政治</button>
           <button data-layer="terrain">海拔</button>
           <button data-layer="rain">降水</button>
@@ -1349,7 +1351,7 @@ function marchBreakdown(route){
     const tile=getTile(route[step][0],route[step][1]);
     if(!tile||!tile[2])continue;
     const key=tileKey(route[step][0],route[step][1]);
-    const road=roads.has(key),hostile=owners[key]&&owners[key]!==selectedCountry;
+    const road=roads.has(key),hostile=owners[key]&&owners[key]!==selectedCountry&&!STATE?.border_access?.[selectedCountry]?.[owners[key]]?.military;
     cost+=(road?Number(rules.road_cost):Number(costs[tile[3]]||0))+(hostile?Number(rules.hostile_cost)||0:0);
     if(road)roadSteps++;
     const name=BIOME_NAMES[tile[3]]||tile[3];
@@ -1858,6 +1860,94 @@ function loadTerrainTexture(url){
   image.onload=()=>{if(terrainUrl!==url)return;terrainImage=image;terrainReady=true;render(true);};
   image.src=url;
 }
+function pactName(kind){return STATE?.pact_specs?.[kind]?.label||({PEACE:'和平提议',TRADE:'贸易协定'}[kind])||kind||'协定';}
+function civilRoutes(){return STATE?.transport_network?.[selectedCountry]||[];}
+function supplyProblem(city){return city.food_unmet>0||((city.stock_days??Infinity)<3&&city.food_balance<0);}
+function cityStockCard(city){
+  const routes=civilRoutes().filter(r=>r.source===city.city_id||r.target===city.city_id),connected=routes.filter(r=>r.status==='connected').length;
+  const cities=STATE.countries[selectedCountry]?.cities||[];
+  return `<div class="sect"><span>本城粮仓与运输</span><span>${esc(city.logistics_status||'待结算')}</span></div>
+    <div class="garrison-card"><div class="split"><span>库存 / 仓容</span><b>${fmtNum(city.food_stock,2)} / ${fmtNum(city.food_capacity,2)}</b></div>
+    <div class="split"><span>按当前需求可供</span><b>${city.stock_days==null?'尚无消耗记录':`${fmtNum(city.stock_days,1)} 天`}</b></div>
+    <div class="split"><span>今日调入 / 调出</span><b>${fmtNum(city.food_imported,2)} / ${fmtNum(city.food_exported,2)}</b></div>
+    <div class="split"><span>未满足需求 / 运输损耗</span><b>${fmtNum(city.food_unmet,2)} / ${fmtNum(city.food_loss,2)}</b></div>
+    <div class="hint">${connected} 条可用城际路线 · 全国存粮是各城库存合计。道路提高运量并降低损耗；隔离城市须靠本地储粮。</div>
+    ${routes.map(r=>{const peer=cities.find(c=>c.city_id===(r.source===city.city_id?r.target:r.source));return `<div class="hint"><b>${esc(peer?.name||'其他城市')}</b> · ${r.status==='connected'?`${fmtNum(r.capacity,1)} 粮/日 · 损耗 ${(r.loss_rate*100).toFixed(1)}%`:esc(r.reason)}</div>`;}).join('')}
+    <button data-supply-map="${esc(city.city_id)}">在地图查看物流</button></div>`;
+}
+function renderSupplyOverview(){
+  const host=$('worldSupply'),country=STATE?.countries?.[selectedCountry];
+  if(!host||!country)return;
+  const cities=[...(country.cities||[])].sort((a,b)=>Number(supplyProblem(b))-Number(supplyProblem(a))),alerts=cities.filter(supplyProblem),blocked=civilRoutes().filter(r=>r.status!=='connected');
+  host.hidden=false;
+  host.innerHTML=`<div class="sect"><span>城市供应</span><span>${alerts.length?`${alerts.length} 城预警`:'库存与运输'}</span></div>
+    ${cities.map(city=>`<button class="country" data-supply-city="${esc(city.city_id)}" style="--c:${supplyProblem(city)?'#eead63':'#85c9a4'}">
+      <span><b>${esc(city.name)}${supplyProblem(city)?' · 缺粮预警':''}</b><small>存粮 ${fmtNum(city.food_stock,1)}${city.stock_days==null?'':` · 可供 ${fmtNum(city.stock_days,1)} 天`} · ${esc(city.logistics_status||'待结算')}</small></span></button>`).join('')}
+    ${blocked.length?`<div class="hint">${blocked.length} 条城际路线中断：检查水域、桥接道路与开放边境。</div>`:''}`;
+}
+function diplomacyActions(peer,dip,isPlayer,relation,atWar){
+  const active=(dip.active_pacts||[]).filter(p=>p.status==='ACTIVE'&&[p.sender,p.target].includes(peer));
+  const pending=[...(dip.outgoing_proposals||[]),...(dip.incoming_proposals||[])].filter(p=>[p.sender,p.target].includes(peer));
+  return `<div class="diplo-actions" style="flex-wrap:wrap;max-width:390px">
+    ${active.map(p=>`<span class="pact-pill">${esc(pactName(p.pact))}${isPlayer?` <button data-pact-revoke="${esc(p.proposal_id)}" title="终止后不再享有此协定的通行权">终止</button>`:''}</span>`).join('')}
+    ${isPlayer&&!atWar?`<button data-gift="${peer}">赠礼 5</button>`:''}
+    ${isPlayer&&!atWar?Object.entries(STATE.pact_specs||{}).filter(([kind])=>!active.some(p=>p.pact===kind)).map(([kind,spec])=>{
+      const waiting=pending.some(p=>p.pact===kind);
+      return `<button data-pact="${peer}" data-kind="${kind}" ${waiting||relation<spec.min_relation?'disabled':''} title="需关系达到 ${spec.min_relation}">${esc(spec.label)}${waiting?' · 待回应':''}</button>`;
+    }).join(''):atWar?'<span class="key-state missing">交战中 · 通行协定失效</span>':''}
+  </div>`;
+}
+function drawLogisticsNetwork(scale){
+  const cities=STATE?.countries?.[selectedCountry]?.cities||[],byId=new Map(cities.map(c=>[c.city_id,c]));
+  for(const route of civilRoutes()){
+    const from=byId.get(route.source),to=byId.get(route.target);if(!from||!to)continue;
+    const path=route.path?.length?route.path:[from.center,to.center];
+    ctx.save();ctx.strokeStyle=route.status==='connected'?'#85c9a4':'#e18a7c';
+    ctx.lineWidth=Math.max(.10,2/scale);ctx.globalAlpha=.85;
+    if(route.status!=='connected')ctx.setLineDash([.3,.3]);
+    ctx.beginPath();path.forEach((coord,i)=>i?ctx.lineTo(cx(coord),cy(coord)):ctx.moveTo(cx(coord),cy(coord)));ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawStockWarnings(scale){
+  for(const city of STATE?.countries?.[selectedCountry]?.cities||[]){
+    if(!supplyProblem(city))continue;
+    const x=cx(city.center),y=cy(city.center);ctx.save();
+    ctx.fillStyle='#eead63';ctx.font=`700 ${Math.max(.5,13/scale)}px system-ui`;
+    ctx.textAlign='center';ctx.fillText('!',x+.6,y-.6);ctx.restore();
+  }
+}
+function pickMapArmy(coord){
+  const cid=STATE?.player_country||selectedCountry,c=STATE?.countries?.[cid];
+  const rows=(c?.armies||[]).filter(a=>a.strength>0&&a.tile?.[0]===coord[0]&&a.tile?.[1]===coord[1]);
+  if(!rows.length)return;
+  const at=rows.findIndex(a=>a.army_id===selectedArmy);
+  selectedArmy=rows[(at+1)%rows.length].army_id;
+  showToast(`已选中 ${selectedArmy}；点击目的地查看路线和抵达时间`);
+}
+function drawOrderPreview(scale){
+  if(!STATE||!selectedTile||!selectedArmy)return;
+  const tile=getTile(...selectedTile),frame=tile&&tilePrice({col:tile[0],row:tile[1]})?.march;
+  const row=frame?.rows?.find(r=>r.army_id===selectedArmy&&r.reachable&&r.route?.length>1);
+  if(!row)return;
+  ctx.save();ctx.strokeStyle='#ffe2a0';ctx.lineWidth=Math.max(.1,2/scale);ctx.setLineDash([.3,.23]);
+  ctx.beginPath();row.route.forEach((c,i)=>i?ctx.lineTo(cx(c),cy(c)):ctx.moveTo(cx(c),cy(c)));ctx.stroke();
+  ctx.setLineDash([]);ctx.font=`600 ${Math.max(.4,11/scale)}px system-ui`;ctx.textAlign='center';
+  const x=cx(selectedTile),y=cy(selectedTile)-.8,text=`${selectedArmy} · ${row.days} 天 · ${fmtNum(row.cost,2)} 成本`;
+  const width=ctx.measureText(text).width+.6;ctx.fillStyle='#102a32';ctx.fillRect(x-width/2,y-.5,width,.7);
+  ctx.fillStyle='#ffe2a0';ctx.fillText(text,x,y);ctx.restore();
+}
+document.addEventListener('click',async e=>{
+  const button=e.target.closest('[data-supply-city],[data-supply-map]');if(!button)return;
+  const id=button.dataset.supplyCity||button.dataset.supplyMap;
+  const city=STATE?.countries?.[selectedCountry]?.cities?.find(c=>c.city_id===id);if(!city)return;
+  if(button.dataset.supplyMap){
+    if(!$('cityModal').hidden)await closeCities();
+    mapMode='logistics';for(const b of document.querySelectorAll('[data-layer]'))b.classList.toggle('on',b.dataset.layer===mapMode);
+    updateMapLegend();
+  }
+  focusTile(...city.center);
+});
 function render(force=false){
   const positions=STATE?STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
   const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
@@ -1923,7 +2013,7 @@ function render(force=false){
         if(resource)drawResourcePattern(resource,x,y,1);
       }
       ctx.strokeStyle='rgba(120,160,160,.12)';ctx.stroke();
-    }else if(mapMode==='routes'){
+    }else if(mapMode==='routes'||mapMode==='logistics'){
       ctx.fillStyle=!t[2]?'#0b2833':'#233a38';ctx.fill();ctx.strokeStyle='rgba(122,150,146,.13)';ctx.stroke();
       if(owner){ctx.strokeStyle=countryColor(owner)+'88';ctx.stroke();}
     }
@@ -1933,6 +2023,8 @@ function render(force=false){
     drawRiverNetwork(scale,mapMode==='routes');
   }
   if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite');
+  if(mapMode==='logistics')drawLogisticsNetwork(scale);
+  drawOrderPreview(scale);
   if(STATE&&mapMode!=='resources'){
     for(const [col,row,building,cid] of STATE.buildings){
       if(building==='ROAD')continue;
@@ -1979,10 +2071,12 @@ function render(force=false){
           ctx.drawImage(armyImage,x-.44,y-.44,.88,.88);
         }
         ctx.beginPath();ctx.arc(x,y,.38,0,Math.PI*2);
-        ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=countryColor(cid);
+        ctx.fillStyle='#0b1d24';ctx.fill();ctx.strokeStyle=army.army_id===selectedArmy?'#ffe2a0':countryColor(cid);
         ctx.lineWidth=Math.max(.07,.2/scale);ctx.stroke();
+        if(army.army_id===selectedArmy){ctx.beginPath();ctx.arc(x,y,.53,0,Math.PI*2);ctx.stroke();}
         ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
         ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(army.strength),x,y+.02);
+        if(army.march){ctx.font=`600 ${Math.max(.32,10/scale)}px system-ui`;ctx.fillText(`${army.march.days_left}天`,x,y-.55);}
       }
       for(const army of c.armies||[])drawMarchRoute(army,cid,scale);
     }
@@ -2017,6 +2111,7 @@ function render(force=false){
     }
   }
   if(STATE)drawThreatMarkers(scale);
+  drawStockWarnings(scale);
   if(selectedTile){
     const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
     ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
@@ -2030,6 +2125,7 @@ function updateMapLegend(){
   const hasWater=!!(WORLD?.river_cells?.length||hasLakes);
   const water=waterColor(), road=roadColor();
   const items={
+    logistics:[['可运输','#85c9a4'],['运输中断','#e18a7c'],['城市缺粮','#eead63']],
     satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(hasWater?[['河流 / 湖泊',water]]:[]),...(hasEndorheic?[['内流河 / 内流湖',water]]:[]),['道路',road],...(WORLD?livePolities().map(p=>[p.name+'领土',p.color]):[])],
     political:WORLD?livePolities().map(p=>[p.name,p.color]):[],
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c'],...(hasWater?[['湖泊',water]]:[])],
@@ -2076,7 +2172,11 @@ function livePolities(){
   return (WORLD?.polities||[]).filter(p=>!STATE||STATE.countries[p.id]);
 }
 function focusTile(col,row){
-  selectedTile=[col,row];renderRight();render(true);showDetailTab();
+  selectedTile=[col,row];
+  const scale=fitScale*zoom;
+  panX=mapPanel.clientWidth/2-baseOffX-cx(selectedTile)*scale;
+  panY=mapPanel.clientHeight/2-baseOffY-cy(selectedTile)*scale;
+  renderRight();render(true);showDetailTab();
 }
 function threatSignature(){
   const grouped=STATE?.incoming_threats||{};
@@ -2166,6 +2266,7 @@ function healSelection(){
 }
 function renderCountries(){
   if(!STATE)return;
+  renderSupplyOverview();
   const alerts=STATE.incoming_threats||{};
   $('countries').innerHTML=livePolities().map(p=>{
     const c=STATE.countries[p.id],agent=STATE.agents?.[p.id]||{};
@@ -2202,7 +2303,7 @@ const STRIKE_NOTES={
   OWN_TERRITORY:'这是本国领土：只看驻军，不能对自己下令进攻。',
   NOT_AT_WAR:'必须先向这一格的主人宣战，军队才接得到攻城令。',
   NO_ARMY:'本国没有可下令的待命军队：都在途或未编成。',
-  FOREIGN_GROUND:'这一格是别国领土：军队穿得过去，行军令却不能落在里面——要打它请用进攻令或「就地打击」。',
+  FOREIGN_GROUND:'这一格是别国领土：尚未获准军事通行，不能在此驻扎；可先协商军事通行。未获准过境将损害关系。',
   SEA:'这是海面：陆军到不了，也驻不下。',
 };
 function tileGarrisonAt(col,row){
@@ -2368,7 +2469,7 @@ const RECEIPT_ACTIONS={BUILD:'建设',SETTLE:'建城',ALLOCATE_WORKERS:'劳动�
   SET_CITY_FOCUS:'城市方针',SET_CITY_ZONE:'城市分区',SET_CITY_BUDGET:'城市预算',NO_OP:'空令'};
 const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
   SET_RECRUITING:'募兵开关',SET_RECRUIT_UNIT:'练兵目标',GIFT:'赠礼',PROPOSE_PACT:'提议协定',
-  ACCEPT_PACT:'接受协定',REJECT_PACT:'拒绝协定',DECLARE_WAR:'宣战',PROPOSE_PEACE:'请求议和',
+  ACCEPT_PACT:'接受协定',REJECT_PACT:'拒绝协定',REVOKE_PACT:'终止协定',DECLARE_WAR:'宣战',PROPOSE_PEACE:'请求议和',
   ACCEPT_PEACE:'接受议和',REJECT_PEACE:'拒绝议和',OFFER:'出价',ACCEPT:'成交',REJECT:'回绝',CANCEL:'撤单'};
 function receiptDetail(action){
   if(!action)return '';
@@ -2388,7 +2489,7 @@ function receiptDetail(action){
   if(action.rate!=null)push(`税率 ${Math.round(action.rate*100)}%`);
   if(action.field)push(RESEARCH_LABELS[action.field]||action.field);
   if(action.priority)push(POLICY_LABELS[action.priority]||action.priority);
-  if(action.pact)push(action.pact==='TRADE'?'贸易协定':action.pact);
+  if(action.pact)push(pactName(action.pact));
   if(action.focus)push(String(action.focus));
   if(action.zone)push(String(action.zone));
   if(action.budget)push(String(action.budget));
@@ -2416,12 +2517,12 @@ function receiptFilter(rows,types){
   return (rows||[]).filter(r=>types.includes(r.action_type));
 }
 function ledgerRow(row){
-  const what=row.kind==='TRADE'?'贸易往来':'协定提案';
+  const what=row.kind==='TRADE'?'贸易往来':pactName(row.pact)||'协定提案';
   const dir=row.direction==='incoming'?'对方来文':'我方发出';
   const good=row.status==='ACCEPTED'||row.status==='ACTIVE'||row.status==='PENDING';
   const tail=row.days_left!=null?`剩 ${row.days_left} 天到期`
     :(row.resolved_day!=null?`日 ${row.resolved_day} 定案`
-      :(row.status==='EXPIRED'?'到期未回应':(row.status==='REJECTED'?'对方当面回绝':(row.status==='BROKEN'?'战争作废':'——'))));
+      :(row.status==='EXPIRED'?'到期未回应':(row.status==='REJECTED'?'对方当面回绝':(row.status==='BROKEN'?'已终止或战争作废':'——'))));
   return `<div class="receipt-row ${good?'ok':'bad'}"><span class="rd">日 ${row.created_day}</span>
     <div><b>${dir} · ${what}</b>
       <small>${esc(countryMeta(row.counterparty)?.name||row.counterparty)} · ${esc(row.proposal_id)}</small>
@@ -2499,7 +2600,7 @@ function tileMarchCard(tile,price){
       ${marchRowButton(row)}</div>`;
   }).join('');
   const note=`<div class="build-option solo"><span class="hint">${esc(STRIKE_NOTES[frame.reason]||'本国暂时没有能开到这格的待命军队。')}</span></div>`;
-  const pace=rows.length?`<div class="hint">行军是下单，不是瞬移：单日推进 ${fmtNum(frame.daily_budget,1)} 点成本，${[hostilePaceText(),`单条命令上限 ${fmtNum(cap,0)} 点：超了就分两段下令`].filter(Boolean).join('，')}。穿得过去不等于驻得下——落点只能是己方或无主的格子，别国领土要用进攻令。</div>`:'';
+  const pace=rows.length?`<div class="hint">行军是下单，不是瞬移：单日推进 ${fmtNum(frame.daily_budget,1)} 点成本，${[hostilePaceText(),`单条命令上限 ${fmtNum(cap,0)} 点：超了就分两段下令`].filter(Boolean).join('，')}。穿得过去不等于驻得下——落点须为己方、无主或获准军事通行的陆地。和平时未获准越境会损害关系。</div>`:'';
   return `${head}<div class="build-card">${body||note}</div>${pace}`;
 }
 function fieldStrikeRow(frame,row,tile){
@@ -2613,6 +2714,7 @@ async function loadTileStrikes(col,row,key){
     if(tileStrikeKey===key)tileStrikes=null;
   }
   renderRight();
+  render(true);
 }
 function repriceTile(){
   tileStrikeKey='';tileStrikes=null;renderRight();
@@ -2683,7 +2785,7 @@ function renderRight(){
     if(STATE.player_country===selectedCountry)control('observe');
     else control('take_control',selectedCountry);
   };
-  $('focusCapitalBtn').onclick=()=>{const p=meta.capital;selectedTile=[p.col,p.row];render(true);renderRight();showDetailTab();};
+  $('focusCapitalBtn').onclick=()=>{const p=meta.capital;focusTile(p.col,p.row);};
   const taxSelect=$('taxSelect');
   if(taxSelect)taxSelect.onchange=()=>submitPlayerAction({type:'SET_TAX',rate:Number(taxSelect.value)},'税率已调整');
   const researchSelect=$('researchSelect');
@@ -2749,6 +2851,7 @@ function renderRight(){
       ${tile.roadKind?`<div class="kv"><span>道路</span><b>${tile.roadKind==='bridge'?'桥梁':'道路'}</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
       ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
+      ${cityAtTile(tile.owner,tile.col,tile.row)?cityStockCard(cityAtTile(tile.owner,tile.col,tile.row)):""}
       ${tileIncomingCard(tile)}
       ${tileGarrison(tile,tilePrice(tile))}
       ${tileBarracksCard(tile,owned)}
@@ -2791,7 +2894,7 @@ function renderRight(){
       btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:btn.dataset.fieldWar},'战争状态已建立').then(repriceTile);
     }
     for(const btn of document.querySelectorAll('[data-pick-army]')){
-      btn.onclick=()=>{selectedArmy=btn.dataset.pickArmy;renderRight();renderMilitary();};
+      btn.onclick=()=>{selectedArmy=btn.dataset.pickArmy;renderRight();renderMilitary();render(true);};
     }
     bindCampControls();
   }
@@ -2863,9 +2966,13 @@ function formatEvent(e){
     case 'peace_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议和平`,'trade'];
     case 'peace_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 停战`,'trade'];
     case 'diplomatic_gift':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 赠礼 ${fmtNum(e.amount,1)}，关系升至 ${e.relation}`,'trade'];
-    case 'pact_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议贸易协定`,'trade'];
-    case 'pact_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 贸易协定生效，关系升至 ${e.relation}`,'trade'];
-    case 'pact_rejected':return[d,`${esc(e.actor)} 拒绝贸易协定`,'trade'];
+    case 'pact_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议 ${esc(pactName(e.pact))}`,'trade'];
+    case 'pact_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> ${esc(pactName(e.pact))}生效，关系升至 ${e.relation}`,'trade'];
+    case 'pact_rejected':return[d,`${esc(e.actor)} 拒绝协定`,'trade'];
+    case 'pact_revoked':return[d,`<b>${esc(e.country_id)}</b> 终止 ${esc(pactName(e.pact))}`,'trade'];
+    case 'border_trespass':return[d,`<b>${esc(e.country_id)}</b> 未获准进入 ${esc(e.target)} · 关系 ${e.relation}`,'hazard'];
+    case 'city_supply_shortage':return[d,`<b>${esc(e.city_name)}</b> 缺粮 ${fmtNum(e.shortage,2)} · ${esc(e.reason)}`,'hazard'];
+    case 'city_supply_restored':return[d,`<b>${esc(e.city_name)}</b> 供应恢复`,'build'];
     case 'pact_expired':return[d,`协定提案 ${esc(e.proposal_id)} 到期`,'trade'];
     case 'trade_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议贸易`,'trade'];
     case 'trade_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 交易完成`,'trade'];
@@ -3033,7 +3140,9 @@ canvas.addEventListener('pointermove',e=>{
 canvas.addEventListener('pointerup',e=>{
   if(!drag)return;const wasMoved=moved;
   drag=null;canvas.classList.remove('drag');
-  if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near){selectedTile=near;renderRight();render(true);showDetailTab();}}
+  if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near){
+    pickMapArmy(near);selectedTile=near;renderRight();render(true);showDetailTab();
+  }}
   try{canvas.releasePointerCapture(e.pointerId);}catch(_){}
 });
 canvas.addEventListener('pointerleave',()=>{if(!drag)$('hoverCard').style.display='none';});
@@ -4340,6 +4449,7 @@ async function loadSave(id){
   pauseOpen=false;$('pauseMenu').hidden=true;
   await startSession();showOnlyScreen('game');
   selectedCountry=STATE.player_country||selectedCountry;
+  fitMap();
   renderTop();renderCountries();renderRight();
   showToast(`已载入 ${data.save.name}${STATE.mode==='player'?` · 继续治理 ${STATE.player_country}`:''}`);
 }
@@ -4439,6 +4549,7 @@ function renderCities(){
       <div class="city-stat"><small>粮食余缺</small><b style="color:${city.food_balance<-0.01?'#e18a7c':city.food_balance>0.01?'#9fc873':'inherit'}">${city.food_need>0?`${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}`:'—'}</b></div>
       <div class="city-stat"><small>宜居度</small><b>${fmtNum(city.livability,0)}</b></div>
     </div>
+    <div class="hint">库存 ${fmtNum(city.food_stock,1)} / ${fmtNum(city.food_capacity,1)} · ${esc(city.logistics_status||"待结算")}</div>
     <div class="city-buildings">${Object.entries(city.buildings).length?Object.entries(city.buildings).map(([kind,count])=>`<span>${esc(BUILD_NAMES[kind]||kind)} ×${count}</span>`).join(''):'<span>暂无设施</span>'}</div>
     <div class="hint">治安 ${fmtNum(city.security,0)}（${esc(city.security_status||'—')}） · 卫生 ${fmtNum(city.health,0)}（${esc(city.health_status||'—')}）</div>
     ${isPlayer?`<div class="city-focus">
@@ -4493,8 +4604,9 @@ function renderCityDetail(){
   $('cityGovernanceSelect').hidden=!isPlayer;
   $('cityGovernanceSelect').value=city.managed_by;
   $('cityFoodInfo').innerHTML=city.food_need>0
-    ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食由全国储备统一调配，缺口城市优先承受饥荒。`
+    ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食按真实陆路和通行权逐日调配，实际未满足需求的城市承受饥荒。`
     :'等待首个结算日。';
+  $('cityFoodInfo').innerHTML+=cityStockCard(city);
   $('cityGovNote').textContent=city.governance_note||(city.managed_by==='llm'?'LLM 托管：模型会在规划周期读取城市粮食、预算与分区，并直接下发规划动作。':city.managed_by==='ai'?'AI市长将在每个规划周期评估粮食与分区。':'手动城市：粮食缺口时请扩建农业区或调整方针。');
   const canEditBudget=isPlayer&&city.managed_by==='manual';
   $('cityBudgetInfo').innerHTML=city.local_revenue>0||city.local_upkeep>0
@@ -4863,7 +4975,8 @@ function renderDiplomacy(){
   if(!c)return;
   const dip=c.diplomacy;
   const isPlayer=STATE.player_country===selectedCountry;
-  $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 与该国的关系影响贸易接受度和协定提案`;
+  $('diploSubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · 协定决定贸易合作、民用货运和军事通行`;
+  for(const b of document.querySelectorAll('#diploTabs button'))b.classList.toggle('on',b.dataset.diploFilter===diploFilter);
   const rows=livePolities().filter(p=>p.id!==selectedCountry).map(p=>{
     const relation=dip.relations[p.id]||0;
     const levelLabel=diplomacyLevelName(dip.levels?.[p.id]);
@@ -4871,22 +4984,17 @@ function renderDiplomacy(){
     const pending=dip.outgoing_proposals?.find(proposal=>proposal.target===p.id);
     const atWar=(c.at_war_with||[]).includes(p.id);
     const pct=Math.max(0,Math.min(100,(relation+100)/2));
-    const actions=isPlayer?`<div class="diplo-actions">
-      ${atWar?'<span class="key-state missing">交战中</span>':''}
-      ${!atWar&&relation<15?`<button data-gift="${p.id}">赠礼 5</button>`:''}
-      ${!atWar&&!active&&!pending&&relation>=15?`<button data-pact="${p.id}">提议贸易协定</button>`:''}
-      ${active?'<span class="pact-pill">贸易协定</span>':''}
-    </div>`:(active?'<span class="pact-pill">贸易协定</span>':'');
+    const actions=diplomacyActions(p.id,dip,isPlayer,relation,atWar);
     return `<div class="diplo-row" style="--dc:${countryColor(p.id)}">
       <span class="diplo-color"></span>
-      <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${esc(levelLabel)} · ${active?'协定生效':'无协定'}</small></div>
+      <div class="diplo-name"><b>${esc(p.name)}</b><small>${p.id} · ${esc(levelLabel)} · ${(dip.active_pacts||[]).some(a=>a.status==='ACTIVE'&&[a.sender,a.target].includes(p.id))?'协定生效':'无协定'}</small></div>
       <div><div class="relation-track"><span class="relation-marker" style="left:${pct}%"></span></div>
       <div class="relation-meta"><span>敌对 -100</span><span>${relation>0?'友好':relation<0?'紧张':'中立'} ${relation}</span><span>+100</span></div></div>
       ${actions}
     </div>`;
   }).join('');
   const incoming=(dip.incoming_proposals||[]).map(proposal=>`<div class="proposal-row">
-    <span><b>${esc(proposal.sender)}</b> 提议建立 ${proposal.pact==='TRADE'?'贸易协定':'协定'}</span>
+    <span><b>${esc(proposal.sender)}</b> 提议建立 ${esc(pactName(proposal.pact))}</span>
     ${isPlayer?`<span><button data-pact-accept="${proposal.proposal_id}">接受</button>
       <button data-pact-reject="${proposal.proposal_id}">拒绝</button></span>`:'<span class="key-state">等待回应</span>'}
   </div>`).join('');
@@ -4897,7 +5005,7 @@ function renderDiplomacy(){
   const dipRejected=dipReceipts.filter(r=>!r.accepted);
   $('diploBody').innerHTML=`<div class="diplo-section" data-diplo-section="relations">
       <div class="diplo-list">${rows}</div>
-      <div class="hint">关系值范围 -100 到 +100。贸易成交提升关系，拒绝或外交摩擦降低关系；达到 15 才能提议贸易协定。关系达到 25（友好）后，双方道路网络才允许连通；有效贸易协定为国家税收提供 +5%。</div>
+      <div class="hint">提案门槛：贸易 15、开放边境 25、军事通行 40、同盟 60。开放边境允许民用货运，军事通行允许军队免加价过境与驻扎；同盟包含两种通行权，不自动参战。协定须对方接受，终止或宣战后失效。在途军令保留已报价成本；未获准进入和平国家领土会损害关系。</div>
     </div>
     <div class="diplo-section" data-diplo-section="incoming" hidden>
       <div class="sect" style="margin-top:2px"><span>待回应协定</span><span>${dip.incoming_proposals?.length||0} 项</span></div>
@@ -4913,8 +5021,9 @@ function renderDiplomacy(){
     </div>`;
   for(const sec of document.querySelectorAll('#diploBody [data-diplo-section]'))sec.hidden=sec.dataset.diploSection!==diploFilter;
   for(const btn of document.querySelectorAll('[data-gift]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'GIFT',target:btn.dataset.gift,amount:5},'赠礼已完成').then(renderDiplomacy);
-  for(const btn of document.querySelectorAll('[data-pact]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PACT',target:btn.dataset.pact,pact:'TRADE'},'贸易协定提案已发送').then(renderDiplomacy);
-  for(const btn of document.querySelectorAll('[data-pact-accept]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'ACCEPT_PACT',proposal_id:btn.dataset.pactAccept},'贸易协定已生效').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'PROPOSE_PACT',target:btn.dataset.pact,pact:btn.dataset.kind||'TRADE'},'协定提案已发送').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact-revoke]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'REVOKE_PACT',proposal_id:btn.dataset.pactRevoke},'协定已终止').then(renderDiplomacy);
+  for(const btn of document.querySelectorAll('[data-pact-accept]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'ACCEPT_PACT',proposal_id:btn.dataset.pactAccept},'协定已生效').then(renderDiplomacy);
   for(const btn of document.querySelectorAll('[data-pact-reject]'))btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'REJECT_PACT',proposal_id:btn.dataset.pactReject},'已拒绝协定').then(renderDiplomacy);
 }
 async function openTechTree(){

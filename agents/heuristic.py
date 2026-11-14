@@ -358,8 +358,13 @@ class HeuristicAgent(CountryAgent):
         incoming_pacts = observation.get("diplomacy", {}).get("incoming_pacts", [])
         if incoming_pacts:
             pact = sorted(incoming_pacts, key=lambda item: item["created_day"])[0]
+            from core.access import PACT_SPECS
+            kind = pact.get("pact", "TRADE")
+            minimum = PACT_SPECS.get(kind, {}).get("min_relation", 0)
+            relation = observation.get("diplomacy", {}).get("relations", {}).get(pact["sender"], 0)
+            accept = kind in {"TRADE", "PEACE"} or relation >= minimum
             actions.append({
-                "type": "DIPLOMACY", "operation": "ACCEPT_PACT",
+                "type": "DIPLOMACY", "operation": "ACCEPT_PACT" if accept else "REJECT_PACT",
                 "proposal_id": pact["proposal_id"],
             })
 

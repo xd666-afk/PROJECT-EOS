@@ -569,3 +569,13 @@ def validate_content(config: dict[str, Any], world_biomes: set[str] | None = Non
     _validate_city_tables(config)
     _validate_policies_and_workers(config)
     _validate_victory(config)
+    import math
+    transport = config.get("transport")
+    keys = {"road_cost", "road_capacity", "land_capacity", "base_loss", "loss_per_cost", "max_loss", "reserve_days"}
+    _require(isinstance(transport, dict) and set(transport) == keys, "transport 配置字段不完整")
+    for key in keys:
+        value = _number(transport[key], f"transport.{key}", low=0)
+        _require(math.isfinite(value), f"transport.{key} 必须是有限数字")
+    _require(0 < transport["road_cost"] < 1, "transport.road_cost 必须在 0 与 1 之间")
+    _require(transport["road_capacity"] >= transport["land_capacity"] > 0, "transport 运量必须为正，道路容量不得低于陆路")
+    _require(0 <= transport["base_loss"] <= transport["max_loss"] < 1, "transport 损耗率必须小于 1")

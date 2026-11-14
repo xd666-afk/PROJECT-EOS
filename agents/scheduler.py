@@ -9,6 +9,7 @@ from agents.heuristic import HeuristicAgent
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
 from core.content import field_cap
+from core.access import PACT_SPECS
 from core.military import Military
 from core.society import (
     city_static_metrics,
@@ -179,6 +180,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         "pending_incoming_trades": incoming,
         "pending_outgoing_trades": outgoing,
         "diplomacy": {
+            "pact_specs": PACT_SPECS,
             "relations": {
                 other: state.relations.get(relation_key(country_id, other), 0)
                 for other in state.countries if other != country_id

@@ -699,7 +699,9 @@
     "capture_tribute_days": 180,
     "capture_tribute_cap": 0.08,
     "capture_tribute_resolve": 25.0,
-    "capture_tribute_exempt": ["ROAD"],
+    "capture_tribute_exempt": [
+      "ROAD"
+    ],
     "barracks": {
       "daily_cost": 0.5,
       "garrison_capacity": 4,
@@ -1051,6 +1053,16 @@
         "min_relation": 60
       }
     ],
-    "road_connection_level": 3
+    "road_connection_level": 3,
+    "trespass_relation_penalty": 5
+  },
+  "transport": {
+    "road_cost": 0.35,
+    "road_capacity": 12.0,
+    "land_capacity": 3.0,
+    "base_loss": 0.01,
+    "loss_per_cost": 0.003,
+    "max_loss": 0.35,
+    "reserve_days": 10.0
   }
 }

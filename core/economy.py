@@ -22,6 +22,8 @@ class Economy:
     def __init__(self, state: GameState) -> None:
         self.state = state
         self.config = state.config
+        from core.logistics import Logistics
+        self.logistics = Logistics(state)
 
     def _labor_factor(self, country: CountryState, sector: str) -> float:
         baseline = self.config["workers_baseline"][sector]
@@ -214,18 +216,6 @@ class Economy:
         upkeep = len(country.buildings) * self.config["building_upkeep_per_day"]
         food_per_1000 = self.config["food_per_1000_people_per_day"]
         consumption = country.population / 1000.0 * food_per_1000
-        logistics_config = self.config["city_logistics"]
-        initial_road_presence = 1.0 if any(
-            (int(cell["tile"]["col"]), int(cell["tile"]["row"])) in country.tiles
-            for cell in self.state.world.data.get("road_cells", [])
-        ) else 0.0
-        road_relief = min(
-            logistics_config["max_road_loss_reduction"],
-            (counts.get("ROAD", 0) + initial_road_presence)
-            * logistics_config["road_loss_reduction"],
-        )
-        export_loss_rate = max(0.01, logistics_config["export_loss"] - road_relief)
-        import_loss_rate = max(0.02, logistics_config["import_loss"] - road_relief)
         logistics_loss = 0.0
         city_surplus = 0.0
         city_deficit = 0.0
@@ -233,7 +223,7 @@ class Economy:
             output = city_food_base.get(city.city_id, 0.0) * food_factor
             need = city.population / 1000.0 * food_per_1000
             balance = output - need
-            loss = (balance * export_loss_rate) if balance > 0 else (-balance * import_loss_rate)
+            loss = 0.0
             city.food_output = output
             city.food_need = need
             city.food_balance = balance
@@ -277,12 +267,16 @@ class Economy:
             city.local_upkeep = building_upkeep + service_spend
             city.local_net = city.local_revenue - city.local_upkeep
             service_spend_total += service_spend
-        available_food = country.food + food_production - logistics_loss
-        shortage = max(0.0, consumption - available_food)
+        grain = self.logistics.settle(country, {
+            city.city_id: city.food_output for city in country.cities
+        }, rural_output)
+        logistics_loss = grain["loss"]
+        exported = sum(city.food_exported for city in country.cities)
+        export_loss_rate = logistics_loss / exported if exported > 1e-12 else 0.0
+        import_loss_rate = export_loss_rate
+        shortage = grain["shortage"]
         storage_capacity = food_capacity(country, self.config)
-        unbounded_food = max(0.0, available_food - consumption)
-        food_overflow = max(0.0, unbounded_food - storage_capacity)
-        country.food = min(storage_capacity, unbounded_food)
+        food_overflow = grain["overflow"]
         population_loss = 0
         if shortage > 1e-12:
             shortage_ratio = shortage / max(consumption, 1e-12)
@@ -358,6 +352,8 @@ class Economy:
         weights = [
             max(0.0, city.food_need - city.food_output) for city in country.cities
         ]
+        if any(city.food_unmet > 1e-9 for city in country.cities):
+            weights = [max(0.0, city.food_unmet) for city in country.cities]
         if sum(weights) <= 1e-9:
             weights = [float(city.population) for city in country.cities]
         total_weight = sum(weights) or 1.0
