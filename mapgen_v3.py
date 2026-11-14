@@ -19,10 +19,10 @@ from scipy.ndimage import distance_transform_edt
 
 import mapgen
 import worldgen
+from map_sizes import DEFAULT_MAP_SIZE, map_size_spec
 from mapgen_v2 import (
     DEPTH_STOPS,
     V2_CELL_AREA_KM2,
-    V2_HEIGHT,
     V2_RADIUS_KM,
     V2_RIVER_MIN_BASIN,
     V2_WIDTH,
@@ -142,7 +142,7 @@ def _build_road_cells(
                 "owner_id": left[2] if left_distance <= right_distance else right[2],
             }
     road_cells = sorted(cells.values(), key=lambda cell: (cell["tile"]["row"], cell["tile"]["col"]))
-    return _split_road_networks(road_cells)
+    return _split_road_networks(road_cells, width, height)
 
 
 def _ancient_road_path(start, end, land, elev, river, biome):
@@ -195,31 +195,33 @@ def _ancient_road_path(start, end, land, elev, river, biome):
     return list(reversed(path))
 
 
-def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str, Any]:
+def _generate_candidate(seed: int, countries: list[dict[str, Any]], map_size: str = DEFAULT_MAP_SIZE) -> dict[str, Any]:
+    size = map_size_spec(map_size)
+    width, height = size["width"], size["height"]
     rng, _, _, lat, base_land, base_elev, fault, _ = worldgen.gen_base(
-        seed, V2_WIDTH, V2_HEIGHT
+        seed, width, height
     )
-    land = _clean_land(base_land, V2_WIDTH, V2_HEIGHT)
+    land = _clean_land(base_land, width, height)
     elev = np.where(land & ~base_land, 10.0, base_elev)
     p, tmean, monthly_temp, monthly_rain, biome, dist_ocean = worldgen.gen_climate(
-        rng, lat, land, elev, V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM
+        rng, lat, land, elev, width, height, V2_RADIUS_KM
     )
-    biome = _smooth_biomes(biome, land, V2_WIDTH, V2_HEIGHT)
+    biome = _smooth_biomes(biome, land, width, height)
     parent, _, seed_basin, river_seed, slope = worldgen.gen_hydrology(
         land, elev, p,
-        V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM, V2_CELL_AREA_KM2,
+        width, height, V2_RADIUS_KM, V2_CELL_AREA_KM2,
         V2_RIVER_MIN_BASIN,
     )
     hazards = worldgen.gen_hazards(
         land, elev, fault, biome, p, tmean, lat, river_seed, seed_basin, slope, dist_ocean,
-        V2_WIDTH, V2_HEIGHT, V2_RADIUS_KM,
+        width, height, V2_RADIUS_KM,
     )
 
     polity_p = np.asarray(p, dtype=float)
     polity_elev = np.asarray(elev, dtype=float)
     polity_land = land.copy()
-    lake_mask, lakes = _find_inland_lakes(land, elev, p, V2_WIDTH, V2_HEIGHT)
-    for body in _enclosed_water_bodies(land, V2_WIDTH, V2_HEIGHT):
+    lake_mask, lakes = _find_inland_lakes(land, elev, p, width, height)
+    for body in _enclosed_water_bodies(land, width, height):
         unassigned = [(x, y) for x, y in body if not lake_mask[y, x]]
         if len(unassigned) < 3:
             continue
@@ -246,18 +248,18 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
             lake_mask[y, x] = True
     polity_land = land & ~lake_mask
     hydro_parent, by_lake, _ = _endorheic_catchments(
-        land, elev, lake_mask, lakes, parent, V2_WIDTH, V2_HEIGHT
+        land, elev, lake_mask, lakes, parent, width, height
     )
     basin, flow = _recompute_accumulation(
-        land, lake_mask, hydro_parent, polity_p, V2_WIDTH, V2_HEIGHT
+        land, lake_mask, hydro_parent, polity_p, width, height
     )
     terminus = _terminal_lakes(
-        land, lake_mask, hydro_parent, lakes, V2_WIDTH, V2_HEIGHT
+        land, lake_mask, hydro_parent, lakes, width, height
     )
     river_count = np.where(land, 16.0, 0.0)
     polity_river, river_meta, max_river_basin = _shape_rivers(
         land, lake_mask, elev, hydro_parent, basin, flow,
-        by_lake, terminus, river_count, V2_WIDTH, V2_HEIGHT, seed,
+        by_lake, terminus, river_count, width, height, seed,
     )
 
     polity_biome = biome.copy()
@@ -266,11 +268,11 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
     politics = mapgen._place_capitals(
         countries, polity_land, polity_elev, polity_biome, polity_p, polity_tmean,
         polity_river, basin, slope, polity_dist_ocean,
-        hazards, lat, V2_WIDTH, V2_HEIGHT, True, polity_river,
+        hazards, lat, width, height, True, polity_river, spacing_scale=width / V2_WIDTH,
     )
     available = polity_land.copy()
     ownership, territories = mapgen._grow_equal_territories(
-        politics, polity_land, available, V2_WIDTH, V2_HEIGHT
+        politics, polity_land, available, width, height
     )
     if any(len(cells) < mapgen.CORE_TILES for cells in territories):
         raise RuntimeError("v3 map cannot provide equal connected cores")
@@ -305,7 +307,7 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         })
 
     road_cells = [
-        cell for cell in _build_road_cells(polities, polity_land, polity_elev, polity_river, V2_WIDTH, V2_HEIGHT, polity_biome)
+        cell for cell in _build_road_cells(polities, polity_land, polity_elev, polity_river, width, height, polity_biome)
         if polity_land[cell["tile"]["row"], cell["tile"]["col"]]
     ]
     for cell in road_cells:
@@ -316,8 +318,8 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
 
     tiles = []
     river_cells = []
-    for y in range(V2_HEIGHT):
-        for x in range(V2_WIDTH):
+    for y in range(height):
+        for x in range(width):
             lake = bool(lake_mask[y, x])
             tiles.append({
                 "q": x - (y - (y & 1)) // 2, "r": y, "col": x, "row": y,
@@ -352,14 +354,14 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
                     "kind": info["kind"],
                     "terminal_lake_id": info["terminal_lake_id"],
                 })
-    river_cells = _label_river_networks(river_cells)
+    river_cells = _label_river_networks(river_cells, width, height)
     for tile in tiles:
         x, y = tile["col"], tile["row"]
         px, py = hydro_parent[y, x]
         tile["downstream"] = {"col": int(px), "row": int(py)} if tile["land"] and px >= 0 else None
 
     weather_samples, events = worldgen.demo_weather_hazards(
-        seed, polity_land, monthly_rain, monthly_temp, hazards, polities, V2_WIDTH, V2_HEIGHT,
+        seed, polity_land, monthly_rain, monthly_temp, hazards, polities, width, height,
     )
     world = {
         "metadata": {
@@ -374,8 +376,10 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
             "start_month": 1,
             "day_count": 0,
             "grid_type": "odd-r pointy-top hex",
-            "grid_width": V2_WIDTH,
-            "grid_height": V2_HEIGHT,
+            "map_size": map_size,
+            "map_size_label": size["label"],
+            "grid_width": width,
+            "grid_height": height,
             "hex_radius_km": V2_RADIUS_KM,
             "cell_area_km2": round(V2_CELL_AREA_KM2, 1),
             "assumed_planet": "Earth-like, 24h day, 365-day year, Northern Hemisphere",
@@ -407,8 +411,8 @@ def _generate_candidate(seed: int, countries: list[dict[str, Any]]) -> dict[str,
         },
         "terrain": {
             "kind": "hex_fill",
-            "width": V2_WIDTH,
-            "height": V2_HEIGHT,
+            "width": width,
+            "height": height,
             "resolution_km": V2_RADIUS_KM,
         },
         "rendering": {
@@ -443,7 +447,9 @@ def generate_fair_world_v3(
     base_seed: int | None = None,
     attempts: int = 8,
     output_dir: str | Path | None = None,
+    map_size: str = DEFAULT_MAP_SIZE,
 ) -> tuple[dict[str, Any], Path]:
+    map_size_spec(map_size)
     normalized = mapgen.normalize_countries(countries)
     import secrets
 
@@ -452,7 +458,7 @@ def generate_fair_world_v3(
     for offset in range(max(1, attempts)):
         seed = base + offset
         try:
-            world = _generate_candidate(seed, normalized)
+            world = _generate_candidate(seed, normalized, map_size)
         except RuntimeError:
             continue
         score = world["metadata"]["fairness"]["score"]
@@ -474,7 +480,7 @@ def generate_fair_world_v3(
     }
     directory = Path(output_dir) if output_dir is not None else BASE_DIR / "runs" / "worlds"
     directory.mkdir(parents=True, exist_ok=True)
-    path = directory / f"world_v3_custom_{world['metadata']['seed']}.json"
+    path = directory / f"world_v3_custom_{world['metadata']['seed']}_{map_size}.json"
     path.write_text(
         json.dumps(world, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8",

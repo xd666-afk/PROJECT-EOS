@@ -102,7 +102,7 @@ def _archetype_specs(land, elev, biome, p, tmean, river, basin, slope, dist_ocea
     }
 
 
-def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat, w=W, h=H, allow_fallback=False, forbidden=None):
+def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat, w=W, h=H, allow_fallback=False, forbidden=None, spacing_scale=1.0):
     specs = _archetype_specs(
         land, elev, biome, p, tmean, river, basin, slope, dist_ocean, hazards, lat
     )
@@ -111,7 +111,7 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
     for country in countries:
         valid, score = specs[country["archetype"]]
         location = None
-        for separation in (12, 10, 8, 6):
+        for separation in dict.fromkeys(max(4, round(value * spacing_scale)) for value in (12, 10, 8, 6)):
             candidate_scores = np.where(valid, score, -1e8).copy()
             if forbidden is not None:
                 candidate_scores[forbidden] = -1e8
@@ -255,7 +255,10 @@ def generate_fair_world(
     attempts: int = 8,
     generation_version: str = "v1",
     output_dir: str | Path | None = None,
+    map_size: str | None = None,
 ) -> tuple[dict[str, Any], Path]:
+    if map_size is not None and generation_version != "v3":
+        raise ValueError("地图尺寸选择仅支持 v3 生成器")
     normalized = normalize_countries(countries)
     if generation_version == "v2":
         from mapgen_v2 import generate_fair_world_v2
@@ -264,8 +267,10 @@ def generate_fair_world(
         )
     if generation_version == "v3":
         from mapgen_v3 import generate_fair_world_v3
+        from map_sizes import DEFAULT_MAP_SIZE
         return generate_fair_world_v3(
-            normalized, base_seed=base_seed, attempts=attempts, output_dir=output_dir
+            normalized, base_seed=base_seed, attempts=attempts, output_dir=output_dir,
+            map_size=DEFAULT_MAP_SIZE if map_size is None else map_size
         )
     base = secrets.randbelow(2_000_000_000) if base_seed is None else int(base_seed)
     best = None

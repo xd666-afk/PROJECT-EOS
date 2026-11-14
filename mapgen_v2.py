@@ -437,7 +437,7 @@ def _aggregate_roads(raw_paths: list[dict[str, Any]], river_mask: np.ndarray) ->
     return sorted(cells, key=lambda cell: (cell["tile"]["row"], cell["tile"]["col"]))
 
 
-def _split_road_networks(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _split_road_networks(cells: list[dict[str, Any]], width: int = V2_WIDTH, height: int = V2_HEIGHT) -> list[dict[str, Any]]:
     by_network: dict[str, list[dict[str, Any]]] = {}
     for cell in cells:
         by_network.setdefault(cell["network_id"], []).append(cell)
@@ -453,7 +453,7 @@ def _split_road_networks(cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
             remaining.remove(start)
             while queue:
                 current = queue.popleft()
-                for neighbor in worldgen.neighbors(*current, V2_WIDTH, V2_HEIGHT):
+                for neighbor in worldgen.neighbors(*current, width, height):
                     if neighbor in remaining:
                         remaining.remove(neighbor)
                         component.add(neighbor)
@@ -1177,7 +1177,7 @@ def _shape_rivers(
     return shaped, meta, max_basin
 
 
-def _label_river_networks(river_cells: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _label_river_networks(river_cells: list[dict[str, Any]], width: int = V2_WIDTH, height: int = V2_HEIGHT) -> list[dict[str, Any]]:
     by_coord = {(cell["tile"]["col"], cell["tile"]["row"]): cell for cell in river_cells}
     remaining = set(by_coord)
     components = []
@@ -1188,7 +1188,7 @@ def _label_river_networks(river_cells: list[dict[str, Any]]) -> list[dict[str, A
         component = [start]
         while queue:
             current = queue.popleft()
-            for neighbor in worldgen.neighbors(*current, V2_WIDTH, V2_HEIGHT):
+            for neighbor in worldgen.neighbors(*current, width, height):
                 if neighbor in remaining:
                     remaining.remove(neighbor)
                     queue.append(neighbor)

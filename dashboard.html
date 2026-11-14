@@ -511,7 +511,7 @@ body.right-panel-open .notice-stack{right:354px}
   background:radial-gradient(circle at 60% 0%,#12323d 0,#081920 48%,#061118 100%);
   display:block;overflow:auto;padding:0}
 .modal[hidden]{display:none}
-#app[hidden] ~ .modal{left:0;top:0;display:grid;place-items:center;padding:18px;background:#020a0ed9;backdrop-filter:blur(4px)}
+#app[hidden] ~ .modal{left:0;top:0;width:auto;display:grid;place-items:center;padding:18px;background:#020a0ed9;backdrop-filter:blur(4px)}
 #app[hidden] ~ .modal .modal-card{width:min(860px,96vw);min-height:0;max-height:88vh;overflow:auto;
   background:var(--shell);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:16px}
 .modal-card{width:100%;max-width:1320px;min-height:100%;max-height:none;overflow:visible;background:transparent;
@@ -1038,10 +1038,11 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 <div class="modal" id="newWorldModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><h2>生成新世界</h2><p>默认填入四国，可增减到 2–12 国；不修改任何内容也能直接开始。地图会自动搜索并选择地理公平度更高的种子。</p></div>
+      <div><h2>生成新世界</h2><p>默认填入四国，可增减到 2–12 国；不修改任何内容也能直接开始。默认小图，国家更快接触；可切换中图或大图。地图会自动搜索并选择地理公平度更高的种子。</p></div>
       <button id="newWorldClose">关闭</button>
     </div>
     <div class="ai-fields" style="margin-bottom:10px">
+      <label class="wide">地图尺寸<select id="worldMapSize"><option value="small" selected>小图 · 72 × 54（默认）</option><option value="medium">中图 · 108 × 81</option><option value="large">大图 · 144 × 108</option></select><small id="worldMapSizeHint" class="key-state">国家距离更近，适合紧凑对局</small></label>
       <label>存档名称（留空自动生成）<input id="saveName" maxlength="50" placeholder="自动"></label>
       <label>地图种子（留空自动搜索公平地图）<input id="worldSeed" placeholder="自动" inputmode="numeric"></label>
       <label>开局年份<input id="startYearValue" type="number" min="1" max="800" value="800"></label>
@@ -3726,7 +3727,12 @@ function updateStartEraPreview(){
   $('startEraPreview').textContent=`${bce?'公元前':'公元'} ${year} 年 → ${era[0]} · ${era[1]}，三条科技线从 ${era[2]} 级起步`;
 }
 $('newWorldModal').onclick=e=>{if(e.target===$('newWorldModal'))$('newWorldModal').hidden=true;};
-let setupArchetypes={},setupDefaults=[],setupCoreTiles=16;
+let setupArchetypes={},setupDefaults=[],setupCoreTiles=16,setupMapSizes=[];
+function updateMapSizeHint(){
+  const size=setupMapSizes.find(item=>item.id===$('worldMapSize').value);
+  if(size)$('worldMapSizeHint').textContent=`${size.width} × ${size.height} · ${fmtInt(size.width*size.height)} 格 · ${size.description}`;
+}
+$('worldMapSize').onchange=updateMapSizeHint;
 const SETUP_PALETTE=['#e7b45f','#63b1c9','#d97f75','#b98bcb','#8fbf7f','#d6a36f','#7f9ed6','#c98fae','#9fc9b4','#c4b56f','#aa8fd1','#d68a8a'];
 function setupCountryRow(c,index){
   return `<div class="ai-country" data-slot="${index}">
@@ -3766,6 +3772,9 @@ async function openNewWorld(){
   try{
     const r=await fetch('/api/setup');const data=await r.json();
     setupArchetypes=data.archetypes||{};setupDefaults=data.countries||[];setupCoreTiles=data.core_tiles||16;
+    setupMapSizes=data.map_sizes||[];
+    if(setupMapSizes.length)$('worldMapSize').innerHTML=setupMapSizes.map(size=>`<option value="${esc(size.id)}" ${size.id===(data.default_map_size||'small')?'selected':''}>${esc(size.label)} · ${size.width} × ${size.height}${size.id===(data.default_map_size||'small')?'（默认）':''}</option>`).join('');
+    $('worldMapSize').value=data.default_map_size||'small';updateMapSizeHint();
     renderSetupCountries(setupDefaults.map(item=>({...item})));
     $('startYearValue').value=800;$('startYearEra').value='BCE';
     $('startYearValue').max=800;updateStartEraPreview();
@@ -3791,19 +3800,21 @@ $('addCountryBtn').onclick=()=>{
   refreshSetupCountryLabels();
 };
 $('generateWorldBtn').onclick=async()=>{
-  const button=$('generateWorldBtn');button.disabled=true;$('setupStatus').textContent='正在生成地图并评估公平度…';
+  const button=$('generateWorldBtn');button.disabled=true;
+  const mapSize=$('worldMapSize').value,sizeLabel=setupMapSizes.find(item=>item.id===mapSize)?.label||'小图';
+  $('setupStatus').textContent=`正在生成${sizeLabel}并评估公平度…`;
   const countries=captureSetupCountries();
   const seed=$('worldSeed').value.trim(),saveName=$('saveName').value.trim();
   const bce=$('startYearEra').value==='BCE',year=Number($('startYearValue').value);
   const startYear=bce?(1-year):year;
   try{
     const r=await fetch('/api/new_game',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({countries,seed:seed||null,save_name:saveName||null,start_year:startYear})});
+      body:JSON.stringify({countries,seed:seed||null,save_name:saveName||null,start_year:startYear,map_size:mapSize})});
     const data=await r.json();
     if(!data.ok)throw new Error(data.error||'生成失败');
     $('newWorldModal').hidden=true;
     await startSession();
-    showToast(`新世界已创建 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
+    showToast(`${sizeLabel}已创建 · ${data.grid_width} × ${data.grid_height} · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
   }catch(err){button.disabled=false;$('setupStatus').textContent=`生成失败：${err.message}`;}
 };
 /* ---------------- 手绘地图：画笔、可开局校验、实时行军耗时 ---------------- */
@@ -4533,7 +4544,7 @@ async function refreshSaves(){
     ?`${latestSaves[0].name} · ${latestSaves[0].date}`:'没有可继续的存档';
   $('menuAgentsBtn').disabled=!gameLoaded;
   $('saveList').innerHTML=latestSaves.length?latestSaves.map(save=>`<div class="save-card">
-    <div><b>${esc(save.name)}</b><small>${esc(save.date)} · 日 ${save.day} · 种子 ${save.seed}</small>
+    <div><b>${esc(save.name)}</b><small>${esc(save.date)} · 日 ${save.day} · 种子 ${save.seed}${save.grid_width&&save.grid_height?` · ${save.grid_width} × ${save.grid_height}`:''}</small>
     <small>${esc(Object.values(save.countries||{}).join(' / '))}</small></div>
     <div class="save-actions"><button data-load="${save.id}">载入</button><button data-delete="${save.id}">删除</button></div>
   </div>`).join(''):'<div class="observer-note">还没有存档。新建一个世界后会自动建立第一个存档。</div>';

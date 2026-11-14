@@ -15,7 +15,7 @@ COUNTRIES = [
 
 def test_v3_hex_first_world_has_clean_tile_terrain(tmp_path):
     world, world_path = generate_fair_world(
-        COUNTRIES, base_seed=50002, attempts=1, generation_version="v3", output_dir=tmp_path
+        COUNTRIES, base_seed=50002, attempts=1, generation_version="v3", output_dir=tmp_path, map_size="large"
     )
     assert world_path.parent == tmp_path
     assert validate_v2(world)

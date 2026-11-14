@@ -29,6 +29,7 @@ from agents.scheduler import AgentScheduler
 from core.messages import compose_ruler_messages, record_ruler_messages
 from core.military import Military
 from core.simulation import Simulation
+from map_sizes import DEFAULT_MAP_SIZE, MAP_SIZES, map_size_spec
 
 BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_HTML = BASE_DIR / "dashboard.html"
@@ -97,6 +98,8 @@ def project_world(world_data: dict) -> dict:
         "metadata": {
             "grid_width": metadata["grid_width"],
             "grid_height": metadata["grid_height"],
+            "map_size": metadata.get("map_size"),
+            "map_size_label": metadata.get("map_size_label"),
             "cell_area_km2": metadata["cell_area_km2"],
             "hex_radius_km": metadata["hex_radius_km"],
             "schema_version": metadata.get("schema_version", 1),
@@ -239,6 +242,9 @@ class LiveSession:
                 "day": self.simulation.state.day_index,
                 "date": self.simulation.state.date["label"],
                 "seed": self.simulation.state.seed,
+                "map_size": self.simulation.state.world.data["metadata"].get("map_size"),
+                "grid_width": self.simulation.state.world.data["metadata"]["grid_width"],
+                "grid_height": self.simulation.state.world.data["metadata"]["grid_height"],
                 "start_year": self.simulation.state.start_astronomical_year,
                 "era": self.simulation.state.summary()["era"]["name"],
                 "countries": {
@@ -389,6 +395,7 @@ class LiveSession:
         save_name: str | None = None,
         start_astronomical_year: int = -799,
         draft: dict | None = None,
+        map_size: str = DEFAULT_MAP_SIZE,
     ) -> dict:
         from mapgen import generate_fair_world, normalize_countries
 
@@ -399,9 +406,10 @@ class LiveSession:
                 world = build_world_from_draft(draft, seed=base_seed)
                 path = write_draft_world(world)
             else:
+                map_size_spec(map_size)
                 normalized = normalize_countries(countries)
                 world, path = generate_fair_world(
-                    normalized, base_seed=base_seed, generation_version="v3"
+                    normalized, base_seed=base_seed, generation_version="v3", map_size=map_size
                 )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
@@ -443,6 +451,9 @@ class LiveSession:
                 "ok": True,
                 "seed": world["metadata"]["seed"],
                 "generator": world["metadata"].get("generator"),
+                "map_size": world["metadata"].get("map_size"),
+                "grid_width": world["metadata"]["grid_width"],
+                "grid_height": world["metadata"]["grid_height"],
                 "fairness": world["metadata"]["fairness"],
                 "countries": {p["id"]: p["name"] for p in world["polities"]},
                 "path": str(path),
@@ -1028,6 +1039,8 @@ class Handler(BaseHTTPRequestHandler):
             movement = self.session.rules["movement"]
             costs = movement["biome_cost"]
             self._json({
+                "map_sizes": [{"id": key, **value} for key, value in MAP_SIZES.items()],
+                "default_map_size": DEFAULT_MAP_SIZE,
                 "countries": DEFAULT_COUNTRIES,
                 "archetypes": ARCHETYPES,
                 "core_tiles": CORE_TILES,
@@ -1125,6 +1138,7 @@ class Handler(BaseHTTPRequestHandler):
                     payload.get("save_name"),
                     int(start_year),
                     payload.get("draft"),
+                    payload.get("map_size", DEFAULT_MAP_SIZE),
                 )
             elif self.path == "/api/map_preview":
                 result = self.session.map_preview(payload.get("draft") or {})
