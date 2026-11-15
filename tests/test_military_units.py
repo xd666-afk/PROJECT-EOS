@@ -85,7 +85,7 @@ def test_validator_links_building_prerequisites_to_tech_unlocks(state):
 
 def test_roster_helpers_derive_size_power_and_upkeep(state):
     config = state.config
-    units = {"MILITIA": 4, "CAVALRY": 2}
+    units = {"MILITIA": 40, "CAVALRY": 20}
     assert roster_value(units, config, "power") == pytest.approx(
         4 * config["units"]["MILITIA"]["power"] + 2 * config["units"]["CAVALRY"]["power"]
     )
@@ -275,7 +275,7 @@ def test_unpaid_army_sheds_its_costliest_unit_first(engine):
     cheapest = min(specs, key=lambda unit_id: specs[unit_id]["upkeep_food"])
     set_roster(country, {cheapest: 2, dearest: 1})
     country.treasury = 0.0
-    country.food = 2 * specs[cheapest]["upkeep_food"]
+    country.food = army_upkeep({cheapest: 2}, state.config)
     engine.military.upkeep_daily()
     assert country.army_units == {cheapest: 2}
     assert last_event(state, "army_desertion")["unit"] == dearest
@@ -304,8 +304,8 @@ def test_observation_and_llm_prompt_teach_the_unit_protocol(state):
     assert observation["country"]["army_units"] == {"MILITIA": 2}
     assert observation["country"]["armies"] == [{
         "army_id": "ELAR-A1", "tile": None, "units": {"MILITIA": 2}, "strength": 2,
-        "power": round(2 * state.config["units"]["MILITIA"]["power"], 3),
-        "upkeep_food": 2 * state.config["units"]["MILITIA"]["upkeep_food"],
+        "power": round(0.2 * state.config["units"]["MILITIA"]["power"], 3),
+        "upkeep_food": round(0.2 * state.config["units"]["MILITIA"]["upkeep_food"], 4),
         "recruiting": False, "progress": 0.0, "preferred_unit": None, "barracks": False,
         "target_unit": None, "stall": "", "raised": 0, "march": None,
     }]

@@ -1946,14 +1946,17 @@ function garrisonRow(army){
   const status=army.march?'在途行军':(army.strength>0?(army.recruiting?'募兵中':'待命'):'未编成');
   return `<div class="garrison-row${own?' me':''}"><i style="background:${countryColor(id)}"></i>
     <div><b style="color:${countryColor(id)}">${esc(countryMeta(id)?.name||id)} · ${esc(army.army_id)}</b>
-    <small>${army.strength} 支 · 战力 ${fmtNum(army.power,2)} · ${esc(roster)} · ${status}${army.barracks?' · 驻兵营':''}</small></div>
+    <small>${army.strength} 人 · 战力 ${fmtNum(army.power,2)} · ${esc(roster)} · ${status}${army.barracks?' · 驻兵营':''}</small></div>
     ${own?`<button data-pick-army="${esc(army.army_id)}" class="key-state ${selectedArmy===army.army_id?'ok':'missing'}">${selectedArmy===army.army_id?'已选为下令对象':'选为下令对象'}</button>`:''}</div>`;
 }
 function tileGarrison(tile,price){
   const mine=STATE.player_country,onTile=price?price.garrison:tileGarrisonAt(tile.col,tile.row);
-  return `<div class="sect"><span>驻军</span><span>${onTile.length} 支</span></div>
-    <div class="garrison-card">${onTile.map(garrisonRow).join('')
-      ||`<div class="hint">这一格没有军队驻扎${mine?'：可用兵营募兵，或令其他格的军队行军至此。':'。'}</div>`}</div>`;
+  const city=STATE.countries[mine]?.cities?.find(c=>c.center[0]===tile.col&&c.center[1]===tile.row);
+  const stock=Object.entries(city?.reserve_units||{}).filter(([,count])=>count>0);
+  const reserves=stock.length?`<div class="hint"><b>城内守军 ${fmtInt(stock.reduce((n,[,count])=>n+count,0))} 人</b> · ${stock.map(([unit,count])=>esc(unitName(unit))+' '+fmtInt(count)+' 人').join('、')}</div>`:'';
+  return `<div class="sect"><span>驻军</span><span>${onTile.length} 支野战军</span></div>
+    <div class="garrison-card">${reserves}${onTile.map(garrisonRow).join('')||(reserves?''
+      :`<div class="hint">这一格没有军队驻扎${mine?'：可用兵营募兵，或令其他格的军队行军至此。':'。'}</div>`)}</div>`;
 }
 function tileTributeNote(price){
   if(!price||!price.building)return '';
@@ -2043,24 +2046,25 @@ function barracksPanel(report,options,isPlayer){
     <div class="camp-head">
       <div><b>兵营 ${where}</b>
         <small>${report.army_id
-          ?report.preferred||report.recruiting?`「${esc(report.label)}」· 已练成 ${report.raised} 支`:'请先选择训练兵种'
+          ?report.preferred||report.recruiting?`「${esc(report.label)}」· 已练成 ${report.raised} 人`:'请先选择训练兵种'
           : '兵营正在准备训练'}${report.reserve_city?' · 送往 '+esc(report.reserve_city):''}</small></div>
       ${isPlayer&&report.army_id
         ?`<button data-camp-toggle="${esc(report.army_id)}" data-on="${report.recruiting?0:1}" ${report.recruiting||report.preferred?'':'disabled'}>${report.recruiting?'暂停招募':'开始招募'}</button>`:''}</div>
     ${report.last_dispatch?`<div class="camp-note">${esc(report.last_dispatch.army_id)} 派兵 ${Object.values(report.last_dispatch.units).reduce((a,b)=>a+b,0)} 支，原地留 ${report.last_dispatch.remaining} 支，原募兵进度 ${fmtNum(report.last_dispatch.progress,1)}。</div>`:""}
     ${stalled?`<div class="camp-note">${esc(report.stall_label||report.stall)}</div>`:''}
     <div style="padding:6px 8px;border-bottom:1px solid #1f3843">
+      ${report.reserve_city?`<div class="split"><span>${esc(report.reserve_city)}守军库存</span><b>${fmtInt(report.reserve_total||0)} 人</b></div>`:''}
       <div class="split"><span>本营训练进度 · 日饷 ${fmtNum(report.wage,2)}</span>
         <b>${fmtNum(progress,1)} / ${fmtNum(price,1)} 点</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="split"><span>${stalled?'出兵':'下一支新兵'}</span>
         <b>${!report.recruiting?'未开始或已暂停':stalled?'本回合停摆':`约 ${report.days_left} 日练成`}</b></div>
-      <div class="split"><span>目的地已有该兵种</span><b>${report.strength} 支</b></div>
+      <div class="split"><span>目的地已有该兵种</span><b>${report.strength} 人</b></div>
     </div>
     <div class="camp-list">${list.map(o=>campUnitRow(o,report,isPlayer)).join('')}</div>
     ${isPlayer&&report.army_id?`<div class="camp-price"><span>立即用财政招募</span>
       <button data-camp-recruit="${esc(report.army_id)}" data-unit="${esc(report.unit)}" data-size="${batch}"
-        ${batch>0&&target&&target.can_recruit?'':'disabled'}>${batch>0?`募 ${batch} 支`:'条件不足'}</button></div>`:''}
+        ${batch>0&&target&&target.can_recruit?'':'disabled'}>${batch>0?`募 ${batch*(STATE.military_specs?.soldiers_per_unit||1)} 人`:'条件不足'}</button></div>`:''}
   </div>`;
 }
 function tileBarracksCard(tile,owned){
@@ -2201,12 +2205,22 @@ function openTileDispatch(intent,tile){
   confirm.disabled=true;
   confirm.onclick=null;
   const slots=country.deployment;
-  const status=()=>slots.used+'/'+slots.limit+' 支已派出'+(slots.next_level?' · 军事科技 '+slots.next_level+' 级新增一支':'');
-  list.innerHTML='<p class="hint">'+esc(status())+'</p>';
+  const armyPicker=document.createElement('select'),armyLabel=document.createElement('label');
+  const armyNames=['第1支军队','第2支军队','第3支军队'];
+  for(const slot of slots.slots){
+    const status=slot.army_id?' · 已派出':slot.unlocked?'':' · 未解锁';
+    const option=new Option(armyNames[slot.number-1]+status,String(slot.number));
+    option.disabled=!!slot.army_id||!slot.unlocked;
+    armyPicker.add(option);
+  }
+  const available=slots.slots.find(slot=>slot.unlocked&&!slot.army_id);
+  armyPicker.selectedIndex=available?available.number-1:0;
+  armyLabel.append('军队 ',armyPicker);
+  list.replaceChildren(armyLabel);
   const field=(country.armies||[]).filter(army=>army.strength>0&&!army.march&&army.tile);
   if(field.length){
     const picker=document.createElement('select'),move=document.createElement('button');
-    for(const army of field)picker.add(new Option(army.army_id,army.army_id));
+    for(const army of field)picker.add(new Option(armyNames[army.deployment_slot-1]||army.army_id,army.army_id));
     move.textContent='调动已出征军队';
     move.onclick=async()=>{
       move.disabled=true;
@@ -2216,8 +2230,11 @@ function openTileDispatch(intent,tile){
         if(accepted)dialog.close();
       }finally{move.disabled=false;}
     };
+    const alternate=document.createElement('details'),summary=document.createElement('summary');
     const options=document.createElement('div');
-    options.className='mil-buttons';options.append(picker,move);list.append(options);
+    summary.textContent='调动已出征军队';
+    options.className='mil-buttons';options.append(picker,move);alternate.append(summary,options);
+    list.append(alternate);
   }
   preview.textContent=cities.length?'请选择派出数量':'城市没有可派守军';
   dialog.showModal();
@@ -2234,11 +2251,11 @@ function openTileDispatch(intent,tile){
   function updateSelection(){
     let total=0;
     for(const slider of sliders.querySelectorAll('input')){
-      slider.nextElementSibling.textContent=slider.value+' / '+slider.max;
+      slider.nextElementSibling.textContent=slider.value+' / '+slider.max+' 人';
       total+=Number(slider.value);
     }
-    confirm.textContent='确认'+title+(total?' · '+fmtInt(total)+' 支':'');
-    confirm.disabled=!total||routeRefused||sending||slots.used>=slots.limit;
+    confirm.textContent='确认'+title+(total?' · '+fmtInt(total)+' 人':'');
+    confirm.disabled=!total||routeRefused||sending||!available;
   }
   async function renderCity(){
     request?.abort();
@@ -2248,7 +2265,7 @@ function openTileDispatch(intent,tile){
     const city=cities.find(city=>city.city_id===picker.value);
     const stock=city.reserve_units||{};
     const row=unit=>'<label class="dispatch-troop"><span>'+esc(unitName(unit))+'</span><input type="range" name="'+unit+
-      '" min="0" max="'+(stock[unit]||0)+'" value="0" '+(stock[unit]?'':'disabled')+'><output></output></label>';
+      '" min="0" max="'+(stock[unit]||0)+'" step="1" value="0" '+(stock[unit]?'':'disabled')+'><output></output></label>';
     const regular=['MILITIA','ARCHER','HEAVY_INFANTRY','CHARIOT','CAVALRY'];
     sliders.innerHTML=regular.map(row).join('')+(stock.SIEGE?'<details><summary>攻城器械</summary>'+row('SIEGE')+'</details>':'');
     updateSelection();
@@ -2271,6 +2288,7 @@ function openTileDispatch(intent,tile){
     }
   }
   sliders.oninput=updateSelection;
+  armyPicker.onchange=updateSelection;
   picker.onchange=renderCity;
   dialog.addEventListener('close',()=>request?.abort(),{once:true});
   confirm.onclick=async()=>{
@@ -2278,7 +2296,7 @@ function openTileDispatch(intent,tile){
     sending=true;updateSelection();
     try{
       const accepted=await submitPlayerAction({type:'MILITARY',operation:'DEPLOY',
-        city_id:picker.value,tile:coordinate,target,units:selection()},title+'命令已下达',false);
+        city_id:picker.value,tile:coordinate,target,units:selection(),slot:Number(armyPicker.value)},title+'命令已下达',false);
       if(accepted)dialog.close();
     }finally{sending=false;updateSelection();}
   };
@@ -2584,11 +2602,11 @@ function formatEvent(e){
     case 'research_completed':return[d,`<b>${esc(e.country_id)}</b> 研究 ${esc(e.field)} 升至 ${e.level} 级`,'research'];
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
     case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
-    case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募 ${e.amount} 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
+    case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募 ${e.soldiers!=null?e.soldiers+' 人':e.amount+' 支'}「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
     case 'march_ordered':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.purpose==='ATTACK'?`向 <b>${esc(e.target)}</b> 的 (${e.objective?.col},${e.objective?.row}) 进攻`:`行军至 (${e.tile.col},${e.tile.row})`} · ${e.tiles} 段 / 成本 ${fmtNum(e.cost,1)} / ${e.days} 天${e.expedition?' · 远征过境':''}`,'action'];
     case 'army_arrived':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 抵达 (${e.tile.col},${e.tile.row})${e.fought?'，当日开战':e.reason?` · ${esc(e.reason)}`:''}`,'action'];
     case 'march_cancelled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 中止行军：${esc(e.reason)}`,'hazard'];
-    case 'barracks_recruit':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 兵营 (${e.tile.col},${e.tile.row}) 练出 1 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
+    case 'barracks_recruit':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 兵营 (${e.tile.col},${e.tile.row}) 练出 ${e.soldiers!=null?e.soldiers+' 人':'1 支'}「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
     case 'barracks_stalled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id||'兵营')}</b> 兵营 (${e.tile.col},${e.tile.row}) 练不出「${esc(unitName(e.unit))}」：${esc(e.reason)}（进度 ${fmtNum(e.progress,1)} · 日饷 ${fmtNum(e.wage,2)}）`,'hazard'];
     case 'recruiting_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.recruiting?'开启':'暂停'}兵营募兵`,'action'];
     case 'recruit_unit_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 练兵目标改为「${esc(unitName(e.unit))}」`,'action'];
@@ -2660,7 +2678,10 @@ async function submitPlayerAction(action,successText,waitForRefresh=true){
     const data=await r.json();
     if(data.ok){
       const refused=(data.result?.effects?.orders||[]).filter(o=>!o.accepted);
-      showToast(refused.length?`${successText}；未出发：${refused.map(o=>o.army_id+' '+o.reason).join('；')}`:successText,refused.length>0);
+      const recruited=data.result?.effects;
+      const message=action.operation==='RECRUIT'&&recruited?.soldiers!=null
+        ?`${recruited.soldiers} 人已加入${recruited.city_name}守军`:successText;
+      showToast(refused.length?`${message}；未出发：${refused.map(o=>o.army_id+' '+o.reason).join('；')}`:message,refused.length>0);
     }
     else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
     tileStrikeKey='';tileStrikes=null;
@@ -4532,7 +4553,7 @@ function renderMilitary(){
       <td>${fmtNum(o.upkeep,3)}</td>
       <td>${fmtNum(o.cost_treasury,1)}·${fmtNum(o.cost_food,1)}</td>
       <td><span class="key-state ${canRecruit?'ok':'missing'}">${esc(o.reason)}</span>
-        ${canRecruit?`<button data-recruit="${id}" data-size="${o.batch}">招募 ${o.batch}</button>`:''}</td>
+        ${canRecruit?`<button data-recruit="${id}" data-size="${o.batch}">招募 ${o.batch*(milRules.soldiers_per_unit||1)} 人</button>`:''}</td>
     </tr>`;
   }).join('');
   const armyRows=armies.length?armies.map(a=>{
@@ -4557,7 +4578,7 @@ function renderMilitary(){
     return `<tr${a.strength>0?'':' class="dim"'}>
       <td>${isPlayer?`<button data-army-pick="${a.army_id}" class="key-state ${a.army_id===selectedArmy?'ok':'missing'}">${a.army_id===selectedArmy?'已选':'选为下令对象'}</button>`:`<b>${esc(a.army_id)}</b>`}</td>
       <td><b>${a.tile?`(${a.tile[0]},${a.tile[1]})`:'—'}</b>${tags}</td>
-      <td><b>${a.strength} 支 · ${fmtNum(a.power,2)}</b><small>${esc(rosterText)}</small></td>
+      <td><b>${a.strength} 人 · ${fmtNum(a.power,2)}</b><small>${esc(rosterText)}</small></td>
       <td>${recruit}</td>
       <td>${march}</td></tr>`;
   }).join(''):'<tr><td colspan="5" class="mut">还没有军队。手动招募或让兵营练兵都会编成军队。</td></tr>';
@@ -4580,7 +4601,7 @@ function renderMilitary(){
       <table class="unit-table"><thead><tr><th>军队</th><th>驻地</th><th>兵力 / 战力</th><th>兵营募兵</th><th>行军</th></tr></thead>
       <tbody>${armyRows}</tbody></table>
       ${isPlayer?`<div class="mil-buttons"><button data-march="1" ${marchable&&selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
-      <table class="unit-table"><thead><tr><th>兵种</th><th>编制</th><th>攻/防</th><th>日维护</th><th>费/粮</th><th>状态</th></tr></thead>
+      <table class="unit-table"><thead><tr><th>兵种</th><th>守军人数</th><th>每批攻/防</th><th>每批日口粮</th><th>每批财政/粮</th><th>状态</th></tr></thead>
       <tbody>${unitRows}</tbody></table>
       <div class="hint">攻守双方都受地形影响。粮食不足时先遣散口粮最贵的兵种。</div>
     </div>
@@ -4818,7 +4839,7 @@ function renderTechIndex(){
     ['单次手动招募',`${rules.recruit_batch_max} 支`],
     ['胜方 / 败方会战损耗',`${fmtNum((rules.victor_loss_rate||0)*100,0)}% / ${fmtNum((rules.loser_loss_rate||0)*100,0)}%`],
     ['驻守固定加成',`+${fmtNum(rules.defense_bonus_flat,2)}`],
-    ['远征系数',fmtNum(rules.expedition_factor,2)],
+    ['敌境部队战力',`−${fmtNum((1-rules.expedition_factor)*100,0)}%`],
     ['装备战力加成',`科技线每级 +${fmtNum((rules.metallurgy_power_per_level||0)*100,0)}%`],
     ['占领后稳定损失',fmtNum(rules.capture_stability_loss,1)],
     ['占领贡金',`每栋建筑 ${fmtNum((rules.capture_tribute_share||0)*100,0)}% 缴付方日收入，为期 ${rules.capture_tribute_days||0} 天，同一对手封顶 ${fmtNum((rules.capture_tribute_cap||0)*100,0)}%`],

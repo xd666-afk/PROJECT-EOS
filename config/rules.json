@@ -714,6 +714,7 @@
   },
   "building_upkeep_per_day": 0.004,
   "military": {
+    "soldiers_per_unit": 10,
     "deployment_levels": [3, 5],
     "maximum_strength": 12,
     "capital_extra_capacity": 14,
@@ -723,7 +724,7 @@
     "defender_loss_rate": 0.38,
     "unopposed_loss_rate": 0.02,
     "defense_bonus_flat": 1.5,
-    "expedition_factor": 0.78,
+    "expedition_factor": 0.8,
     "metallurgy_power_per_level": 0.04,
     "battle_random_range": [
       0.85,

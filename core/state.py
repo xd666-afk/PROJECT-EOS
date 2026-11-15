@@ -13,6 +13,7 @@ from typing import Any, Callable
 from core.content import (
     army_strength as roster_strength,
     army_upkeep,
+    soldiers_per_unit,
     training_days,
     unit_food_upkeep,
     migrate_armies,
@@ -284,6 +285,7 @@ class ArmyState:
     stall_notices: dict[str, int] = field(default_factory=dict)
     arrival_day: int = -1
     arrival_sequence: int = 0
+    deployment_slot: int | None = None
 
     @property
     def strength(self) -> int:
@@ -300,6 +302,7 @@ class ArmyState:
             "march": self.march.to_dict() if self.march else None,
             "stall": self.stall,
             "raised": self.raised,
+            **({"deployment_slot": self.deployment_slot} if self.deployment_slot is not None else {}),
             "stall_notices": dict(self.stall_notices),
             **({"arrival_day": self.arrival_day, "arrival_sequence": self.arrival_sequence}
                if self.arrival_day >= 0 else {}),
@@ -320,6 +323,7 @@ class ArmyState:
             raised=max(0, int(data.get("raised", 0) or 0)),
             arrival_day=int(data.get("arrival_day", -1)),
             arrival_sequence=int(data.get("arrival_sequence", 0)),
+            deployment_slot=data.get("deployment_slot"),
             stall_notices={str(code): int(day)
                            for code, day in (data.get("stall_notices") or {}).items()},
         )
@@ -374,6 +378,7 @@ def army_payload(army: ArmyState, country: "CountryState",
     unit_id = barracks_target(country, army, config) if served else None
     return {
         "army_id": army.army_id,
+        **({"deployment_slot": army.deployment_slot} if army.deployment_slot is not None else {}),
         "tile": list(army.tile) if army.tile else None,
         "units": dict(army.units),
         "strength": army.strength,
@@ -467,6 +472,7 @@ def barracks_report(country: "CountryState", tile: tuple[int, int],
         active = bool(army and army.recruiting)
         stall = (army.stall or "") if active else "PAUSED"
         progress = army.progress if army else 0
+        stock = country.city_reserves.get(city.city_id, {}) if city else {}
         return {
             "tile": list(tile), "army_id": army.army_id if army else None,
             "recruiting": active, "training_army_id": army.army_id if active else None,
@@ -476,7 +482,7 @@ def barracks_report(country: "CountryState", tile: tuple[int, int],
             "price": price, "training_days": price, "food_cost": spec["cost"]["food"],
             "upkeep": unit_food_upkeep(spec), "power": spec["power"], "wage": barracks["daily_cost"],
             "progress": round(progress, 3), "days_left": math.ceil(max(0, price - progress)) if active and not stall else None,
-            "strength": country.city_reserves.get(city.city_id, {}).get(unit, 0) if city else 0,
+            "strength": stock.get(unit, 0), "reserve_total": sum(stock.values()),
             "capacity": None, "room": None, "unit_rooms": {}, "raised": army.raised if army else 0,
             "stall": stall, "stall_label": stall_label(stall),
         }
@@ -671,6 +677,8 @@ def siege_ledger(countries: dict[str, "CountryState"], defender: "CountryState",
     garrisoned = siege_defenders(defender, city, config)
     walls = defender.buildings.get(city.center) == "WALL"
     attack_value = sum(roster_value(army.units, config, "power") for army in besieging)
+    if defender.country_id in attacker.at_war_with:
+        attack_value *= config["military"]["expedition_factor"]
     defense_value = sum(roster_value(army.units, config, "defense") for army in garrisoned)
     reserve = defender.city_reserves.get(city.city_id, {})
     defense_value += roster_value(reserve, config, "defense")
@@ -895,9 +903,22 @@ class CountryState:
     def deployment_status(self, config: dict) -> dict:
         levels = config["military"].get("deployment_levels", [])
         level = self.technology.get("bronze_metallurgy", 1)
+        slots = self.deployed_slots()
         return {"used": sum(army.strength > 0 for army in self.armies),
                 "limit": 1 + sum(level >= threshold for threshold in levels),
+                "slots": [{"number": number, "army_id": slots[number].army_id if number in slots else None,
+                           "unlocked": number == 1 or level >= levels[number - 2]}
+                          for number in range(1, len(levels) + 2)],
                 "next_level": next((threshold for threshold in levels if level < threshold), None)}
+
+    def deployed_slots(self) -> dict[int, ArmyState]:
+        active = [army for army in self.armies if army.strength]
+        slots = {army.deployment_slot: army for army in active if army.deployment_slot is not None}
+        for army in active:
+            if army.deployment_slot is None:
+                number = next(n for n in range(1, len(active) + len(slots) + 2) if n not in slots)
+                slots[number] = army
+        return slots
 
     def military_food(self, config: dict) -> float:
         return army_upkeep(self.army_units, config) + sum(
@@ -1525,6 +1546,10 @@ class GameState:
         # Merge newly introduced rule fields into older saves without discarding saved tuning.
         default_config = json.loads(DEFAULT_RULES.read_text(encoding="utf-8"))
         state.config = _merge_defaults(default_config, data["rules"])
+        saved_military = data["rules"]["military"]
+        migrate_personnel = "soldiers_per_unit" not in saved_military
+        if migrate_personnel:
+            state.config["military"]["expedition_factor"] = default_config["military"]["expedition_factor"]
         saved_units = data["rules"].get("units", {})
         if saved_units and "training_days" not in saved_units.get("MILITIA", {}):
             for unit, defaults in default_config["units"].items():
@@ -1566,6 +1591,14 @@ class GameState:
             key: CountryState.from_dict(value, state.config)
             for key, value in data["countries"].items()
         }
+        scale = soldiers_per_unit(state.config)
+        if scale != 1 and migrate_personnel:
+            for country in state.countries.values():
+                for army in country.armies:
+                    army.units = {unit: count * scale for unit, count in army.units.items()}
+                    army.raised *= scale
+                for stock in country.city_reserves.values():
+                    stock.update({unit: count * scale for unit, count in stock.items()})
         if state.config["military"].get("deployment_levels"):
             for key, country in state.countries.items():
                 if "city_reserves" in data["countries"][key]:
@@ -1582,6 +1615,10 @@ class GameState:
                             stock[unit] = stock.get(unit, 0) + count
                         army.units.clear()
         state.trades = data["trades"]
+        if migrate_personnel:
+            for country in state.countries.values():
+                for number, army in country.deployed_slots().items():
+                    army.deployment_slot = number
         state.relations = data.get("relations", {})
         for index, left in enumerate(sorted(state.countries)):
             for right in sorted(state.countries)[index + 1:]:

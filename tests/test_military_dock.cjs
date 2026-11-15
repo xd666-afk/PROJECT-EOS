@@ -86,8 +86,10 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   const elements=new Map(),orders=[],requests=[];
   let resolveQuote;
   const quote=new Promise(resolve=>{resolveQuote=resolve;});
-  const node=()=>({children:[],append(...items){this.children.push(...items);},
-    add(option){if(!this.value)this.value=option.value;},
+  const node=()=>({children:[],options:[],append(...items){this.children.push(...items);},
+    replaceChildren(...items){this.children=items;},
+    add(option){this.options.push(option);if(!this.value)this.value=option.value;},
+    set selectedIndex(index){this.value=this.options[index]?.value;},
     showModal(){this.open=true;},close(){this.open=false;},
     addEventListener(){},querySelectorAll(){
       return [...(this.innerHTML||'').matchAll(/name="([A-Z_]+)" min="0" max="(\d+)"/g)]
@@ -95,8 +97,9 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
     }});
   const get=id=>{if(!elements.has(id))elements.set(id,node());return elements.get(id);};
   const context={$:get,document:{createElement:node},URLSearchParams,AbortController,
-    Option:function(text,value){this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,fmtNum:x=>x,
-    tileEnemyCamps:()=>[],STATE:{player_country:'A',countries:{A:{deployment:{used:0,limit:1},
+    Option:function(text,value){this.text=text;this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,fmtNum:x=>x,
+    tileEnemyCamps:()=>[],STATE:{player_country:'A',countries:{A:{deployment:{used:1,limit:2,slots:[
+      {number:1,unlocked:true,army_id:'A1'},{number:2,unlocked:true},{number:3,unlocked:false}]},
       cities:[{city_id:'C',name:'City',center:[0,0],reserve_units:{MILITIA:120,ARCHER:4}}]}}},
     fetch:url=>{requests.push(url);return quote;},
     submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return true;}};
@@ -105,6 +108,9 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   context.openTileDispatch('attack',{col:2,row:3,owner:'B'});
   assert.equal(get('tileDispatchDialog').open,true);
   assert.match(get('tileDispatchPreview').textContent,/正在计算/);
+  const menu=get('tileDispatchRows').children[0].children[1];
+  assert.deepEqual(menu.options.map(option=>[option.text,option.disabled]),[
+    ['第1支军队 · 已派出',true],['第2支军队',false],['第3支军队 · 未解锁',true]]);
   const sliders=get('tileDispatchRows').children.at(-1);
   assert.deepEqual(sliders.querySelectorAll('input').map(i=>i.max),['120','4','0','0','0']);
   sliders.inputs={MILITIA:{name:'MILITIA',max:'120',value:'100',nextElementSibling:{}}};
@@ -115,6 +121,7 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   await get('tileDispatchConfirm').onclick();
   assert.equal(orders[0].operation,'DEPLOY');
   assert.equal(orders[0].target,'B');
+  assert.equal(orders[0].slot,2);
   assert.equal(orders[0].units.MILITIA,100);
   assert.equal(get('tileDispatchDialog').open,false);
   resolveQuote({ok:true,json:async()=>({ok:true,days:4,cost:3})});

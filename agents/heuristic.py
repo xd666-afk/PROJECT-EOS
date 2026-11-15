@@ -357,7 +357,8 @@ class HeuristicAgent(CountryAgent):
         wars = country.get("at_war_with", [])
         campaigns = observation.get("campaign_options", {})
         reserve_campaigns = country.get("reserve_campaigns", {})
-        total_force = country.get("army_strength", 0) + country.get("reserve_strength", 0)
+        scale = rules["military"].get("soldiers_per_unit", 1) if rules["military"].get("deployment_levels") else 1
+        total_force = (country.get("army_strength", 0) + country.get("reserve_strength", 0)) / scale
         if wars:
             if country.get("war_exhaustion", 0) >= self._peace_gate(profile, country, rules):
                 actions.append({
@@ -512,7 +513,7 @@ class HeuristicAgent(CountryAgent):
             foreign = observation.get("foreign_military", {})
             rivals = [
                 partner for partner, relation in relations.items()
-                if relation <= profile["war_relation"] and foreign.get(partner, 0) < total_force
+                if relation <= profile["war_relation"] and foreign.get(partner, 0) / scale < total_force
                 and (campaigns.get(partner, {}).get("reachable") or partner in reserve_campaigns)
             ]
             if rivals and ((observation["world_day"] // 90 + len(self.country_id)) % profile["war_roll"] == 0):

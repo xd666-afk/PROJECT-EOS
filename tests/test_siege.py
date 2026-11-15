@@ -181,17 +181,17 @@ def test_walls_and_a_garrison_both_slow_the_fall_by_the_same_arithmetic():
         if wall:
             defender.buildings[city.center] = "WALL"
         if garrison:
-            only_army(defender, city.center, units=garrison)
-        army = only_army(state.countries["ELAR"], ring_of(engine, city, defender)[0])
+            only_army(defender, city.center, units=garrison * 10)
+        army = only_army(state.countries["ELAR"], ring_of(engine, city, defender)[0], units=80)
         quotes[label] = engine.apply_action(
             "ELAR", strike_tile("ELAR", "VAYR", army.army_id, city.center)
         ).effects["siege"]
 
     assert quotes["open"]["days_left"] == 17
-    assert quotes["walled"]["walls"] is True and quotes["walled"]["days_left"] == 20
-    assert quotes["walled"]["share"] == pytest.approx(8 / 9.6, abs=1e-4)
-    assert quotes["manned"]["garrison"] and quotes["manned"]["share"] == pytest.approx(0.5)
-    assert quotes["manned"]["days_left"] == 34
+    assert quotes["walled"]["walls"] is True and quotes["walled"]["days_left"] == 21
+    assert quotes["walled"]["share"] == pytest.approx(6.4 / 8, abs=1e-4)
+    assert quotes["manned"]["garrison"] and quotes["manned"]["share"] == pytest.approx(6.4 / 14.4, abs=1e-4)
+    assert quotes["manned"]["days_left"] == 38
 
 
 def test_the_panel_quotes_the_fall_date_before_any_order_exists():

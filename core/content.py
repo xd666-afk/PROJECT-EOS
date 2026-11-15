@@ -208,6 +208,8 @@ def _validate_units(config: dict[str, Any], fields: list[str], max_level: int) -
 def _validate_military(config: dict[str, Any]) -> None:
     military = config["military"]
     _require(isinstance(military, dict), "military 必须是对象")
+    scale = military.get("soldiers_per_unit", 1)
+    _require(type(scale) is int and scale > 0, "military.soldiers_per_unit 必须是正整数")
     if "deployment_levels" in military:
         levels = military["deployment_levels"]
         available = {row["level"] for row in config["tech_tree"]["bronze_metallurgy"]["levels"]}
@@ -495,7 +497,12 @@ def army_upkeep(units: dict[str, int], config: dict[str, Any]) -> float:
         int(count) * unit_food_upkeep(table[unit_id])
         for unit_id, count in units.items()
         if unit_id in table and int(count) > 0
-    )
+    ) / soldiers_per_unit(config)
+
+
+def soldiers_per_unit(config: dict[str, Any]) -> int:
+    military = config["military"]
+    return military.get("soldiers_per_unit", 1) if military.get("deployment_levels") else 1
 
 
 def field_cap(building_ids: Iterable[str], config: dict[str, Any]) -> int | None:
@@ -521,7 +528,7 @@ def roster_value(units: dict[str, int], config: dict[str, Any], field: str = "po
         int(count) * float(table[unit_id][field])
         for unit_id, count in units.items()
         if unit_id in table and int(count) > 0
-    )
+    ) / soldiers_per_unit(config)
 
 
 def migrate_roster(data: dict[str, Any], config: dict[str, Any]) -> dict[str, int]:

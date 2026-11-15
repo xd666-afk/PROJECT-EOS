@@ -1,11 +1,13 @@
-from core.state import CountryState, barracks_report
+import json
+
+from core.state import CountryState, GameState, barracks_report
 from live_server import LiveSession
 
 
-def deploy(engine, country, city, tile, units, target=None):
+def deploy(engine, country, city, tile, units, target=None, **extra):
     return engine.apply_action(country.country_id, {
         "type": "MILITARY", "operation": "DEPLOY", "city_id": city.city_id,
-        "tile": {"col": tile[0], "row": tile[1]}, "units": units, "target": target,
+        "tile": {"col": tile[0], "row": tile[1]}, "units": units, "target": target, **extra,
     })
 
 
@@ -44,7 +46,7 @@ def test_training_stock_and_save_round_trip(engine):
     camp.progress = 259
     military.barracks_daily()
     assert camp.units == {}
-    assert country.city_reserves == {city.city_id: {"MILITIA": 1}}
+    assert country.city_reserves == {city.city_id: {"MILITIA": 10}}
     assert barracks_report(country, city.center, state.config)["reserve_city"] == city.name
     assert country.deployment_status(state.config)["used"] == 0
     restored = CountryState.from_dict(country.to_dict(), state.config)
@@ -59,9 +61,10 @@ def test_slots_cover_stationed_and_marching_armies_and_return(engine):
     cells = [tile for tile in state.world.neighbors(*city.center) if tile in country.tiles]
     assert len(cells) >= 3
     stock = country.city_reserves[city.city_id] = {"MILITIA": 201}
+    assert deploy(engine, country, city, cells[0], {"MILITIA": 1}, slot=2).reason_code == "DEPLOYMENT_LOCKED"
     dead_end = deploy(engine, country, city, (-1, -1), {"MILITIA": 100})
     assert not dead_end.accepted and stock["MILITIA"] == 201
-    first = deploy(engine, country, city, cells[0], {"MILITIA": 100})
+    first = deploy(engine, country, city, cells[0], {"MILITIA": 100}, slot=1)
     assert first.accepted, first.reason_text
     denied = deploy(engine, country, city, cells[1], {"MILITIA": 1})
     assert denied.reason_code == "DEPLOYMENT_LIMIT"
@@ -69,7 +72,8 @@ def test_slots_cover_stationed_and_marching_armies_and_return(engine):
     for level, cap in [(3, 2), (5, 3)]:
         country.technology["bronze_metallurgy"] = level
         assert country.deployment_status(state.config)["limit"] == cap
-        assert deploy(engine, country, city, cells[cap - 1], {"MILITIA": 1}).accepted
+        assert deploy(engine, country, city, cells[cap - 1], {"MILITIA": 1}, slot=1).reason_code == "DEPLOYMENT_OCCUPIED"
+        assert deploy(engine, country, city, cells[cap - 1], {"MILITIA": 1}, slot=cap).accepted
     military.movement_config["daily_budget"] = 100
     military.march_daily()
     assert country.deployment_status(state.config)["used"] == 3
@@ -81,6 +85,8 @@ def test_slots_cover_stationed_and_marching_armies_and_return(engine):
     military.march_daily()
     assert stock["MILITIA"] == 199
     assert country.deployment_status(state.config)["used"] == 2
+    slots = country.deployment_status(state.config)["slots"]
+    assert slots[0]["army_id"] is None and all(row["army_id"] for row in slots[1:])
     assert army_id in country.army_tombstones
 
 
@@ -121,16 +127,56 @@ def test_live_preview_picks_same_route_as_dispatch(monkeypatch, tmp_path, reques
     country = state.countries["ELAR"]
     city = country.cities[0]
     tile = next(tile for tile in state.world.neighbors(*city.center) if tile in country.tiles)
-    country.city_reserves[city.city_id] = {"MILITIA": 150}
     snapshot = session.snapshot(lightweight=True)
     assert session.snapshot(lightweight=True, since=snapshot["revision"])["unchanged"]
+    bought = session.player_action("ELAR", {
+        "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 1,
+    })
+    assert bought["ok"] and bought["result"]["effects"]["soldiers"] == 10
+    fresh = session.snapshot(lightweight=True, since=snapshot["revision"])
+    assert fresh["day"] == snapshot["day"]
+    assert fresh["countries"]["ELAR"]["cities"][0]["reserve_units"] == {"MILITIA": 10}
     preview = session.deployment_preview(city.city_id, *tile, None)
     assert preview["ok"], preview
     action = {"type": "MILITARY", "operation": "DEPLOY", "city_id": city.city_id,
-              "tile": {"col": tile[0], "row": tile[1]}, "units": {"MILITIA": 100}}
+              "tile": {"col": tile[0], "row": tile[1]}, "units": {"MILITIA": 7}}
     result = session.player_action("ELAR", action)
     assert result["ok"], result
     assert result["result"]["effects"]["days"] == preview["days"]
     assert result["result"]["effects"]["cost"] == preview["cost"]
     fresh = session.snapshot(lightweight=True, since=snapshot["revision"])
-    assert fresh["countries"]["ELAR"]["cities"][0]["reserve_units"] == {"MILITIA": 50}
+    assert fresh["countries"]["ELAR"]["cities"][0]["reserve_units"] == {"MILITIA": 3}
+
+
+def test_old_reserves_and_deployed_armies_convert_only_once(state, tmp_path):
+    realm = state.countries["ELAR"]
+    city = realm.cities[0]
+    realm.city_reserves[city.city_id] = {"MILITIA": 2}
+    army = realm.new_army(city.center, {"ARCHER": 3})
+    payload = state.to_dict()
+    payload["rules"]["military"].pop("soldiers_per_unit")
+    path = tmp_path / "old.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    loaded = GameState.load(path)
+    new_realm = loaded.countries["ELAR"]
+    assert new_realm.city_reserves[city.city_id] == {"MILITIA": 20}
+    assert new_realm.find_army(army.army_id).units == {"ARCHER": 30}
+    assert new_realm.find_army(army.army_id).deployment_slot == 1
+    loaded.save(path)
+    assert GameState.load(path).fingerprint() == loaded.fingerprint()
+
+
+def test_foreign_combat_factor_uses_battlefield_owner(engine):
+    state = engine.state
+    attacker, defender = (state.countries[key] for key in ("ELAR", "MARIS"))
+    attacker.at_war_with = ["MARIS"]
+    defender.at_war_with = ["ELAR"]
+    target = defender.cities[0].center
+    army = attacker.new_army(target, {"MILITIA": 100})
+    result = engine.military._battle(attacker, defender, army, target, False, capture_ground=False)
+    assert result["attacker_territory_factor"] == 0.8
+    assert result["defender_territory_factor"] == 1.0
+    home = attacker.cities[0].center
+    result = engine.military._battle(attacker, defender, army, home, True, capture_ground=False)
+    assert result["attacker_territory_factor"] == 1.0
+    assert result["defender_territory_factor"] == 0.8

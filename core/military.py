@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from core.actions import ActionRejected, ActionResult
-from core.content import army_upkeep, training_days, unit_food_upkeep
+from core.content import army_upkeep, soldiers_per_unit, training_days, unit_food_upkeep
 from core.movement import Movement, march_days
 from core.society import stability_factor
 from core.state import (
@@ -195,11 +195,13 @@ class Military:
         country.treasury -= treasury
         country.food -= food
         stock = country.city_reserves.setdefault(city.city_id, {})
-        stock[unit] = stock.get(unit, 0) + amount
+        people = amount * soldiers_per_unit(self.state.config)
+        stock[unit] = stock.get(unit, 0) + people
         self.state.record("army_recruited", country_id=country.country_id, city_id=city.city_id,
-                          unit=unit, amount=amount, strength=sum(stock.values()),
+                          unit=unit, amount=amount, soldiers=people, strength=sum(stock.values()),
                           treasury_cost=treasury, food_cost=food)
-        return {"city_id": city.city_id, "unit": unit, "strength": sum(stock.values()),
+        return {"city_id": city.city_id, "city_name": city.name, "unit": unit,
+                "soldiers": people, "strength": sum(stock.values()),
                 "cost": treasury, "food_cost": food}
 
     def _mass(self, country, tile, army=None) -> tuple[list, float]:
@@ -469,6 +471,7 @@ class Military:
 
     def _train_city_reserves(self) -> None:
         wage = float(self.barracks["daily_cost"])
+        people = soldiers_per_unit(self.state.config)
         for country in self.state.countries.values():
             for camp in country.armies:
                 if camp.strength or not camp.recruiting or country.buildings.get(camp.tile) != "BARRACKS":
@@ -490,11 +493,12 @@ class Military:
                     if camp.progress + 1e-9 >= days:
                         country.food -= food
                         camp.progress = max(0.0, camp.progress - days)
-                        camp.raised += 1
+                        camp.raised += people
                         stock = country.city_reserves.setdefault(city.city_id, {})
-                        stock[unit] = stock.get(unit, 0) + 1
+                        stock[unit] = stock.get(unit, 0) + people
                         self.state.record("barracks_recruit", country_id=country.country_id,
                                           army_id=camp.army_id, city_id=city.city_id, unit=unit, amount=1,
+                                          soldiers=people,
                                           strength=sum(stock.values()), tile=self._tile(camp.tile),
                                           food_cost=round(food, 3))
                 self._stall(country, camp, code, camp.tile, wage, unit)
@@ -670,13 +674,19 @@ class Military:
         slots = country.deployment_status(self.state.config)
         if slots["used"] >= slots["limit"]:
             raise ActionRejected("DEPLOYMENT_LIMIT", f"已派满 {slots['limit']} 支军队")
+        available = [row["number"] for row in slots["slots"] if row["unlocked"] and row["army_id"] is None]
+        slot = action.get("slot", available[0])
+        if not 1 <= slot <= slots["limit"]:
+            raise ActionRejected("DEPLOYMENT_LOCKED", f"第 {slot} 支军队尚未解锁")
+        if slot not in available:
+            raise ActionRejected("DEPLOYMENT_OCCUPIED", f"第 {slot} 支军队已经派出")
         stock = country.city_reserves.get(action["city_id"], {})
         units = {unit: count for unit, count in action["units"].items() if count}
         if not units:
-            raise ActionRejected("EMPTY_DEPLOYMENT", "至少选择一支兵")
+            raise ActionRejected("EMPTY_DEPLOYMENT", "至少选择 1 名士兵")
         for unit, count in units.items():
             if not 0 < count <= stock.get(unit, 0):
-                raise ActionRejected("RESERVE_SHORTAGE", f"{self.units[unit]['label']}可派 {stock.get(unit, 0)} 支")
+                raise ActionRejected("RESERVE_SHORTAGE", f"{self.units[unit]['label']}可派 {stock.get(unit, 0)} 人")
         tile = action["tile"]["col"], action["tile"]["row"]
         target = action["target"]
         city, plan, expedition = self.deployment_plan(actor, action["city_id"], tile, target)
@@ -685,8 +695,9 @@ class Military:
             if not stock[unit]:
                 del stock[unit]
         army = country.new_army(tile=city.center, units=units)
+        army.deployment_slot = slot
         self.state.record("army_deployed", country_id=actor, city_id=city.city_id,
-                          army_id=army.army_id, units=units, tile=self._tile(tile))
+                          army_id=army.army_id, slot=slot, units=units, tile=self._tile(tile))
         return self._order(country, army, plan, "ATTACK" if target else "MARCH",
                            target=target, objective=tile if target else None, expedition=expedition)
 
@@ -748,7 +759,8 @@ class Military:
     def rendezvous_capacity(self, country, tile, host=None) -> dict:
         city = self._city_of(country, tile)
         capital = city is not None and self.state.is_capital(country, city)
-        capacity = tile_army_capacity(country, self.state.config, capital=capital)
+        scale = soldiers_per_unit(self.state.config)
+        capacity = tile_army_capacity(country, self.state.config, capital=capital) * scale
         stationed = self._camps_of(country, tile)
         if host is not None and host.march is not None:
             # Preview the host's planned arrival, while keeping the slot shared
@@ -759,7 +771,7 @@ class Military:
         camps = camp_count(country)
         if camps:
             for unit_id, spec in self.units.items():
-                limit = int(spec["max_count"]) * camps
+                limit = int(spec["max_count"]) * camps * scale
                 present = sum(army.units.get(unit_id, 0) for army in stationed)
                 unit_room[unit_id] = max(0, limit - present)
         return {"capacity": capacity, "occupied": used, "excess": max(0, used - capacity), "room": max(0, capacity - used),
@@ -1796,7 +1808,7 @@ class Military:
             if use_terrain:
                 modifier *= float((self.units[unit_id].get("terrain") or {}).get(biome, 1.0))
             value += count * float(self.units[unit_id][statistic]) * modifier
-        return value
+        return value / soldiers_per_unit(self.state.config)
 
     def _remove_losses(self, units: dict[str, int], losses: int) -> dict[str, int]:
         """Split losses across types by count share, largest remainder first.
@@ -2225,9 +2237,15 @@ class Military:
             "armies": tally["armies"], "day": self.state.day_index,
         }
 
+    def _battle_territory_factor(self, country, owner):
+        return self.config["expedition_factor"] if owner in country.at_war_with else 1.0
+
     def _battle(self, attacker, defender, army, target_tile, expedition: bool, *,
                 capture_ground=True, city_stock=None) -> dict:
         biome = self.state.world.tile(target_tile)["biome"]
+        owner = self._owner_of(target_tile)
+        attack_factor = self._battle_territory_factor(attacker, owner)
+        defense_factor = self._battle_territory_factor(defender, owner)
         equipment = 1 + (
             attacker.technology.get("bronze_metallurgy", 1)
             * self.config["metallurgy_power_per_level"]
@@ -2252,13 +2270,14 @@ class Military:
             * stability_factor(attacker.stability, self.state.config)
             * self.state.weather.uniform(roll_low, roll_high)
             * attacker_share
-            * (self.config["expedition_factor"] if expedition else 1.0)
+            * attack_factor
         )
         defense_power = (
             self._side_value(defending_units, "defense", attacking_units, biome, True)
             * defender_equipment
             * stability_factor(defender.stability, self.state.config)
             * defender_share
+            * defense_factor
             + self.config["defense_bonus_flat"]
         )
         won = attack_power > defense_power
@@ -2346,6 +2365,7 @@ class Military:
             defender_mass=[other.army_id for other in defenders],
             defender_share=round(defender_share, 4),
             attacker_power=round(attack_power, 3), defender_power=round(defense_power, 3),
+            attacker_territory_factor=attack_factor, defender_territory_factor=defense_factor,
             attacker_loss=attacker_losses, defender_loss=defender_losses,
             attacker_units=attacker_removed, defender_units=defender_removed,
             biome=biome, captured=captured, field=not seizes, expedition=expedition,
@@ -2354,6 +2374,7 @@ class Military:
         )
         return {
             "battle": True, "won": won, "captured": captured, "field": not seizes,
+            "attacker_territory_factor": attack_factor, "defender_territory_factor": defense_factor,
             "attacker_army": army.army_id,
             "tribute": tribute,
             "attacker_mass": [other.army_id for other in attackers],
@@ -2631,7 +2652,7 @@ class Military:
                 self.state.record("army_desertion", country_id=country.country_id,
                                   army_id=army.army_id, unit=unit,
                                   reason="INSUFFICIENT_FOOD", strength=country.army_strength)
-                cost -= unit_food_upkeep(self.units[unit])
+                cost -= unit_food_upkeep(self.units[unit]) / soldiers_per_unit(self.state.config)
             cost = max(0.0, cost)
             country.food = max(0.0, country.food - cost)
             country.last_economy["military_food_paid"] = cost
