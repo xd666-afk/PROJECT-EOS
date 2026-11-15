@@ -372,6 +372,7 @@ button.primary:hover{filter:brightness(1.08)}
 .map-tools{display:flex;flex-wrap:wrap;gap:3px;padding:3px;max-width:calc(100% - 150px)}
 .map-tools button{min-height:28px;border:0;background:transparent;color:var(--muted);font-size:10px;padding:3px 7px}
 .map-tools button.on{background:var(--panel-3);color:var(--accent)}
+.map-tools .map-order-mode{background:var(--panel-3);color:var(--accent)}
 .layer-note{display:none;padding:7px 9px;color:var(--muted);font-size:9.5px;line-height:1.45;max-width:210px}
 .layer-note b{color:var(--ink);font-weight:600}
 .map-legend{position:absolute;left:13px;bottom:10px;display:flex;flex-wrap:wrap;gap:8px;
@@ -788,6 +789,7 @@ body.military-open #toggleLeft,body.military-open #toggleRight{display:none!impo
             <button class="on" id="toggleLeft">列国</button>
             <button class="on" id="toggleRight">详情</button>
           </span>
+          <button id="mapOrderMode" class="map-order-mode" title="点击退出地图下令" hidden></button>
         </div>
         <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。<br>双击城市标记进入二级规划地图。</div>
       </div>
@@ -1799,6 +1801,21 @@ function livePolities(){
 function focusTile(col,row){
   selectedTile=[col,row];renderRight(true);scheduleMapRender();showDetailTab();
 }
+function selectedOrderArmy(){
+  return STATE?.countries?.[STATE.player_country]?.armies?.find(army=>army.army_id===selectedArmy&&army.strength>0&&army.tile);
+}
+let mapOrderQueue=Promise.resolve();
+function commandMapTile(col,row){
+  focusTile(col,row);
+  const army=selectedOrderArmy();
+  if(!army)return;
+  const actor=STATE.player_country;
+  mapOrderQueue=mapOrderQueue.then(()=>{
+    if(STATE.player_country!==actor||selectedOrderArmy()?.army_id!==army.army_id)return;
+    return submitPlayerAction({type:'MILITARY',operation:'AUTO_ORDER',army_id:army.army_id,tile:{col,row}},
+      '军令已下达',false);
+  });
+}
 function threatSignature(){
   const grouped=STATE?.incoming_threats||{};
   return Object.keys(grouped).map(id=>`${id}=${(grouped[id]||[])
@@ -2083,7 +2100,7 @@ function bindCampControls(){
 const RECEIPT_ACTIONS={BUILD:'建设',SETTLE:'建城',ALLOCATE_WORKERS:'劳动力',SET_TAX:'税率',
   SET_RESEARCH:'研究',SET_POLICY:'政策',TRADE:'贸易',DIPLOMACY:'外交',MILITARY:'军令',
   SET_CITY_FOCUS:'城市方针',SET_CITY_ZONE:'城市分区',SET_CITY_BUDGET:'城市预算',NO_OP:'空令'};
-const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',DEPLOY:'派兵',RETASK:'前线改令',RETURN:'撤回',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
+const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',DEPLOY:'派兵',RETASK:'前线改令',AUTO_ORDER:'地图下令',RETURN:'撤回',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
   RENDEZVOUS:'会师派兵',SET_RECRUITING:'募兵开关',SET_RECRUIT_UNIT:'练兵目标',GIFT:'赠礼',PROPOSE_PACT:'提议协定',
   ACCEPT_PACT:'接受协定',REJECT_PACT:'拒绝协定',DECLARE_WAR:'宣战',PROPOSE_PEACE:'请求议和',
   ACCEPT_PEACE:'接受议和',REJECT_PEACE:'拒绝议和',OFFER:'出价',ACCEPT:'成交',REJECT:'回绝',CANCEL:'撤单'};
@@ -2290,7 +2307,7 @@ function openTileDispatch(intent,tile,hostId){
       const action={type:'MILITARY',operation:active?'RETASK':'DEPLOY',slot:current.number,tile:coordinate,target};
       if(!active)action.units=selection();
       if(hostId)action.host_id=hostId;
-      const accepted=await submitPlayerAction(action,title+'命令已下达',false);
+      const accepted=await submitPlayerAction(action,title+'命令已下达',!active&&!hostId);
       if(accepted)dialog.close();
     }finally{sending=false;updateSelection();}
   };
@@ -2376,6 +2393,9 @@ async function loadTileStrikes(col,row){
 function repriceTile(){tileStrikeKey='';tileStrikes=null;renderRight(true);}
 function renderRight(tileOnly=false){
   if(!STATE)return;
+  const orderArmy=selectedOrderArmy(),orderMode=$('mapOrderMode');
+  orderMode.hidden=!orderArmy;
+  if(orderArmy)orderMode.textContent=numberedArmy(orderArmy.deployment_slot||1)+' · 取消下令';
   const c=STATE.countries[selectedCountry],meta=countryMeta(selectedCountry),agent=STATE.agents?.[selectedCountry]||{};
   if(!c)return;
   if(!tileOnly){
@@ -2660,18 +2680,28 @@ async function control(action,value){
     const r=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value})});
     const data=await r.json();
     if(!data.ok)showToast(data.error||'操作失败',true);
+    if(data.ok&&(action==='observe'||(action==='take_control'&&STATE?.player_country!==value)))selectedArmy=null;
     await poll(true);
     if(action==='take_control'){selectTab('country');showToast(`已接管 ${value}，AI 已停止替该国决策`);}
     if(action==='observe'){selectTab('country');showToast('已返回观战模式');}
   }catch(err){showToast('本地模拟服务连接中断',true);}
 }
 async function submitPlayerAction(action,successText,waitForRefresh=true){
-  if(!STATE?.player_country)return;
+  const actor=STATE?.player_country;
+  if(!actor)return;
   try{
     const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({actor:STATE.player_country,action})});
+      body:JSON.stringify({actor,action})});
     const data=await r.json();
     if(data.ok){
+      const effects=data.result?.effects||{};
+      if(action.operation==='DEPLOY'&&!action.host_id&&STATE.player_country===actor&&!selectedOrderArmy()){
+        selectedArmy=effects.army_id||null;
+      }
+      if(action.operation==='AUTO_ORDER'){
+        const command={MARCH:'驻守',ATTACK:'进攻',RETURN:'回城'}[effects.purpose];
+        if(command)successText=effects.already_ordered?`正在执行${command}命令`:`${command}命令已下达`;
+      }
       const refused=(data.result?.effects?.orders||[]).filter(o=>!o.accepted);
       showToast(refused.length?`${successText}；未出发：${refused.map(o=>o.army_id+' '+o.reason).join('；')}`:successText,refused.length>0);
     }
@@ -2803,7 +2833,7 @@ function cityAtScreen(clientX,clientY){
   return best;
 }
 canvas.addEventListener('dblclick',async e=>{
-  if(!$('militaryModal').hidden)return;
+  if(!$('militaryModal').hidden||selectedOrderArmy())return;
   const hit=cityAtScreen(e.clientX,e.clientY);
   if(!hit)return;
   selectedCountry=hit.cid;
@@ -2815,11 +2845,17 @@ function scheduleMapRender(){
   if(mapFrame)return;
   mapFrame=requestAnimationFrame(()=>{mapFrame=0;render(true);});
 }
-canvas.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');});
+canvas.addEventListener('pointerdown',e=>{
+  if(!e.isPrimary||e.button!==0)return;
+  drag={x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,pointerId:e.pointerId};
+  moved=false;canvas.setPointerCapture(e.pointerId);canvas.classList.add('drag');
+});
 canvas.addEventListener('pointermove',e=>{
   if(drag){
-    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(Math.abs(dx)+Math.abs(dy)>2)moved=true;
-    panX+=dx;panY+=dy;drag={x:e.clientX,y:e.clientY};scheduleMapRender();return;
+    if(drag.pointerId!==e.pointerId)return;
+    const dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+    if(Math.abs(e.clientX-drag.startX)+Math.abs(e.clientY-drag.startY)>2)moved=true;
+    panX+=dx;panY+=dy;drag.x=e.clientX;drag.y=e.clientY;scheduleMapRender();return;
   }
   const near=nearestTile(e.clientX,e.clientY),card=$('hoverCard');
   if(!near){card.style.display='none';return;}
@@ -2834,10 +2870,13 @@ canvas.addEventListener('pointermove',e=>{
   card.style.top=Math.min(rect.height-70,e.clientY-rect.top+12)+'px';
 });
 canvas.addEventListener('pointerup',e=>{
-  if(!drag)return;const wasMoved=moved;
+  if(!drag||drag.pointerId!==e.pointerId)return;const wasMoved=moved;
   drag=null;canvas.classList.remove('drag');
-  if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near){focusTile(...near);}}
+  if(!wasMoved){const near=nearestTile(e.clientX,e.clientY);if(near)commandMapTile(...near);}
   try{canvas.releasePointerCapture(e.pointerId);}catch(_){}
+});
+canvas.addEventListener('pointercancel',e=>{
+  if(drag?.pointerId===e.pointerId){drag=null;canvas.classList.remove('drag');}
 });
 canvas.addEventListener('pointerleave',()=>{if(!drag)$('hoverCard').style.display='none';});
 canvas.addEventListener('wheel',e=>{
@@ -2846,9 +2885,10 @@ canvas.addEventListener('wheel',e=>{
   panX=mx-(mx-(baseOffX+panX))*k-baseOffX;panY=my-(my-(baseOffY+panY))*k-baseOffY;scheduleMapRender();
 },{passive:false});
 for(const b of document.querySelectorAll('#worldRight .tabs button'))b.onclick=()=>selectTab(b.dataset.tab);
-for(const b of document.querySelectorAll('.map-tools button'))b.onclick=()=>{
-  mapMode=b.dataset.layer;for(const x of document.querySelectorAll('.map-tools button'))x.classList.toggle('on',x===b);updateMapLegend();render(true);
+for(const b of document.querySelectorAll('.map-tools button[data-layer]'))b.onclick=()=>{
+  mapMode=b.dataset.layer;for(const x of document.querySelectorAll('.map-tools button[data-layer]'))x.classList.toggle('on',x===b);updateMapLegend();render(true);
 };
+$('mapOrderMode').onclick=()=>{selectedArmy=null;renderRight(true);renderMilitary();};
 $('pauseBtn').onclick=()=>control(STATE?.paused?'resume':'pause');
 $('stepBtn').onclick=()=>control('step');
 for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed',Number(b.dataset.speed));
@@ -4081,6 +4121,7 @@ function centralCountryId(){
   },null)?.id||WORLD.polities[0].id;
 }
 async function startSession(){
+  selectedArmy=null;
   const r=await fetch('/api/world');WORLD=await r.json();
   WORLD.tileMap={};for(const t of WORLD.tiles)WORLD.tileMap[t[0]+','+t[1]]=t;
   loadTerrainTexture(WORLD.metadata?.terrain_texture_url||null);
@@ -4090,7 +4131,7 @@ async function startSession(){
   const wantedLayer=bootParams.get('layer');
   if(['satellite','political','terrain','rain','resources','routes'].includes(wantedLayer)){
     mapMode=wantedLayer;
-    for(const b of document.querySelectorAll('.map-tools button'))b.classList.toggle('on',b.dataset.layer===wantedLayer);
+    for(const b of document.querySelectorAll('.map-tools button[data-layer]'))b.classList.toggle('on',b.dataset.layer===wantedLayer);
   }
   showOnlyScreen('game');gameLoaded=true;
   resetDiaryBubbles();lastNoticeSeq=null;if($('noticeStack'))$('noticeStack').innerHTML='';unreadNotices=0;updateNotifyBadge();
@@ -4408,7 +4449,7 @@ function renderMilitaryCommand(c,mover){
   const armies=(c.armies||[]).filter(a=>a.strength>0);
   $('militaryCommand').innerHTML=`<div class="hint">点击地图选择驻守或进攻，再拖动滑块从城市调兵。</div>
     <label>查看国家<select id="militaryCountry">${livePolities().map(p=>`<option value="${esc(p.id)}" ${p.id===selectedCountry?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
-    ${player?`<label>已派军队<select id="militaryArmy">${armies.map(a=>`<option value="${esc(a.army_id)}" ${a.army_id===selectedArmy?'selected':''}>${esc(numberedArmy(a.deployment_slot||1))} · ${a.march?'行军中':'待命'}</option>`).join('')||'<option>暂无</option>'}</select></label>`:`<button id="militaryTakeControl">接管 ${esc(countryMeta(selectedCountry)?.name||selectedCountry)}</button>`}
+    ${player?`<label>地图下令对象<select id="militaryArmy"><option value="">仅查看地块</option>${armies.map(a=>`<option value="${esc(a.army_id)}" ${a.army_id===selectedArmy?'selected':''}>${esc(numberedArmy(a.deployment_slot||1))} · ${a.march?'行军中':'待命'}</option>`).join('')}</select></label>`:`<button id="militaryTakeControl">接管 ${esc(countryMeta(selectedCountry)?.name||selectedCountry)}</button>`}
     <div class="mil-buttons"><button id="militaryLocate">定位${mover?'所选军队':'都城'}</button>
     ${player&&mover&&!mover.march?`<button id="militaryReturn">撤回城内</button>`:''}
     <span>出征 ${c.deployment.used}/${c.deployment.limit} 支 · 守军与出征日口粮 ${fmtNum(c.military_upkeep_food,3)}</span></div>`;
@@ -4416,7 +4457,7 @@ function renderMilitaryCommand(c,mover){
   if(recall)recall.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RETURN',army_id:mover.army_id},'撤回命令已下达');
   $('militaryQuick').innerHTML='';
   $('militaryCountry').onchange=e=>{selectedCountry=e.target.value;selectedArmy=null;selectedTile=null;militaryWarTarget=null;const p=countryMeta(selectedCountry)?.capital;if(p)selectedTile=[p.col,p.row];renderTop();renderRight();renderMilitary();render(true);};
-  const army=$('militaryArmy');if(army)army.onchange=e=>{selectedArmy=e.target.value;renderRight();renderMilitary();};
+  const army=$('militaryArmy');if(army)army.onchange=e=>{selectedArmy=e.target.value||null;renderRight();renderMilitary();};
   const take=$('militaryTakeControl');if(take)take.onclick=()=>control('take_control',selectedCountry);
   $('militaryLocate').onclick=()=>{const capital=countryMeta(selectedCountry)?.capital,t=mover?.tile||(capital?[capital.col,capital.row]:null);if(!t)return;selectedTile=[...t];const scale=fitScale*zoom;panX=mapPanel.clientWidth/2-baseOffX-cx(t)*scale;panY=mapPanel.clientHeight/2-baseOffY-cy(t)*scale;renderRight();renderMilitary();render(true);};
 }
@@ -4454,7 +4495,6 @@ function renderMilitary(){
   const specs=STATE.unit_specs||{},milRules=STATE.military_specs||{},mv=STATE.movement_specs||{};
   const bar=milRules.barracks||{},tech=c.technology||{};
   const armies=(c.armies||[]).filter(a=>a.strength>0);
-  if(isPlayer&&!armies.some(a=>a.army_id===selectedArmy))selectedArmy=null;
   const mover=armies.find(a=>a.army_id===selectedArmy)||null;
   const selected=selectedTile?`${selectedTile[0]},${selectedTile[1]}`:'未选择地块';
   const unlocked=id=>{const need=specs[id]?.required_technology;return !need||(tech[need.field]||0)>=need.level;};
@@ -4648,7 +4688,7 @@ function renderMilitary(){
   if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]},army_id:selectedArmy},'行军令已下达').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-recruiting]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.recruiting,recruiting:b.dataset.on==='1'},'募兵开关已更新').then(renderMilitary);
   for(const s of document.querySelectorAll('[data-recruit-unit]'))s.onchange=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUIT_UNIT',army_id:s.dataset.recruitUnit,unit:s.value},'练兵兵种已设定').then(renderMilitary);
-  for(const b of document.querySelectorAll('[data-army-pick]'))b.onclick=()=>{selectedArmy=selectedArmy===b.dataset.armyPick?null:b.dataset.armyPick;renderMilitary();};
+  for(const b of document.querySelectorAll('[data-army-pick]'))b.onclick=()=>{selectedArmy=selectedArmy===b.dataset.armyPick?null:b.dataset.armyPick;renderRight(true);renderMilitary();};
   bindCampControls();
   arrangeMilitaryCards(openCards);
   renderMilitaryCommand(c,mover);

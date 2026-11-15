@@ -171,6 +171,13 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             if not army_id:
                 raise ActionRejected("INVALID_PARAMETER", "请选择要撤回的军队")
             return {"type": action_type, "operation": operation, "army_id": army_id}
+        if operation == "AUTO_ORDER":
+            _keys(raw, {"type", "operation", "army_id", "tile"})
+            tile = raw.get("tile")
+            if not army_id or not isinstance(tile, dict) or set(tile) != {"col", "row"}:
+                raise ActionRejected("INVALID_PARAMETER", "请选择军队和目标地块")
+            return {"type": action_type, "operation": operation, "army_id": army_id,
+                    "tile": {key: _integer(value, key) for key, value in tile.items()}}
         if operation in ("DEPLOY", "RETASK"):
             _keys(raw, {"type", "operation", "city_id", "tile", "target", "units", "slot", "host_id"})
             city_id, tile, target, units = (raw.get(key) for key in ("city_id", "tile", "target", "units"))

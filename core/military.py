@@ -741,7 +741,11 @@ class Military:
     def retask_plan(self, actor, slot, tile, target):
         country = self.state.countries[actor]
         army = country.deployed_slots().get(slot)
-        if army is None or army.tile is None:
+        return self._retask_plan(country, army, tile, target)
+
+    def _retask_plan(self, country, army, tile, target):
+        actor = country.country_id
+        if army is None or not army.strength or army.tile is None:
             raise ActionRejected("NO_ARMY", "这支军队尚未出征")
         if army.march and army.march.rendezvous:
             raise ActionRejected("MARCH_IN_PROGRESS", "这支军队正在执行旧会师命令")
@@ -779,6 +783,42 @@ class Military:
         army, plan, expedition = self.retask_plan(actor, slot, tile, target)
         return self._order(country, army, plan, "ATTACK" if target else "MARCH",
                            target=target, objective=tile if target else None, expedition=expedition)
+
+    def auto_order(self, actor, army_id, tile):
+        country = self.state.countries[actor]
+        army = self._army_of(country, army_id)
+        if army is None or not army.strength or army.tile is None:
+            raise ActionRejected("NO_ARMY", "这支军队已经解散或没有可用兵力")
+        order = army.march
+        if order and order.rendezvous:
+            raise ActionRejected("MARCH_IN_PROGRESS", "这支军队正在执行旧会师命令")
+        cell = self.state.world.tiles.get(tile)
+        if not cell or not cell["land"]:
+            raise ActionRejected("SEA", "陆军无法前往该地块")
+        owner = self._owner_of(tile)
+        target = next((enemy for enemy in country.at_war_with if enemy in self.state.countries
+                       and self._camps_of(self.state.countries[enemy], tile)), None)
+        if target is None and owner not in (None, actor):
+            if owner not in country.at_war_with:
+                raise ActionRejected("NOT_AT_WAR", "这块地属于尚未交战的国家，请先宣战")
+            target = owner
+        city = self._city_of(country, tile) if target is None and owner == actor else None
+        purpose = "ATTACK" if target else "RETURN" if city else "MARCH"
+        if order and order.purpose == purpose and (
+            (purpose == "ATTACK" and order.target == target and order.objective == tile)
+            or (purpose != "ATTACK" and order.destination == tile)
+        ):
+            return {"army_id": army_id, "purpose": purpose,
+                    "days": march_days(order.remaining, self.movement_config["daily_budget"]), "already_ordered": True}
+        if city is not None:
+            result = self._return_to_city(country, army, city)
+        elif not target and army.tile == tile and order is None:
+            result = {"army_id": army_id, "days": 0}
+        else:
+            _, plan, expedition = self._retask_plan(country, army, tile, target)
+            result = self._order(country, army, plan, purpose, target=target,
+                                 objective=tile if target else None, expedition=expedition)
+        return {**result, "purpose": purpose}
 
     def deploy(self, actor, action):
         country = self.state.countries[actor]
@@ -861,9 +901,12 @@ class Military:
         city = country.reserve_city(army.tile)
         if city is None:
             raise ActionRejected("NO_CITY", "没有可以返回的本国城市")
+        return self._return_to_city(country, army, city)
+
+    def _return_to_city(self, country, army, city):
         if army.tile == city.center:
             return self._store_returned_army(country, army, city)
-        route = self._road(actor, army.tile, city.center, explain=True)
+        route = self._road(country.country_id, army.tile, city.center, explain=True)
         if route["plan"] is None:
             raise ActionRejected(*self._refusal(city.center, route, self.movement_config["maximum_order_cost"]))
         return self._order(country, army, route["plan"], "RETURN", target=city.city_id)

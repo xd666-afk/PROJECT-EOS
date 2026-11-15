@@ -133,3 +133,31 @@ test('tile shows the intent before exposing individual army rows',()=>{
   assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:false}),/宣战/);
   assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:true,strikes:[{army_id:'A1'}]}),/进攻/);
 });
+
+test('the first deployment stays selected for direct map orders until cleared',async()=>{
+  const calls=[],focused=[];
+  const realm={armies:[]};
+  const context={STATE:{player_country:'A',countries:{A:realm}},selectedArmy:null,
+    focusTile:(...coord)=>focused.push(coord),tileStrikeKey:'',tileStrikes:null,
+    showToast(){},poll:async()=>{},
+    fetch:async(_url,options)=>{
+      const {action}=JSON.parse(options.body);
+      calls.push(action);
+      if(action.operation==='DEPLOY')realm.armies.push({army_id:'A1',strength:10,tile:[3,4]});
+      return {json:async()=>({ok:true,result:{effects:{army_id:'A1',purpose:'MARCH'}}})};
+    }};
+  vm.createContext(context);
+  const mapOrder=html.slice(html.indexOf('function selectedOrderArmy('),html.indexOf('function threatSignature('));
+  const submit=html.slice(html.indexOf('async function submitPlayerAction('),html.indexOf('function submitBuild('));
+  vm.runInContext(mapOrder+submit,context);
+  await context.submitPlayerAction({type:'MILITARY',operation:'DEPLOY',slot:1},'派兵成功');
+  assert.equal(context.selectedArmy,'A1');
+  context.commandMapTile(5,6);
+  await vm.runInContext('mapOrderQueue',context);
+  assert.deepEqual(calls[1],{type:'MILITARY',operation:'AUTO_ORDER',army_id:'A1',tile:{col:5,row:6}});
+  context.selectedArmy=null;
+  context.commandMapTile(8,9);
+  await vm.runInContext('mapOrderQueue',context);
+  assert.equal(calls.length,2);
+  assert.deepEqual(focused,[[5,6],[8,9]]);
+});

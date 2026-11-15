@@ -366,6 +366,9 @@ class RuleEngine:
             if operation == "RETASK":
                 tile = action["tile"]
                 return self.military.retask(actor, action["slot"], (tile["col"], tile["row"]), action["target"])
+            if operation == "AUTO_ORDER":
+                tile = action["tile"]
+                return self.military.auto_order(actor, action["army_id"], (tile["col"], tile["row"]))
             if operation == "RETURN":
                 return self.military.return_army(actor, action["army_id"])
             if operation == "RECRUIT":

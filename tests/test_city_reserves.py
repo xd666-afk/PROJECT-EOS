@@ -243,3 +243,45 @@ def test_reinforcements_merge_at_arrival_and_release_their_number(engine):
     assert host.units == {"MILITIA": 12, "ARCHER": 7}
     assert country.reserve_roster() == {"ARCHER": 3}
     assert country.deployment_status(state.config)["slots"][1]["army_id"] is None
+
+
+def test_map_orders_keep_the_same_army_and_choose_attack_station_or_return(engine):
+    state = engine.state
+    country, rival = (state.countries[key] for key in ("ELAR", "MARIS"))
+    capital = country.cities[0]
+    station, enemy_tile, return_tile = [
+        tile for tile in state.world.neighbors(*capital.center) if tile in country.tiles
+    ][:3]
+    home = replace(capital, city_id="ELAR-C2", center=return_tile)
+    country.cities.append(home)
+    country.tiles.remove(enemy_tile)
+    rival.tiles.append(enemy_tile)
+    army = country.new_army(capital.center, {"MILITIA": 30})
+    army.deployment_slot = 1
+
+    def order(tile):
+        return engine.apply_action("ELAR", {
+            "type": "MILITARY", "operation": "AUTO_ORDER", "army_id": army.army_id,
+            "tile": {"col": tile[0], "row": tile[1]},
+        })
+
+    assert order(station).effects["purpose"] == "MARCH"
+    outbound = army.march
+    engine.military.march_daily()
+    spent = outbound.spent
+    assert order(station).effects["already_ordered"]
+    assert army.march is outbound and outbound.spent == spent
+    assert order(enemy_tile).reason_code == "NOT_AT_WAR"
+    assert army.march is outbound
+    country.at_war_with.append("MARIS")
+    start = army.tile
+    assert order(enemy_tile).effects["purpose"] == "ATTACK"
+    assert army.march.route[0] == start and army.march.objective == enemy_tile
+    assert country.deployment_status(state.config)["used"] == 1
+    recalled = order(return_tile)
+    assert recalled.effects["purpose"] == "RETURN"
+    assert army.march.target == home.city_id
+    for _ in range(recalled.effects["days"]):
+        engine.military.march_daily()
+    assert country.find_army(army.army_id) is None
+    assert country.city_reserves[home.city_id] == {"MILITIA": 30}
