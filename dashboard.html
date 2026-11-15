@@ -305,10 +305,12 @@ button.primary:hover{filter:brightness(1.08)}
 .side-reopen.right-open{right:12px}
 .side-reopen button{min-height:30px;padding:2px 8px;font-size:9px;background:#0a202bdc;border:1px solid #3a5864;backdrop-filter:blur(6px)}
 .side-reopen button:hover{color:var(--accent);border-color:var(--accent)}
-.notice-stack{position:absolute;right:14px;bottom:54px;z-index:5;display:flex;flex-direction:column;gap:6px;
-  align-items:flex-end;pointer-events:none;max-width:330px}
-body.right-panel-open .notice-stack{right:354px}
-.notice-bubble{pointer-events:auto;max-width:320px;padding:8px 10px;border:1px solid #3e5d68;border-left:3px solid var(--nc,var(--accent));
+.notice-stack,.diary-bubbles{display:flex;flex-direction:column;gap:6px}
+.detail-notices{flex:none;max-height:32%;min-height:0;overflow:auto;margin-top:auto;
+  padding:2px;pointer-events:auto;scrollbar-width:thin;scrollbar-color:#35525d transparent}
+.detail-notices:not(:has(.notice-bubble,.diary-bubble)){display:none}
+.detail-notices:has(.diary-bubble) .notice-stack:not(:empty){margin-top:6px}
+.notice-bubble{padding:8px 10px;border:1px solid #3e5d68;border-left:3px solid var(--nc,var(--accent));
   border-radius:9px;background:#0a202bf0;backdrop-filter:blur(8px);box-shadow:0 10px 26px #02080caa;
   color:#c3d4d8;font-size:9.5px;line-height:1.5;cursor:pointer;animation:noticeIn .25s ease-out}
 .notice-bubble > b{display:block;color:var(--ink);font-size:10px;font-weight:600;margin-bottom:2px}
@@ -321,9 +323,11 @@ body.right-panel-open .notice-stack{right:354px}
   border:1px solid var(--line);border-radius:11px;box-shadow:0 16px 42px #02080c99;backdrop-filter:blur(10px);
   transition:transform .2s,opacity .2s;overflow:hidden}
 .left{left:12px;top:58px;bottom:54px;width:224px}
-.right{right:12px;top:58px;bottom:54px;width:328px}
+.detail-column{position:absolute;z-index:3;right:12px;top:58px;bottom:54px;width:328px;
+  min-height:0;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.right{position:relative;flex:1 1 auto;width:100%;pointer-events:auto}
 .left.collapsed{transform:translateX(calc(-100% - 18px));opacity:0;pointer-events:none}
-.right.collapsed{transform:translateX(calc(100% + 18px));opacity:0;pointer-events:none}
+.right.collapsed{display:none}
 .side-head{display:flex;justify-content:space-between;align-items:center;gap:6px;padding:7px 9px;
   border-bottom:1px solid var(--line);color:var(--accent);font-size:9px;letter-spacing:.7px;text-transform:uppercase;flex:none}
 .side-head button{min-height:24px;padding:1px 6px;font-size:8.5px;border-radius:5px}
@@ -556,22 +560,15 @@ body.right-panel-open .notice-stack{right:354px}
 .ai-advanced{border-top:1px solid var(--line);padding-top:6px;margin-top:4px}
 .ai-advanced summary{cursor:pointer;color:var(--muted);font-size:10px;margin-bottom:6px}
 .ai-advanced summary:hover{color:var(--ink)}
-.diary-bubbles{position:absolute;inset:0;pointer-events:none;z-index:6}
-.diary-bubble{position:absolute;transform:translate(-50%,-100%);max-width:240px;min-width:188px;
+.diary-bubble{position:relative;min-width:0;
   padding:9px 11px 8px;border:1px solid var(--c);border-left:3px solid var(--c);border-radius:12px;
   background:linear-gradient(160deg,#102832f5,#091b22f5);box-shadow:0 8px 24px #02080c99;
-  pointer-events:auto;cursor:pointer;opacity:0;transition:opacity .35s,transform .22s,max-width .2s;
+  cursor:pointer;opacity:0;transition:opacity .35s,transform .22s;
   backdrop-filter:blur(6px)}
 .diary-bubble.show{opacity:1}
-.diary-bubble::after{content:"";position:absolute;left:calc(50% + var(--tail,0px));bottom:-6px;width:10px;height:10px;
-  background:#0b1f27;border-right:1px solid var(--c);border-bottom:1px solid var(--c);transform:translateX(-50%) rotate(45deg)}
-.diary-bubble.below{transform:translate(-50%,0)}
-.diary-bubble.below::after{top:-6px;bottom:auto;border:0;border-left:1px solid var(--c);border-top:1px solid var(--c)}
 .diary-bubble.highlight{animation:diaryPulse 1.5s ease-in-out infinite}
-.diary-bubble.fading{opacity:0;transform:translate(-50%,-100%) translateY(-8px)}
-.diary-bubble.below.fading{transform:translate(-50%,0) translateY(8px)}
-.diary-bubble.expanded{max-width:360px;width:360px;max-height:calc(100vh - 140px);overflow:auto;z-index:9;cursor:default;border-left-width:4px}
-.diary-bubble.expanded::after{display:none}
+.diary-bubble.fading{opacity:0;transform:translateY(6px)}
+.diary-bubble.expanded{cursor:default;border-left-width:4px}
 .diary-bubble:not(.expanded):hover{border-color:var(--c);box-shadow:0 10px 30px #02080ccc,0 0 0 1px color-mix(in srgb,var(--c) 45%,transparent)}
 .db-head{display:flex;gap:7px;align-items:center;padding-right:14px}
 .db-mood{font-size:8px;color:var(--c);border:1px solid color-mix(in srgb,var(--c) 55%,transparent);border-radius:20px;padding:1px 6px;white-space:nowrap}
@@ -606,7 +603,7 @@ body.right-panel-open .notice-stack{right:354px}
   .res{min-width:78px}
 }
 @media(max-width:1120px){
-  .left{width:202px}.right{width:300px}
+  .left{width:202px}.detail-column{width:300px}
   .res{min-width:66px}
 }
 @media(max-width:920px){
@@ -620,12 +617,11 @@ body.right-panel-open .notice-stack{right:354px}
   .power{grid-column:1/-1;justify-content:flex-start;order:3}
   .workspace{display:block}
   .left{left:8px;top:56px;bottom:auto;width:min(240px,72vw);max-height:46vh}
-  .right{right:8px;top:56px;bottom:auto;width:min(320px,86vw);max-height:62vh}
+  .detail-column{right:8px;top:56px;width:min(320px,86vw);max-height:62vh}
   .mapwrap{position:absolute;inset:0}
   .modal{left:0;top:0;bottom:56px}
   .pause-menu{left:0;bottom:56px}
   .modal-card{padding:16px 14px 38px}
-  body.right-panel-open .notice-stack{right:50%;transform:translateX(50%);bottom:58px}
 }
 @media(max-width:560px){
   .topbar{grid-template-columns:1fr}
@@ -638,7 +634,7 @@ body.right-panel-open .notice-stack{right:354px}
   .layer-note{display:none}
   .ticker{display:none}
   .tabs button{font-size:9px}
-  .left,.right{max-height:50vh}
+  .left,.detail-column{max-height:50vh}
 }
 
 /* 军事工作台与地图并排；原地块卡只有一份，开关面板时移动而非复制。 */
@@ -778,8 +774,6 @@ body.military-open #toggleLeft,body.military-open #toggleRight{display:none!impo
     </aside>
     <section class="mapwrap">
       <canvas id="map"></canvas>
-      <div class="diary-bubbles" id="diaryBubbles"></div>
-      <div class="notice-stack" id="noticeStack"></div>
       <div class="side-reopen left-open" id="leftReopen" hidden><button id="reopenLeft">列国</button></div>
       <div class="side-reopen right-open" id="rightReopen" hidden><button id="reopenRight">详情</button></div>
       <div class="map-toolbar">
@@ -802,19 +796,25 @@ body.military-open #toggleLeft,body.military-open #toggleRight{display:none!impo
       <div class="hover-card" id="hoverCard"></div>
       <div class="toast" id="toast"></div>
     </section>
-    <aside class="right" id="worldRight">
-      <div class="side-head"><span>详情检视</span><button id="collapseRight">收起</button></div>
-      <div class="tabs">
-        <button data-tab="country">国家</button>
-        <button data-tab="tile">地块</button>
-        <button data-tab="ranking">排名</button>
-      </div>
-      <div class="scroll">
-        <div class="panel" id="panel-country"></div>
-        <div class="panel" id="panel-tile"></div>
-        <div class="panel" id="panel-ranking"></div>
-      </div>
-    </aside>
+    <div class="detail-column">
+      <aside class="right" id="worldRight">
+        <div class="side-head"><span>详情检视</span><button id="collapseRight">收起</button></div>
+        <div class="tabs">
+          <button data-tab="country">国家</button>
+          <button data-tab="tile">地块</button>
+          <button data-tab="ranking">排名</button>
+        </div>
+        <div class="scroll">
+          <div class="panel" id="panel-country"></div>
+          <div class="panel" id="panel-tile"></div>
+          <div class="panel" id="panel-ranking"></div>
+        </div>
+      </aside>
+      <section class="detail-notices" aria-label="通知">
+        <div class="diary-bubbles" id="diaryBubbles"></div>
+        <div class="notice-stack" id="noticeStack"></div>
+      </section>
+    </div>
   </main>
 </div>
 <div class="end-modal" id="endModal" hidden>
@@ -946,7 +946,7 @@ body.military-open #toggleLeft,body.military-open #toggleRight{display:none!impo
 <div class="modal" id="notifyModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><div class="deck-crumb">指挥台 / 动态</div><h2>通知中心</h2><p>世界事件与在建工程。重要变化会同时以地图气泡提示，不需要常驻占用主界面。</p></div>
+      <div><div class="deck-crumb">指挥台 / 动态</div><h2>通知中心</h2><p>世界事件与在建工程。重要变化也会在详情下方显示。</p></div>
       <div class="deck-head-actions"><button id="notifyCloseBtn">返回世界</button></div>
     </div>
     <div class="deck-tabs" id="notifyTabs">
@@ -996,7 +996,7 @@ body.military-open #toggleLeft,body.military-open #toggleRight{display:none!impo
 <div class="modal" id="diaryModal" hidden>
   <div class="modal-card">
     <div class="modal-head">
-      <div><div class="deck-crumb">指挥台 / AI / 统治档案</div><h2>AI 统治档案</h2><p>决策会先以地图气泡出现；这里保留已经淡出或关闭的 LLM 日记，随时回看它看到了什么、为什么这样做、下一步准备做什么。</p></div>
+      <div><div class="deck-crumb">指挥台 / AI / 统治档案</div><h2>AI 统治档案</h2><p>决策会先显示在详情下方。这里保留已淡出或关闭的日记，可回看决策理由和后续计划。</p></div>
       <div class="deck-head-actions"><button id="diaryClose">返回世界</button></div>
     </div>
     <div class="deck-tabs" id="diaryTabs">
@@ -1748,7 +1748,6 @@ function render(force=false){
     ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
   }
   ctx.restore();
-  positionDiaryBubbles();
 }
 function updateMapLegend(){
   const items={
@@ -2888,7 +2887,7 @@ function renderDiary(data){
     :'当前由规则 AI 控制，不生成日记';
   if(!entries.length){
     $('diaryList').innerHTML=`<div class="mini-empty">${meta.mode==='openai_compatible'
-      ?'等待下一次 90 日规划。新的日记会先以地图气泡高亮出现，淡出或关闭后归档在这里。'
+      ?'等待下一次 90 日规划。新的日记会先出现在详情下方的通知区，淡出或关闭后归档在这里。'
       :'规则 AI 不写日记；可在 AI 席位把该国切换为 OpenAI 兼容模型，从下一次规划开始记录。'}</div>`;
     return;
   }
@@ -2946,7 +2945,6 @@ function createDiaryBubble(event){
   $('diaryBubbles').appendChild(el);
   const bubble={event,el,key,phase:'highlight',hovered:false,pinned:false,expanded:false,timers:{}};
   diaryBubbles.set(key,bubble);
-  positionDiaryBubbles();
   requestAnimationFrame(()=>el.classList.add('show'));
   el.addEventListener('mouseenter',()=>{
     bubble.hovered=true;
@@ -2966,7 +2964,6 @@ function createDiaryBubble(event){
     clearDiaryTimers(bubble);
     bubble.el.classList.remove('highlight','fading');
     bubble.el.classList.add('steady','expanded');
-    positionDiaryBubbles();
   });
   armDiaryTimeline(bubble);
 }
@@ -2998,30 +2995,12 @@ function removeDiaryBubble(bubble,drain=true){
   diaryBubbles.delete(bubble.key);
   if(drain)drainDiaryQueue();
 }
-function positionDiaryBubbles(){
-  if(!WORLD||!STATE)return;
-  const w=mapPanel.clientWidth,h=mapPanel.clientHeight,scale=fitScale*zoom;
-  for(const bubble of diaryBubbles.values()){
-    const capital=countryMeta(bubble.event.country_id)?.capital;
-    if(!capital)continue;
-    const anchorX=baseOffX+panX+cx([capital.col,capital.row])*scale;
-    const anchorY=baseOffY+panY+cy([capital.col,capital.row])*scale;
-    const below=anchorY<150;
-    const margin=Math.min(bubble.expanded?190:135,w/2-8);
-    const x=Math.max(margin,Math.min(w-margin,anchorX));
-    const y=Math.max(55,Math.min(h-55,anchorY));
-    bubble.el.style.left=x+'px';
-    bubble.el.style.top=(below?y+18:y-18)+'px';
-    bubble.el.classList.toggle('below',below);
-    bubble.el.style.setProperty('--tail',Math.max(-65,Math.min(65,anchorX-x))+'px');
-  }
-}
 function syncDiaryBubbles(){
   if(!STATE||!WORLD)return;
   const events=(STATE.recent_events||[]).filter(e=>e.type==='ruler_message');
   if(!diaryInitialized){
     for(const event of events)diarySeen.add(diaryEventKey(event));
-    diaryInitialized=true;positionDiaryBubbles();return;
+    diaryInitialized=true;return;
   }
   for(const event of events){
     const key=diaryEventKey(event);
@@ -3200,7 +3179,6 @@ function setSidePanel(side,open){
   const reopen=side==='left'?$('leftReopen'):$('rightReopen');
   const toggle=side==='left'?$('toggleLeft'):$('toggleRight');
   panel.classList.toggle('collapsed',!open);
-  if(side==='right')document.body.classList.toggle('right-panel-open',open);
   reopen.hidden=open;toggle.classList.toggle('on',open);
 }
 for(const [id,side] of [['collapseLeft','left'],['collapseRight','right'],['toggleLeft','left'],['toggleRight','right']]){
