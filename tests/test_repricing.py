@@ -28,6 +28,10 @@ def test_twenty_camps_can_be_built_and_enabled(engine):
     engine.military.sync_barracks()
     for tile in candidates:
         army = next(a for a in realm.armies if a.tile == tile)
+        assert not army.recruiting
+        selected = engine.apply_action("ELAR", {"type": "MILITARY", "operation": "SET_RECRUIT_UNIT",
+                                       "army_id": army.army_id, "unit": "MILITIA"})
+        assert selected.accepted, (selected.reason_code, selected.reason_text)
         result = engine.apply_action("ELAR", {"type": "MILITARY", "operation": "SET_RECRUITING",
                                      "army_id": army.army_id, "recruiting": True})
         assert result.accepted, (result.reason_code, result.reason_text)

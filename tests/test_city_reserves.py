@@ -16,7 +16,31 @@ def test_training_stock_and_save_round_trip(engine):
     country.buildings[city.center] = "BARRACKS"
     military.sync_barracks()
     camp = next(army for army in country.armies if army.tile == city.center)
-    camp.recruiting = True
+    country.buildings[next(tile for tile in country.tiles if tile != city.center)] = "BARRACKS"
+    military.sync_barracks()
+    assert all(not army.recruiting for army in country.armies)
+    toggle = {"type": "MILITARY", "operation": "SET_RECRUITING",
+              "army_id": camp.army_id, "recruiting": True}
+    treasury = country.treasury
+    assert engine.apply_action("ELAR", toggle).reason_code == "RECRUIT_UNIT_REQUIRED"
+    military.barracks_daily()
+    assert country.treasury == treasury and camp.progress == 0
+
+    selected = engine.apply_action("ELAR", {
+        "type": "MILITARY", "operation": "SET_RECRUIT_UNIT", "army_id": camp.army_id,
+        "unit": "MILITIA",
+    })
+    assert selected.accepted and not camp.recruiting
+    military.barracks_daily()
+    assert country.treasury == treasury and camp.progress == 0
+    assert engine.apply_action("ELAR", toggle).accepted
+    military.barracks_daily()
+    assert camp.progress == 1.0 and country.treasury < treasury
+    assert engine.apply_action("ELAR", {**toggle, "recruiting": False}).accepted
+    treasury = country.treasury
+    military.barracks_daily()
+    assert camp.progress == 1.0 and country.treasury == treasury
+    assert engine.apply_action("ELAR", toggle).accepted
     camp.progress = 259
     military.barracks_daily()
     assert camp.units == {}

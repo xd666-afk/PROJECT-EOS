@@ -419,14 +419,7 @@ class Military:
                 if building != "BARRACKS":
                     continue
                 if coord not in garrisoned:
-                    country.new_army(tile=coord, recruiting=True,
-                                     preferred_unit=self.barracks["default_unit"] if reserve_dispatch else None)
-                elif reserve_dispatch:
-                    camp = camp_garrison(country, coord, self.state.config)
-                    if camp.preferred_unit is None:
-                        camp.preferred_unit = self.barracks["default_unit"]
-                        if camp.progress == 0 and not camp.raised:
-                            camp.recruiting = True
+                    country.new_army(tile=coord, recruiting=not reserve_dispatch)
 
     def barracks_daily(self) -> None:
         """All completed camps train one staffed army at the same time."""
@@ -1741,10 +1734,13 @@ class Military:
         if army is None:
             raise ActionRejected("NO_ARMY", "国家还没有军队可以下令")
         if recruiting:
+            reserve_dispatch = bool(self.config.get("deployment_levels"))
             if country.buildings.get(army.tile) != "BARRACKS" or (
-                self.config.get("deployment_levels") and army.strength
+                reserve_dispatch and army.strength
             ):
                 raise ActionRejected("NO_BARRACKS", "这支军队没有驻在本国兵营上，募兵开关只对有兵营的军队有效")
+            if reserve_dispatch and army.preferred_unit is None:
+                raise ActionRejected("RECRUIT_UNIT_REQUIRED", "请先设置训练兵种，再开始招募")
             rival = next(
                 (other for other in country.armies
                  if other is not army and other.recruiting and other.tile == army.tile),

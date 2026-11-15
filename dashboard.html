@@ -2025,12 +2025,12 @@ function tileSiegeCard(price){
   </div>`;
 }
 function campUnitRow(option,report,isPlayer){
-  const on=option.unit===report.unit;
+  const on=option.unit===(report.preferred||(report.recruiting?report.unit:null));
   return `<div class="camp-row${on?' on':''}">
     <div><b>${esc(option.label)}${on?' · 练兵目标':''}</b>
       <small>${fmtNum(option.power,2)} 攻 · ${fmtNum(option.defense,2)} 防 · ${fmtNum(option.upkeep,3)} 粮/日 · 全国守军 ${option.have}</small>
       <small class="mut">${esc(option.reason)}</small></div>
-    ${isPlayer?`<button data-camp-target="${esc(option.unit)}" data-army="${esc(report.army_id||'')}" ${report.army_id?'':'disabled'}>${on?'已设为目标':'设为练兵目标'}</button>`:''}</div>`;
+    ${isPlayer?`<button data-camp-target="${esc(option.unit)}" data-army="${esc(report.army_id||'')}" ${report.army_id&&option.unlocked&&!on?'':'disabled'}>${on?'已选兵种':'选此兵种'}</button>`:''}</div>`;
 }
 function barracksPanel(report,options,isPlayer){
   if(!report)return '';
@@ -2038,16 +2038,16 @@ function barracksPanel(report,options,isPlayer){
   const pct=price>0?Math.max(0,Math.min(100,progress/price*100)):(report.recruiting?100:0);
   const list=options||[],target=list.find(o=>o.unit===report.unit)||null;
   const batch=Number(target?.batch)||0;
-  const stalled=!!report.stall;
+  const stalled=report.recruiting&&!!report.stall;
   const where=`(${report.tile[0]},${report.tile[1]})`;
   return `<div class="camp-card">
     <div class="camp-head">
       <div><b>兵营 ${where}</b>
         <small>${report.army_id
-          ?`训练「${esc(report.label)}」· 已练成 ${report.raised} 支`
+          ?report.preferred||report.recruiting?`「${esc(report.label)}」· 已练成 ${report.raised} 支`:'请先选择训练兵种'
           : '兵营正在准备训练'}${report.reserve_city?' · 送往 '+esc(report.reserve_city):''}</small></div>
       ${isPlayer&&report.army_id
-        ?`<button data-camp-toggle="${esc(report.army_id)}" data-on="${report.recruiting?0:1}">${report.recruiting?'停募':'开募'}</button>`:''}</div>
+        ?`<button data-camp-toggle="${esc(report.army_id)}" data-on="${report.recruiting?0:1}" ${report.recruiting||report.preferred?'':'disabled'}>${report.recruiting?'暂停招募':'开始招募'}</button>`:''}</div>
     ${report.last_dispatch?`<div class="camp-note">${esc(report.last_dispatch.army_id)} 派兵 ${Object.values(report.last_dispatch.units).reduce((a,b)=>a+b,0)} 支，原地留 ${report.last_dispatch.remaining} 支，原募兵进度 ${fmtNum(report.last_dispatch.progress,1)}。</div>`:""}
     ${stalled?`<div class="camp-note">${esc(report.stall_label||report.stall)}</div>`:''}
     <div style="padding:6px 8px;border-bottom:1px solid #1f3843">
@@ -2055,7 +2055,7 @@ function barracksPanel(report,options,isPlayer){
         <b>${fmtNum(progress,1)} / ${fmtNum(price,1)} 点</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="split"><span>${stalled?'出兵':'下一支新兵'}</span>
-        <b>${stalled?'本回合停摆':(report.days_left==null?'即将练成':`约 ${report.days_left} 日练成`)}</b></div>
+        <b>${!report.recruiting?'未开始或已暂停':stalled?'本回合停摆':`约 ${report.days_left} 日练成`}</b></div>
       <div class="split"><span>目的地已有该兵种</span><b>${report.strength} 支</b></div>
     </div>
     <div class="camp-list">${list.map(o=>campUnitRow(o,report,isPlayer)).join('')}</div>
@@ -2079,7 +2079,7 @@ function bindCampControls(){
     submitPlayerAction({type:'MILITARY',operation:'SET_RECRUIT_UNIT',army_id:b.dataset.army,unit:b.dataset.campTarget},'练兵目标已设定').then(refresh);
   };
   for(const b of document.querySelectorAll('[data-camp-toggle]'))b.onclick=()=>
-    submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.campToggle,recruiting:b.dataset.on==='1'},'募兵开关已更新').then(refresh);
+    submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.campToggle,recruiting:b.dataset.on==='1'},b.dataset.on==='1'?'已开始招募':'已暂停招募').then(refresh);
   for(const b of document.querySelectorAll('[data-camp-recruit]'))b.onclick=()=>
     submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.unit,strength:Number(b.dataset.size),army_id:b.dataset.campRecruit},'募兵令已下达').then(refresh);
 }
@@ -4617,7 +4617,7 @@ function renderMilitary(){
     <div class="mil-card" data-mil-sect="barracks"><h3>兵营募兵</h3>
       <div class="mil-stat"><span>参与训练的兵营</span><b>${camps} 座</b></div>
       <div class="mil-stat"><span>每日军饷 / 停摆兵营</span><b>${fmtNum(bar.daily_cost,2)} 财政每营 · ${campStalled} 座停摆</b></div>
-      ${campRows||`<div class="hint">建成兵营后自动训练新兵。</div>`}
+      ${campRows||`<div class="hint">建成兵营后，选好兵种再点「开始招募」。</div>`}
       <div class="hint">各营独立训练，练成后自动送往最近的本国城市驻守。</div>
     </div>
     <div class="mil-card" data-mil-sect="war"><h3>边警 · 敌军正开向我国</h3>

@@ -68,6 +68,19 @@ test('military dock retains all existing advanced commands',()=>{
   assert.ok(html.includes('data-building="WALL"'));
 });
 
+test('barracks need a selected troop before recruitment can start',()=>{
+  const context={esc:x=>x,fmtNum:x=>x};
+  vm.createContext(context);
+  vm.runInContext(html.slice(html.indexOf('function campUnitRow('),html.indexOf('function tileBarracksCard(')),context);
+  const report={tile:[2,3],army_id:'A1',unit:'MILITIA',price:260,wage:0.01,
+    strength:0,label:'民兵',raised:0,stall:'PAUSED'};
+  const options=[{unit:'MILITIA',label:'民兵',unlocked:true}];
+  const stopped=context.barracksPanel(report,options,true);
+  assert.match(stopped,/请先选择训练兵种/);
+  assert.match(stopped,/data-on="1" disabled>开始招募/);
+  assert.match(context.barracksPanel({...report,preferred:'MILITIA'},options,true),/data-on="1" >开始招募/);
+  assert.match(context.barracksPanel({...report,recruiting:true,stall:'',days_left:200},options,true),/暂停招募/);
+});
 
 test('attack can be confirmed while the route quote is still pending',async()=>{
   const elements=new Map(),orders=[],requests=[];

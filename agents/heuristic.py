@@ -296,8 +296,10 @@ class HeuristicAgent(CountryAgent):
             rows = []
             for camp in country.get("barracks", []):
                 if camp["army_id"] and not camp["recruiting"]:
-                    rows.append({"type": "MILITARY", "operation": "SET_RECRUITING",
-                                 "army_id": camp["army_id"], "recruiting": True})
+                    action = {"type": "MILITARY", "army_id": camp["army_id"]}
+                    if camp["preferred"] is None:
+                        rows.append({**action, "operation": "SET_RECRUIT_UNIT", "unit": camp["unit"]})
+                    rows.append({**action, "operation": "SET_RECRUITING", "recruiting": True})
             return rows
         eligible = [army for army in country.get("armies", [])
                     if army["barracks"] and army["strength"] and not army.get("march")]
