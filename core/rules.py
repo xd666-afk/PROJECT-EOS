@@ -363,6 +363,9 @@ class RuleEngine:
             operation = action["operation"]
             if operation == "DEPLOY":
                 return self.military.deploy(actor, action)
+            if operation == "RETASK":
+                tile = action["tile"]
+                return self.military.retask(actor, action["slot"], (tile["col"], tile["row"]), action["target"])
             if operation == "RETURN":
                 return self.military.return_army(actor, action["army_id"])
             if operation == "RECRUIT":

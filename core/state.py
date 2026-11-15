@@ -911,6 +911,13 @@ class CountryState:
                           for number in range(1, len(levels) + 2)],
                 "next_level": next((threshold for threshold in levels if level < threshold), None)}
 
+    def reserve_roster(self) -> dict[str, int]:
+        roster: dict[str, int] = {}
+        for stock in self.city_reserves.values():
+            for unit, count in stock.items():
+                roster[unit] = roster.get(unit, 0) + count
+        return roster
+
     def deployed_slots(self) -> dict[int, ArmyState]:
         active = [army for army in self.armies if army.strength]
         slots = {army.deployment_slot: army for army in active if army.deployment_slot is not None}
@@ -1422,6 +1429,7 @@ class GameState:
                     "stability_factor": round(stability_factor(country.stability, self.config), 4),
                     "army_strength": country.army_strength,
                     "deployment": country.deployment_status(self.config),
+                    "reserve_units": country.reserve_roster(),
                     "army_tombstones": dict(country.army_tombstones),
                     "army_units": dict(country.army_units),
                     "army_power": round(roster_value(country.army_units, self.config), 3),
@@ -1546,6 +1554,8 @@ class GameState:
         # Merge newly introduced rule fields into older saves without discarding saved tuning.
         default_config = json.loads(DEFAULT_RULES.read_text(encoding="utf-8"))
         state.config = _merge_defaults(default_config, data["rules"])
+        if not data["rules"].get("slow_march", False):
+            state.config["movement"]["daily_budget"] = default_config["movement"]["daily_budget"]
         saved_military = data["rules"]["military"]
         migrate_personnel = "soldiers_per_unit" not in saved_military
         if migrate_personnel:

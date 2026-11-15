@@ -796,6 +796,8 @@ class LiveSession:
                 return {"ok": False, "error": "当前为观战模式，请先介入一个国家"}
             if actor != self.player_country:
                 return {"ok": False, "error": "只能为自己接管的国家下达动作"}
+            if isinstance(action, dict) and action.get("type") == "MILITARY" and action.get("operation") == "RECRUIT":
+                return {"ok": False, "error": "请在兵营选好兵种并开始招募，训练完成后即可派兵"}
             if (
                 isinstance(action, dict)
                 and action.get("type") == "SET_CITY_GOVERNANCE"
@@ -818,14 +820,17 @@ class LiveSession:
 
         return march_preview(draft, self.rules, start, target)
 
-    def deployment_preview(self, city, col, row, target):
+    def deployment_preview(self, city, col, row, target, *, slot=None, host_id=None):
         with self.lock:
             actor = self.seat()
             if actor is None:
                 return {"ok": False, "error": "请先接管一个国家"}
             military = Military(self.simulation.state)
             try:
-                _, plan, _ = military.deployment_plan(actor, city, (col, row), target)
+                if slot is not None:
+                    _, plan, _ = military.retask_plan(actor, slot, (col, row), target)
+                else:
+                    _, plan, _ = military.national_deployment_plan(actor, (col, row), target, city, host_id)
             except ActionRejected as error:
                 return {"ok": False, "error": error.text, "code": error.code}
             return {"ok": True, "days": plan["days"], "cost": plan["cost"]}
@@ -1095,11 +1100,13 @@ class Handler(BaseHTTPRequestHandler):
             try:
                 col = int(params.get("col", [""])[0])
                 row = int(params.get("row", [""])[0])
+                slot = int(params["slot"][0]) if "slot" in params else None
             except ValueError:
                 self._json({"ok": False, "error": "col、row 必须是整数"}, 400)
                 return
             self._json(self.session.deployment_preview(
-                params.get("city", [""])[0], col, row, params.get("target", [None])[0]))
+                params.get("city", [""])[0], col, row, params.get("target", [None])[0],
+                slot=slot, host_id=params.get("host", [None])[0]))
         elif path == "/api/tile_strikes":
             params = parse_qs(urlparse(self.path).query)
             try:

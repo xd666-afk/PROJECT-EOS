@@ -1,5 +1,6 @@
 {
   "rules_version": "0.3.0",
+  "slow_march": true,
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,
@@ -775,7 +776,7 @@
     "loser_loss_rate": 0.42
   },
   "movement": {
-    "daily_budget": 0.75,
+    "daily_budget": 0.20,
     "road_cost": 0.35,
     "hostile_cost": 1.25,
     "maximum_order_cost": 60.0,

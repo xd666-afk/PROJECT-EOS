@@ -70,12 +70,12 @@ def test_military_panel_reads_unit_specs_instead_of_hardcoding():
     assert '"unit_specs": self.simulation.state.config["units"]' in LIVE_SERVER
     assert '"military_specs": self.simulation.state.config["military"]' in LIVE_SERVER
     assert "const specs=STATE.unit_specs||{}" in DASHBOARD
-    assert 'data-recruit="${id}"' in DASHBOARD
+    assert 'data-recruit="${id}"' not in DASHBOARD
     assert ".unit-table" in DASHBOARD
 
 
 def test_recruit_button_sends_the_unit_type():
-    assert "operation:'RECRUIT',unit:b.dataset.recruit,strength:Number(b.dataset.size)" in DASHBOARD
+    assert "operation:'SET_RECRUIT_UNIT',army_id:b.dataset.army,unit:b.dataset.campTarget" in DASHBOARD
     assert "unitLossText(e.attacker_units)" in DASHBOARD
     assert "unitName(e.unit)" in DASHBOARD
 
@@ -126,7 +126,7 @@ def test_military_panel_lists_armies_instead_of_one_implicit_host_army():
 def test_march_and_attack_orders_choose_the_army_and_queue_instead_of_teleporting():
     assert "operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]},army_id:selectedArmy" in DASHBOARD
     assert "operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy" in DASHBOARD
-    assert "operation:'RECRUIT',unit:b.dataset.recruit,strength:Number(b.dataset.size),army_id:selectedArmy" in DASHBOARD
+    assert "operation:active?'RETASK':'DEPLOY'" in DASHBOARD
     assert "'行军令已下达'" in DASHBOARD
     assert "军队已行军" not in DASHBOARD
 

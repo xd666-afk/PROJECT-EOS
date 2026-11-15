@@ -5,29 +5,6 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const html=fs.readFileSync(path.join(__dirname,'..','dashboard.html'),'utf8');
-const quoteSource=html.slice(html.indexOf('function militaryRecruitQuote('),html.indexOf('function renderMilitaryCommand('));
-function setup(){
-  const c={treasury:40,food:100};
-  const option={unlocked:true,room:12,cost_treasury:12.5,cost_food:3,reason:'财政不足'};
-  const context={STATE:{military_specs:{recruit_batch_max:4,barracks:{garrison_capacity:4}}}};
-  vm.createContext(context);vm.runInContext(quoteSource,context);
-  return {c,option,quote:context.militaryRecruitQuote};
-}
-test('a player who cannot afford four units can still recruit one',()=>{
-  const {c,option,quote}=setup();
-  assert.equal(quote(c,null,option,1).enabled,true);
-  assert.equal(quote(c,null,option,4).enabled,false);
-  assert.equal(quote(c,null,option,4).cost,50);
-  assert.equal(quote(c,null,option,4).food,12);
-});
-test('technology, national roster, camp capacity and food gates remain visible',()=>{
-  const {c,option,quote}=setup();
-  assert.equal(quote(c,null,{...option,unlocked:false,reason:'需要科技'},1).reason,'需要科技');
-  assert.equal(quote(c,null,{...option,room:0},1).enabled,false);
-  assert.equal(quote(c,{tile_room:0},option,1).reason,'驻格容量不足');
-  assert.equal(quote({...c,food:2},null,option,1).reason,'粮食不足');
-  assert.equal(quote(c,{barracks:false,strength:4},option,1).enabled,true);
-});
 function dock(paused){
   function parent(){return {appendChild(node){node.parentNode=this;}};}
   const home=parent(),host=parent();
@@ -98,9 +75,11 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   const get=id=>{if(!elements.has(id))elements.set(id,node());return elements.get(id);};
   const context={$:get,document:{createElement:node},URLSearchParams,AbortController,
     Option:function(text,value){this.text=text;this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,fmtNum:x=>x,
+    numberedArmy:n=>['第一支军队','第二支军队','第三支军队'][n-1],selectedArmy:null,
     tileEnemyCamps:()=>[],STATE:{player_country:'A',countries:{A:{deployment:{used:1,limit:2,slots:[
       {number:1,unlocked:true,army_id:'A1'},{number:2,unlocked:true},{number:3,unlocked:false}]},
-      cities:[{city_id:'C',name:'City',center:[0,0],reserve_units:{MILITIA:120,ARCHER:4}}]}}},
+      reserve_units:{MILITIA:120,ARCHER:4},
+      armies:[{army_id:'A1',tile:[6,7],units:{MILITIA:40}}]}}},
     fetch:url=>{requests.push(url);return quote;},
     submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return true;}};
   vm.createContext(context);
@@ -110,7 +89,7 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   assert.match(get('tileDispatchPreview').textContent,/正在计算/);
   const menu=get('tileDispatchRows').children[0].children[1];
   assert.deepEqual(menu.options.map(option=>[option.text,option.disabled]),[
-    ['第1支军队 · 已派出',true],['第2支军队',false],['第3支军队 · 未解锁',true]]);
+    ['第一支军队 · 已出征',false],['第二支军队',false],['第三支军队 · 未解锁',true]]);
   const sliders=get('tileDispatchRows').children.at(-1);
   assert.deepEqual(sliders.querySelectorAll('input').map(i=>i.max),['120','4','0','0','0']);
   sliders.inputs={MILITIA:{name:'MILITIA',max:'120',value:'100',nextElementSibling:{}}};
@@ -123,14 +102,23 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
   assert.equal(orders[0].target,'B');
   assert.equal(orders[0].slot,2);
   assert.equal(orders[0].units.MILITIA,100);
+  assert.equal('city_id' in orders[0],false);
   assert.equal(get('tileDispatchDialog').open,false);
   resolveQuote({ok:true,json:async()=>({ok:true,days:4,cost:3})});
   await new Promise(setImmediate);
   assert.doesNotMatch(get('tileDispatchPreview').textContent,/行军成本/);
+  context.selectedArmy='A1';
+  context.openTileDispatch('attack',{col:3,row:3,owner:'B'});
+  assert.equal(get('tileDispatchRows').children[0].children[1].value,'1');
+  assert.match(get('tileDispatchRows').children.at(-1).innerHTML,/max="40" step="1" value="40" disabled/);
+  assert.match(requests.at(-1),/slot=1/);
+  await get('tileDispatchConfirm').onclick();
+  assert.equal(orders[1].operation,'RETASK');
+  assert.equal('units' in orders[1],false);
 });
 
 test('tile shows the intent before exposing individual army rows',()=>{
-  const context={STATE:{player_country:'A'},tileGarrisonAt:()=>[],countryMeta:id=>({name:id}),esc:x=>x};
+  const context={STATE:{player_country:'A',countries:{A:{deployment:{slots:[{unlocked:true}]}}}},tileGarrisonAt:()=>[],countryMeta:id=>({name:id}),esc:x=>x};
   vm.createContext(context);
   const march=html.slice(html.indexOf('function tileMarchCard('),html.indexOf('function tileFieldCard('));
   const attack=html.slice(html.indexOf('function tileStrikeCard('),html.indexOf('function hostilePaceText('));
@@ -141,6 +129,7 @@ test('tile shows the intent before exposing individual army rows',()=>{
   assert.doesNotMatch(context.tileMarchCard(tile,pricing),/A1|6 日/);
   context.tileGarrisonAt=()=>[{army_id:'A1',country_id:'A',strength:3}];
   assert.match(context.tileMarchCard(tile,pricing),/撤回城内/);
+  assert.match(context.tileMarchCard(tile,pricing),/增加援军/);
   assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:false}),/宣战/);
   assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:true,strikes:[{army_id:'A1'}]}),/进攻/);
 });

@@ -1,4 +1,5 @@
 import json
+from dataclasses import replace
 
 from core.state import CountryState, GameState, barracks_report
 from live_server import LiveSession
@@ -129,13 +130,20 @@ def test_live_preview_picks_same_route_as_dispatch(monkeypatch, tmp_path, reques
     tile = next(tile for tile in state.world.neighbors(*city.center) if tile in country.tiles)
     snapshot = session.snapshot(lightweight=True)
     assert session.snapshot(lightweight=True, since=snapshot["revision"])["unchanged"]
-    bought = session.player_action("ELAR", {
+    blocked = session.player_action("ELAR", {
         "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 1,
     })
-    assert bought["ok"] and bought["result"]["effects"]["soldiers"] == 10
+    assert not blocked["ok"] and not country.reserve_roster()
+    camp = country.find_army(country.armies[0].army_id)
+    country.buildings[city.center] = "BARRACKS"
+    camp.preferred_unit = "MILITIA"
+    camp.recruiting = True
+    camp.progress = 259
+    session.simulation.engine.military.barracks_daily()
     fresh = session.snapshot(lightweight=True, since=snapshot["revision"])
     assert fresh["day"] == snapshot["day"]
     assert fresh["countries"]["ELAR"]["cities"][0]["reserve_units"] == {"MILITIA": 10}
+    assert fresh["countries"]["ELAR"]["reserve_units"] == {"MILITIA": 10}
     preview = session.deployment_preview(city.city_id, *tile, None)
     assert preview["ok"], preview
     action = {"type": "MILITARY", "operation": "DEPLOY", "city_id": city.city_id,
@@ -180,3 +188,58 @@ def test_foreign_combat_factor_uses_battlefield_owner(engine):
     result = engine.military._battle(attacker, defender, army, home, True, capture_ground=False)
     assert result["attacker_territory_factor"] == 1.0
     assert result["defender_territory_factor"] == 0.8
+
+
+def test_national_dispatch_draws_multiple_cities_and_locks_roster(engine):
+    state = engine.state
+    country = state.countries["ELAR"]
+    city = country.cities[0]
+    cells = [tile for tile in state.world.neighbors(*city.center) if tile in country.tiles]
+    country.cities.append(replace(city, city_id="ELAR-C2", center=cells[0]))
+    country.city_reserves = {city.city_id: {"MILITIA": 10}, "ELAR-C2": {"MILITIA": 10, "ARCHER": 5}}
+    country.technology["bronze_metallurgy"] = 3
+    first = deploy(engine, country, city, cells[1], {"MILITIA": 17, "ARCHER": 4}, slot=1, city_id=None)
+    assert first.accepted, first.reason_text
+    army = country.find_army(first.effects["army_id"])
+    assert army.units == {"MILITIA": 17, "ARCHER": 4}
+    assert country.reserve_roster() == {"MILITIA": 3, "ARCHER": 1}
+    blocked = deploy(engine, country, city, cells[2], {"MILITIA": 4}, slot=2, city_id=None)
+    assert blocked.reason_code == "RESERVE_SHORTAGE"
+    assert country.reserve_roster() == {"MILITIA": 3, "ARCHER": 1}
+    enemy = state.countries["MARIS"]
+    country.at_war_with.append("MARIS")
+    objective, start = next(
+        (land, point) for land in enemy.tiles
+        for point in state.world.neighbors(*land)
+        if point not in enemy.tiles and point not in country.tiles and state.world.tiles[point]["land"]
+    )
+    army.tile = start
+    revised = engine.apply_action("ELAR", {
+        "type": "MILITARY", "operation": "RETASK", "slot": 1, "target": "MARIS",
+        "tile": {"col": objective[0], "row": objective[1]},
+    })
+    assert revised.accepted, revised.reason_text
+    assert army.march.route[0] == start
+    assert army.march.purpose == "ATTACK"
+    assert army.units == {"MILITIA": 17, "ARCHER": 4}
+
+
+def test_reinforcements_merge_at_arrival_and_release_their_number(engine):
+    state = engine.state
+    country = state.countries["ELAR"]
+    country.technology["bronze_metallurgy"] = 3
+    city = country.cities[0]
+    tile = next(tile for tile in state.world.neighbors(*city.center) if tile in country.tiles)
+    host = country.new_army(tile, {"MILITIA": 12})
+    host.deployment_slot = 1
+    country.city_reserves[city.city_id] = {"ARCHER": 10}
+    result = deploy(engine, country, city, tile, {"ARCHER": 7}, slot=2, host_id=host.army_id, city_id=None)
+    assert result.accepted, result.reason_text
+    assert country.deployment_status(state.config)["used"] == 2
+    assert host.units == {"MILITIA": 12}
+    for _ in range(result.effects["days"]):
+        engine.military.march_daily()
+    assert country.find_army(result.effects["army_id"]) is None
+    assert host.units == {"MILITIA": 12, "ARCHER": 7}
+    assert country.reserve_roster() == {"ARCHER": 3}
+    assert country.deployment_status(state.config)["slots"][1]["army_id"] is None

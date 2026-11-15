@@ -261,10 +261,9 @@ def test_the_snapshot_files_every_realm_s_alerts_for_the_panel():
         assert session.player_action("ELAR", {
             "type": "DIPLOMACY", "operation": "DECLARE_WAR", "target": "VAYR",
         })["ok"]
-        assert session.player_action("ELAR", {
-            "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 4,
-        })["ok"]
         state = session.simulation.state
+        realm = state.countries["ELAR"]
+        realm.city_reserves[realm.cities[0].city_id] = {"MILITIA": 40}
         route = Military(state).reserve_campaigns(state.countries["ELAR"], minimum=3)["VAYR"]
         assert session.player_action("ELAR", {
             "type": "MILITARY", "operation": "DEPLOY",

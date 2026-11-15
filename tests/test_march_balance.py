@@ -175,12 +175,10 @@ def test_the_panel_is_priced_from_the_commanded_realm_only():
     try:
         assert session.campaign_quotes() == {}, "observer mode has no one to give orders"
         session.control("take_control", "ELAR")
-        assert session.player_action("ELAR", {
-            "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 2,
-        })["ok"]
         state = session.simulation.state
         country = state.countries["ELAR"]
         city = country.cities[0]
+        country.city_reserves[city.city_id] = {"MILITIA": 20}
         tile = next(tile for tile in state.world.neighbors(*city.center) if tile in country.tiles)
         deployed = session.player_action("ELAR", {
             "type": "MILITARY", "operation": "DEPLOY", "city_id": city.city_id,

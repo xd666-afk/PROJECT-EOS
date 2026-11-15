@@ -171,20 +171,29 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             if not army_id:
                 raise ActionRejected("INVALID_PARAMETER", "请选择要撤回的军队")
             return {"type": action_type, "operation": operation, "army_id": army_id}
-        if operation == "DEPLOY":
-            _keys(raw, {"type", "operation", "city_id", "tile", "target", "units", "slot"})
+        if operation in ("DEPLOY", "RETASK"):
+            _keys(raw, {"type", "operation", "city_id", "tile", "target", "units", "slot", "host_id"})
             city_id, tile, target, units = (raw.get(key) for key in ("city_id", "tile", "target", "units"))
-            if not isinstance(city_id, str) or not city_id:
+            if city_id is not None and (not isinstance(city_id, str) or not city_id):
                 raise ActionRejected("INVALID_PARAMETER", "请选择出兵城市")
             if target is not None and (not isinstance(target, str) or not target):
                 raise ActionRejected("INVALID_PARAMETER", "进攻目标必须是国家 ID")
             if not isinstance(tile, dict) or set(tile) != {"col", "row"}:
                 raise ActionRejected("INVALID_PARAMETER", "请选择地图上的目的地")
+            coords = {k: _integer(v, k) for k, v in tile.items()}
+            if operation == "RETASK":
+                _keys(raw, {"type", "operation", "tile", "target", "slot"})
+                return {"type": action_type, "operation": operation, "tile": coords,
+                        "target": target, "slot": _integer(raw.get("slot"), "slot")}
+            host_id = raw.get("host_id")
+            if host_id is not None and (not isinstance(host_id, str) or not host_id or target):
+                raise ActionRejected("INVALID_PARAMETER", "请选择己方驻军作为增援对象")
             if not isinstance(units, dict) or set(units) - config["units"].keys():
                 raise ActionRejected("INVALID_PARAMETER", "派兵包含未知兵种")
             return {"type": action_type, "operation": operation, "city_id": city_id,
                     **({"slot": _integer(raw["slot"], "slot")} if "slot" in raw else {}),
-                    "target": target, "tile": {k: _integer(v, k) for k, v in tile.items()},
+                    **({"host_id": host_id} if host_id else {}),
+                    "target": target, "tile": coords,
                     "units": {k: _integer(v, k) for k, v in units.items()}}
         if operation == "DISPATCH":
             _keys(raw, {"type", "operation", "orders"})

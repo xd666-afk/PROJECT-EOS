@@ -1945,7 +1945,7 @@ function garrisonRow(army){
   const roster=Object.entries(army.units||{}).map(([u,n])=>`${unitName(u)}×${n}`).join('、')||'空编';
   const status=army.march?'在途行军':(army.strength>0?(army.recruiting?'募兵中':'待命'):'未编成');
   return `<div class="garrison-row${own?' me':''}"><i style="background:${countryColor(id)}"></i>
-    <div><b style="color:${countryColor(id)}">${esc(countryMeta(id)?.name||id)} · ${esc(army.army_id)}</b>
+    <div><b style="color:${countryColor(id)}">${esc(countryMeta(id)?.name||id)} · ${esc(numberedArmy(army.deployment_slot||1))}</b>
     <small>${army.strength} 人 · 战力 ${fmtNum(army.power,2)} · ${esc(roster)} · ${status}${army.barracks?' · 驻兵营':''}</small></div>
     ${own?`<button data-pick-army="${esc(army.army_id)}" class="key-state ${selectedArmy===army.army_id?'ok':'missing'}">${selectedArmy===army.army_id?'已选为下令对象':'选为下令对象'}</button>`:''}</div>`;
 }
@@ -2038,8 +2038,7 @@ function barracksPanel(report,options,isPlayer){
   if(!report)return '';
   const price=Number(report.price)||0,progress=Number(report.progress)||0;
   const pct=price>0?Math.max(0,Math.min(100,progress/price*100)):(report.recruiting?100:0);
-  const list=options||[],target=list.find(o=>o.unit===report.unit)||null;
-  const batch=Number(target?.batch)||0;
+  const list=options||[];
   const stalled=report.recruiting&&!!report.stall;
   const where=`(${report.tile[0]},${report.tile[1]})`;
   return `<div class="camp-card">
@@ -2062,9 +2061,6 @@ function barracksPanel(report,options,isPlayer){
       <div class="split"><span>目的地已有该兵种</span><b>${report.strength} 人</b></div>
     </div>
     <div class="camp-list">${list.map(o=>campUnitRow(o,report,isPlayer)).join('')}</div>
-    ${isPlayer&&report.army_id?`<div class="camp-price"><span>立即用财政招募</span>
-      <button data-camp-recruit="${esc(report.army_id)}" data-unit="${esc(report.unit)}" data-size="${batch}"
-        ${batch>0&&target&&target.can_recruit?'':'disabled'}>${batch>0?`募 ${batch*(STATE.military_specs?.soldiers_per_unit||1)} 人`:'条件不足'}</button></div>`:''}
   </div>`;
 }
 function tileBarracksCard(tile,owned){
@@ -2083,13 +2079,11 @@ function bindCampControls(){
   };
   for(const b of document.querySelectorAll('[data-camp-toggle]'))b.onclick=()=>
     submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.campToggle,recruiting:b.dataset.on==='1'},b.dataset.on==='1'?'已开始招募':'已暂停招募').then(refresh);
-  for(const b of document.querySelectorAll('[data-camp-recruit]'))b.onclick=()=>
-    submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.unit,strength:Number(b.dataset.size),army_id:b.dataset.campRecruit},'募兵令已下达').then(refresh);
 }
 const RECEIPT_ACTIONS={BUILD:'建设',SETTLE:'建城',ALLOCATE_WORKERS:'劳动力',SET_TAX:'税率',
   SET_RESEARCH:'研究',SET_POLICY:'政策',TRADE:'贸易',DIPLOMACY:'外交',MILITARY:'军令',
   SET_CITY_FOCUS:'城市方针',SET_CITY_ZONE:'城市分区',SET_CITY_BUDGET:'城市预算',NO_OP:'空令'};
-const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
+const RECEIPT_OPERATION_LABELS={RECRUIT:'招募',DEPLOY:'派兵',RETASK:'前线改令',RETURN:'撤回',MARCH:'行军',ATTACK:'进攻',RECRUIT_UNIT:'建军',
   RENDEZVOUS:'会师派兵',SET_RECRUITING:'募兵开关',SET_RECRUIT_UNIT:'练兵目标',GIFT:'赠礼',PROPOSE_PACT:'提议协定',
   ACCEPT_PACT:'接受协定',REJECT_PACT:'拒绝协定',DECLARE_WAR:'宣战',PROPOSE_PEACE:'请求议和',
   ACCEPT_PEACE:'接受议和',REJECT_PEACE:'拒绝议和',OFFER:'出价',ACCEPT:'成交',REJECT:'回绝',CANCEL:'撤单'};
@@ -2166,11 +2160,19 @@ const MARCH_REFUSALS={
   SEA:'海域到不了',
   ENCLAVED:'与本岛之间只有海',
 };
+function numberedArmy(number){
+  return ['第一支军队','第二支军队','第三支军队'][number-1]||'军队 '+number;
+}
 function tileMarchCard(tile,price){
   const self=STATE.player_country;
   if(!self||!tile.land||(tile.owner&&tile.owner!==self)||tileEnemyCamps(tile,price).length)return '';
   const stationed=tileGarrisonAt(tile.col,tile.row).find(a=>a.country_id===self&&a.strength>0&&!a.march);
-  if(stationed)return '<button data-return-army="'+esc(stationed.army_id)+'">撤回城内</button>';
+  if(stationed){
+    const country=STATE.countries[self];
+    const canReinforce=country.deployment.slots.some(slot=>slot.unlocked&&!slot.army_id);
+    return '<button data-return-army="'+esc(stationed.army_id)+'">撤回城内</button>'+
+      (canReinforce?'<button data-tile-intent="reinforce" data-host="'+esc(stationed.army_id)+'">增加援军</button>':'');
+  }
   if(tile.owner===self&&tileIsCenter(tile))return '<button disabled title="城市守军已默认驻守">驻守中</button>';
   return '<button data-tile-intent="march">驻守</button>';
 }
@@ -2186,65 +2188,36 @@ function tileFieldCard(tile,price){
   if(camps.some(c=>c.at_war))return '<button data-tile-intent="attack">进攻</button>';
   return camps.map(c=>`<button data-field-war="${esc(c.target||c.country_id||c.country)}">向 ${esc(countryMeta(c.target||c.country_id||c.country)?.name||c.target||c.country_id||c.country)} 宣战</button>`).join('');
 }
-function openTileDispatch(intent,tile){
+function openTileDispatch(intent,tile,hostId){
   const dialog=$('tileDispatchDialog'),list=$('tileDispatchRows'),confirm=$('tileDispatchConfirm');
   if(dialog.open)return;
-  const self=STATE.player_country,country=STATE.countries[self];
+  const country=STATE.countries[STATE.player_country];
   const coordinate={col:tile.col,row:tile.row};
   const hostile=tileEnemyCamps(tile,null).find(c=>c.at_war);
   const target=intent==='attack'?(hostile?.target||tile.owner):null;
-  const cities=(country.cities||[]).filter(city=>Object.values(city.reserve_units||{}).some(n=>n>0));
-  const distance=city=>Math.abs(city.center[0]-tile.col)+Math.abs(city.center[1]-tile.row);
-  cities.sort((a,b)=>distance(a)-distance(b));
-  const title=target?'进攻':'驻守';
+  const title=target?'进攻':hostId?'增援':'驻守';
   const preview=$('tileDispatchPreview');
-  let request,routeRefused=false,sending=false;
+  const slots=country.deployment.slots;
+  const stock=country.reserve_units||{};
+  const drafts=new Map();
+  const armyPicker=document.createElement('select'),armyLabel=document.createElement('label');
+  const sliders=document.createElement('div'),status=document.createElement('p');
+  status.className='hint';
+  let request,sending=false,routeRefused=false,current;
   $('tileDispatchTitle').textContent=title+' · ('+tile.col+', '+tile.row+')';
   $('tileDispatchClose').onclick=()=>dialog.close();
-  confirm.textContent='确认'+title;
-  confirm.disabled=true;
-  confirm.onclick=null;
-  const slots=country.deployment;
-  const armyPicker=document.createElement('select'),armyLabel=document.createElement('label');
-  const armyNames=['第1支军队','第2支军队','第3支军队'];
-  for(const slot of slots.slots){
-    const status=slot.army_id?' · 已派出':slot.unlocked?'':' · 未解锁';
-    const option=new Option(armyNames[slot.number-1]+status,String(slot.number));
-    option.disabled=!!slot.army_id||!slot.unlocked;
+  for(const slot of slots){
+    const suffix=slot.army_id?' · 已出征':slot.unlocked?'':' · 未解锁';
+    const option=new Option(numberedArmy(slot.number)+suffix,String(slot.number));
+    option.disabled=(!slot.unlocked&&!slot.army_id)||!!(hostId&&slot.army_id);
     armyPicker.add(option);
   }
-  const available=slots.slots.find(slot=>slot.unlocked&&!slot.army_id);
-  armyPicker.selectedIndex=available?available.number-1:0;
+  const chosen=!hostId&&slots.find(slot=>slot.army_id&&slot.army_id===selectedArmy)
+    ||slots.find(slot=>slot.unlocked&&!slot.army_id)||(!hostId&&slots.find(slot=>slot.army_id));
+  armyPicker.selectedIndex=chosen?chosen.number-1:-1;
   armyLabel.append('军队 ',armyPicker);
-  list.replaceChildren(armyLabel);
-  const field=(country.armies||[]).filter(army=>army.strength>0&&!army.march&&army.tile);
-  if(field.length){
-    const picker=document.createElement('select'),move=document.createElement('button');
-    for(const army of field)picker.add(new Option(armyNames[army.deployment_slot-1]||army.army_id,army.army_id));
-    move.textContent='调动已出征军队';
-    move.onclick=async()=>{
-      move.disabled=true;
-      try{
-        const accepted=await submitPlayerAction({type:'MILITARY',operation:target?'ATTACK':'MARCH',
-          army_id:picker.value,tile:coordinate,...(target?{target}:{})},title+'命令已下达',false);
-        if(accepted)dialog.close();
-      }finally{move.disabled=false;}
-    };
-    const alternate=document.createElement('details'),summary=document.createElement('summary');
-    const options=document.createElement('div');
-    summary.textContent='调动已出征军队';
-    options.className='mil-buttons';options.append(picker,move);alternate.append(summary,options);
-    list.append(alternate);
-  }
-  preview.textContent=cities.length?'请选择派出数量':'城市没有可派守军';
+  list.replaceChildren(armyLabel,status,sliders);
   dialog.showModal();
-  if(!cities.length)return;
-  const picker=document.createElement('select');
-  for(const city of cities)picker.add(new Option(city.name,city.city_id));
-  const label=document.createElement('label');
-  label.append('出兵城市 ',picker);
-  const sliders=document.createElement('div');
-  list.append(label,sliders);
   function selection(){
     return Object.fromEntries([...sliders.querySelectorAll('input')].map(i=>[i.name,Number(i.value)]));
   }
@@ -2255,24 +2228,40 @@ function openTileDispatch(intent,tile){
       total+=Number(slider.value);
     }
     confirm.textContent='确认'+title+(total?' · '+fmtInt(total)+' 人':'');
-    confirm.disabled=!total||routeRefused||sending||!available;
+    confirm.disabled=!current||(!current.army_id&&!total)||routeRefused||sending;
   }
-  async function renderCity(){
+  async function renderSlot(){
     request?.abort();
-    const controller=new AbortController();
-    request=controller;
+    request=new AbortController();
+    const controller=request;
+    current=slots.find(slot=>String(slot.number)===armyPicker.value);
     routeRefused=false;
-    const city=cities.find(city=>city.city_id===picker.value);
-    const stock=city.reserve_units||{};
-    const row=unit=>'<label class="dispatch-troop"><span>'+esc(unitName(unit))+'</span><input type="range" name="'+unit+
-      '" min="0" max="'+(stock[unit]||0)+'" step="1" value="0" '+(stock[unit]?'':'disabled')+'><output></output></label>';
+    if(!current||(!current.unlocked&&!current.army_id)){
+      current=null;status.textContent='没有可用军队';sliders.replaceChildren();
+      preview.textContent='';updateSelection();return;
+    }
+    const deployed=country.armies?.find(army=>army.army_id===current.army_id);
+    const roster=deployed?deployed.units:stock;
+    const draft=drafts.get(current.number)||{};
+    status.textContent=deployed
+      ?'从当前位置 ('+deployed.tile.join(', ')+') 下令 · 出征编组已锁定'
+      :'全国可用守军 '+fmtInt(Object.values(stock).reduce((sum,n)=>sum+n,0))+' 人';
+    const row=unit=>{
+      const max=roster[unit]||0,value=deployed?max:Math.min(max,draft[unit]||0);
+      return '<label class="dispatch-troop"><span>'+esc(unitName(unit))+'</span><input type="range" name="'+unit+
+        '" min="0" max="'+max+'" step="1" value="'+value+'" '+(max&&!deployed?'':'disabled')+'><output></output></label>';
+    };
     const regular=['MILITIA','ARCHER','HEAVY_INFANTRY','CHARIOT','CAVALRY'];
-    sliders.innerHTML=regular.map(row).join('')+(stock.SIEGE?'<details><summary>攻城器械</summary>'+row('SIEGE')+'</details>':'');
+    sliders.innerHTML=regular.map(row).join('')+(roster.SIEGE?'<details><summary>攻城器械</summary>'+row('SIEGE')+'</details>':'');
     updateSelection();
-    if(slots.used>=slots.limit){preview.textContent='已派满军队，撤回一支或提升军事科技后再派兵';return;}
+    if(!deployed&&!Object.values(stock).some(n=>n>0)){
+      preview.textContent='全国没有可派守军';return;
+    }
     preview.textContent='正在计算行军时间…';
-    const query=new URLSearchParams({...coordinate,city:city.city_id});
+    const query=new URLSearchParams(coordinate);
     if(target)query.set('target',target);
+    if(deployed)query.set('slot',current.number);
+    if(hostId)query.set('host',hostId);
     try{
       const response=await fetch('/api/deployment_preview?'+query,{signal:controller.signal});
       if(!response.ok)throw new Error('deployment preview');
@@ -2280,27 +2269,32 @@ function openTileDispatch(intent,tile){
       if(controller.signal.aborted||!dialog.open)return;
       routeRefused=!quote.ok;
       preview.textContent=quote.ok
-        ?(quote.days?'行军约 '+quote.days+' 日':'已在交战范围')+' · 行军成本 '+fmtNum(quote.cost,2)+' 点'
+        ?(quote.days?'行军约 '+quote.days+' 日':'已在目标附近')+' · 行军成本 '+fmtNum(quote.cost,2)+' 点'
         :quote.error;
       updateSelection();
     }catch(error){
       if(!controller.signal.aborted)preview.textContent='暂未取得报价，确认时会核验路线';
     }
   }
-  sliders.oninput=updateSelection;
-  armyPicker.onchange=updateSelection;
-  picker.onchange=renderCity;
+  sliders.oninput=()=>{
+    if(current&&!current.army_id)drafts.set(current.number,selection());
+    updateSelection();
+  };
+  armyPicker.onchange=renderSlot;
   dialog.addEventListener('close',()=>request?.abort(),{once:true});
   confirm.onclick=async()=>{
     if(confirm.disabled)return;
+    const active=!!current.army_id;
     sending=true;updateSelection();
     try{
-      const accepted=await submitPlayerAction({type:'MILITARY',operation:'DEPLOY',
-        city_id:picker.value,tile:coordinate,target,units:selection(),slot:Number(armyPicker.value)},title+'命令已下达',false);
+      const action={type:'MILITARY',operation:active?'RETASK':'DEPLOY',slot:current.number,tile:coordinate,target};
+      if(!active)action.units=selection();
+      if(hostId)action.host_id=hostId;
+      const accepted=await submitPlayerAction(action,title+'命令已下达',false);
       if(accepted)dialog.close();
     }finally{sending=false;updateSelection();}
   };
-  renderCity();
+  renderSlot();
 }
 function routHexText(cell){return cell?`(${cell.col},${cell.row})`:''}
 function routSideText(side,label,barracksLost,settled){
@@ -2530,7 +2524,7 @@ function renderRight(tileOnly=false){
       },tileIsCenter(tile)?'围城令已下达：每天啃一口墙，账满整座易主':'对这一格的进攻令已下达').then(repriceTile);
     }
     for(const btn of document.querySelectorAll('[data-tile-intent]')){
-      btn.onclick=()=>openTileDispatch(btn.dataset.tileIntent,tile);
+      btn.onclick=()=>openTileDispatch(btn.dataset.tileIntent,tile,btn.dataset.host);
     }
     for(const btn of document.querySelectorAll('[data-return-army]')){
       btn.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RETURN',army_id:btn.dataset.returnArmy},'撤回命令已下达');
@@ -2552,7 +2546,7 @@ function renderRight(tileOnly=false){
       btn.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:btn.dataset.fieldWar},'战争状态已建立').then(repriceTile);
     }
     for(const btn of document.querySelectorAll('[data-pick-army]')){
-      btn.onclick=()=>{selectedArmy=btn.dataset.pickArmy;renderRight();renderMilitary();};
+      btn.onclick=()=>{selectedArmy=selectedArmy===btn.dataset.pickArmy?null:btn.dataset.pickArmy;renderRight();renderMilitary();};
     }
     bindCampControls();
   }
@@ -2606,6 +2600,7 @@ function formatEvent(e){
     case 'march_ordered':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.purpose==='ATTACK'?`向 <b>${esc(e.target)}</b> 的 (${e.objective?.col},${e.objective?.row}) 进攻`:`行军至 (${e.tile.col},${e.tile.row})`} · ${e.tiles} 段 / 成本 ${fmtNum(e.cost,1)} / ${e.days} 天${e.expedition?' · 远征过境':''}`,'action'];
     case 'army_arrived':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 抵达 (${e.tile.col},${e.tile.row})${e.fought?'，当日开战':e.reason?` · ${esc(e.reason)}`:''}`,'action'];
     case 'march_cancelled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 中止行军：${esc(e.reason)}`,'hazard'];
+    case 'army_reinforced':return[d,`<b>${esc(e.country_id)}</b> 援军已抵达，向驻军补充 ${Object.values(e.units||{}).reduce((sum,n)=>sum+n,0)} 人`,'action'];
     case 'barracks_recruit':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 兵营 (${e.tile.col},${e.tile.row}) 练出 ${e.soldiers!=null?e.soldiers+' 人':'1 支'}「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
     case 'barracks_stalled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id||'兵营')}</b> 兵营 (${e.tile.col},${e.tile.row}) 练不出「${esc(unitName(e.unit))}」：${esc(e.reason)}（进度 ${fmtNum(e.progress,1)} · 日饷 ${fmtNum(e.wage,2)}）`,'hazard'];
     case 'recruiting_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.recruiting?'开启':'暂停'}兵营募兵`,'action'];
@@ -2678,10 +2673,7 @@ async function submitPlayerAction(action,successText,waitForRefresh=true){
     const data=await r.json();
     if(data.ok){
       const refused=(data.result?.effects?.orders||[]).filter(o=>!o.accepted);
-      const recruited=data.result?.effects;
-      const message=action.operation==='RECRUIT'&&recruited?.soldiers!=null
-        ?`${recruited.soldiers} 人已加入${recruited.city_name}守军`:successText;
-      showToast(refused.length?`${message}；未出发：${refused.map(o=>o.army_id+' '+o.reason).join('；')}`:message,refused.length>0);
+      showToast(refused.length?`${successText}；未出发：${refused.map(o=>o.army_id+' '+o.reason).join('；')}`:successText,refused.length>0);
     }
     else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
     tileStrikeKey='';tileStrikes=null;
@@ -4398,7 +4390,7 @@ function renderCityDetail(){
   };
   detail._tiles=tiles;detail._positions=pos;
 }
-let militaryTileHome=null,militaryStamp='',militaryWarTarget=null,militaryRecruitUnit=null,militaryRecruitAmount=1,militaryHostId=null;
+let militaryTileHome=null,militaryStamp='',militaryWarTarget=null;
 function arrangeMilitaryCards(openCards){
   for(const [index,card] of [...document.querySelectorAll('#militaryBody [data-mil-sect]')].entries()){
     const fold=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');
@@ -4411,20 +4403,12 @@ function arrangeMilitaryCards(openCards){
     card.before(fold);fold.append(summary,body);body.append(card);
   }
 }
-function militaryRecruitQuote(c,mover,option,amount){
-  const count=Math.max(1,Math.min(amount,STATE.military_specs.recruit_batch_max));
-  const cost=option.cost_treasury*count,food=option.cost_food*count;
-  const reason=!option.unlocked?option.reason:option.room<count?'编制不足':
-    mover?.tile_room!=null&&count>mover.tile_room?'驻格容量不足':
-    c.treasury+1e-9<cost?'财政不足':c.food+1e-9<food?'粮食不足':'可招募';
-  return {count,cost,food,reason,enabled:reason==='可招募'};
-}
 function renderMilitaryCommand(c,mover){
   const player=STATE.player_country===selectedCountry;
   const armies=(c.armies||[]).filter(a=>a.strength>0);
   $('militaryCommand').innerHTML=`<div class="hint">点击地图选择驻守或进攻，再拖动滑块从城市调兵。</div>
     <label>查看国家<select id="militaryCountry">${livePolities().map(p=>`<option value="${esc(p.id)}" ${p.id===selectedCountry?'selected':''}>${esc(p.name)}</option>`).join('')}</select></label>
-    ${player?`<label>已派军队<select id="militaryArmy">${armies.map(a=>`<option value="${esc(a.army_id)}" ${a.army_id===selectedArmy?'selected':''}>${esc(a.army_id)} · ${a.march?'行军中':'待命'}</option>`).join('')||'<option>暂无</option>'}</select></label>`:`<button id="militaryTakeControl">接管 ${esc(countryMeta(selectedCountry)?.name||selectedCountry)}</button>`}
+    ${player?`<label>已派军队<select id="militaryArmy">${armies.map(a=>`<option value="${esc(a.army_id)}" ${a.army_id===selectedArmy?'selected':''}>${esc(numberedArmy(a.deployment_slot||1))} · ${a.march?'行军中':'待命'}</option>`).join('')||'<option>暂无</option>'}</select></label>`:`<button id="militaryTakeControl">接管 ${esc(countryMeta(selectedCountry)?.name||selectedCountry)}</button>`}
     <div class="mil-buttons"><button id="militaryLocate">定位${mover?'所选军队':'都城'}</button>
     ${player&&mover&&!mover.march?`<button id="militaryReturn">撤回城内</button>`:''}
     <span>出征 ${c.deployment.used}/${c.deployment.limit} 支 · 守军与出征日口粮 ${fmtNum(c.military_upkeep_food,3)}</span></div>`;
@@ -4470,7 +4454,7 @@ function renderMilitary(){
   const specs=STATE.unit_specs||{},milRules=STATE.military_specs||{},mv=STATE.movement_specs||{};
   const bar=milRules.barracks||{},tech=c.technology||{};
   const armies=(c.armies||[]).filter(a=>a.strength>0);
-  if(!armies.some(a=>a.army_id===selectedArmy))selectedArmy=armies.length?armies[0].army_id:null;
+  if(isPlayer&&!armies.some(a=>a.army_id===selectedArmy))selectedArmy=null;
   const mover=armies.find(a=>a.army_id===selectedArmy)||null;
   const selected=selectedTile?`${selectedTile[0]},${selectedTile[1]}`:'未选择地块';
   const unlocked=id=>{const need=specs[id]?.required_technology;return !need||(tech[need.field]||0)>=need.level;};
@@ -4545,15 +4529,12 @@ function renderMilitary(){
     const id=o.unit,u=specs[id]||{};
     const have=Number(o.have)||0;
     const terrain=Object.entries(u.terrain||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${v.toFixed(2)}`).join(' ');
-    const canRecruit=isPlayer&&o.can_recruit&&(Number(o.batch)||0)>0;
     return `<tr${have?'':' class="dim"'}>
       <td><i class="unit-chip" style="--uc:${o.color||u.color||''}"></i><b>${esc(o.label)}</b><small>${esc(unitRelationText(u))}</small>${terrain?`<small class="mut">地形 ${esc(terrain)}</small>`:''}</td>
       <td>${have}</td>
       <td>${fmtNum(o.power,2)} / ${fmtNum(o.defense,2)}</td>
       <td>${fmtNum(o.upkeep,3)}</td>
-      <td>${fmtNum(o.cost_treasury,1)}·${fmtNum(o.cost_food,1)}</td>
-      <td><span class="key-state ${canRecruit?'ok':'missing'}">${esc(o.reason)}</span>
-        ${canRecruit?`<button data-recruit="${id}" data-size="${o.batch}">招募 ${o.batch*(milRules.soldiers_per_unit||1)} 人</button>`:''}</td>
+      <td><span class="key-state ${o.unlocked?'ok':'missing'}">${o.unlocked?'已解锁':'需研究'}</span></td>
     </tr>`;
   }).join('');
   const armyRows=armies.length?armies.map(a=>{
@@ -4576,7 +4557,7 @@ function renderMilitary(){
       ${info.text?`<small class="mut">路线 ${esc(info.text)}</small>`:''}
       <div class="bar"><i style="width:${walked*100}%"></i></div>`:'<span class="mut">待命，可下令</span>';
     return `<tr${a.strength>0?'':' class="dim"'}>
-      <td>${isPlayer?`<button data-army-pick="${a.army_id}" class="key-state ${a.army_id===selectedArmy?'ok':'missing'}">${a.army_id===selectedArmy?'已选':'选为下令对象'}</button>`:`<b>${esc(a.army_id)}</b>`}</td>
+      <td><b>${esc(numberedArmy(a.deployment_slot||1))}</b>${isPlayer?`<button data-army-pick="${esc(a.army_id)}" class="key-state ${a.army_id===selectedArmy?'ok':'missing'}">${a.army_id===selectedArmy?'取消选择':'选为下令对象'}</button>`:''}</td>
       <td><b>${a.tile?`(${a.tile[0]},${a.tile[1]})`:'—'}</b>${tags}</td>
       <td><b>${a.strength} 人 · ${fmtNum(a.power,2)}</b><small>${esc(rosterText)}</small></td>
       <td>${recruit}</td>
@@ -4596,12 +4577,12 @@ function renderMilitary(){
       <div class="mil-stat"><span>兵营 / 出征名额</span><b>${camps} 座 · ${c.deployment.used}/${c.deployment.limit} 支</b></div>
       <div class="mil-stat"><span>每日口粮</span><b>${fmtNum(c.military_upkeep_food,3)} 粮</b></div>
       <div class="mil-stat"><span>战争疲劳</span><b>${fmtNum(c.war_exhaustion,1)}</b></div>
-      <div class="mil-stat"><span>下令军队</span><b>${mover?esc(mover.army_id):'无'}</b></div>
+      <div class="mil-stat"><span>下令军队</span><b>${mover?esc(numberedArmy(mover.deployment_slot||1)):'无'}</b></div>
       <div class="mil-stat"><span>已选地块</span><b>${selected}</b></div>
       <table class="unit-table"><thead><tr><th>军队</th><th>驻地</th><th>兵力 / 战力</th><th>兵营募兵</th><th>行军</th></tr></thead>
       <tbody>${armyRows}</tbody></table>
       ${isPlayer?`<div class="mil-buttons"><button data-march="1" ${marchable&&selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
-      <table class="unit-table"><thead><tr><th>兵种</th><th>守军人数</th><th>每批攻/防</th><th>每批日口粮</th><th>每批财政/粮</th><th>状态</th></tr></thead>
+      <table class="unit-table"><thead><tr><th>兵种</th><th>守军人数</th><th>每批攻/防</th><th>每批日口粮</th><th>状态</th></tr></thead>
       <tbody>${unitRows}</tbody></table>
       <div class="hint">攻守双方都受地形影响。粮食不足时先遣散口粮最贵的兵种。</div>
     </div>
@@ -4636,7 +4617,6 @@ function renderMilitary(){
   </div>
   <details class="military-fold"><summary>行军规则说明</summary><div class="hint"><b>行军：</b>先在地图选中一格陆地——本国领土、无主地、乃至别国领土都算，地块卡上的「行军至此」会逐支军队报出天数与成本；选中一支军队后再点「行军至已选地块」，下的就是那一支的令。行军是下单，不是瞬移：单日推进 ${fmtNum(mv.daily_budget,2)} 点成本，道路每格 ${fmtNum(mv.road_cost,2)}（不分归属都算），${Object.entries(mv.biome_cost||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${fmtNum(v,1)}`).join('、')}，${hostilePaceText()}——别国领土只是减速，不是墙。单条命令上限 ${fmtNum(mv.maximum_order_cost,0)} 点：超了就分两段下令。在途军队不能再下令；行军令只能落在己方或无主的格子上，要进别国领土就打进攻令，撞上没有主人的营地就用「就地打击」。</div></details>`;
   bindThreats($('militaryBody'));
-  for(const b of document.querySelectorAll('[data-recruit]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.recruit,strength:Number(b.dataset.size),army_id:selectedArmy},'招募完成').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy},'行军令已下达，抵达当日结算战果').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-attack-army]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attackArmy,army_id:b.dataset.army},'这一路的行军令已下达').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-siege-city]'))b.onclick=()=>{
@@ -4668,7 +4648,7 @@ function renderMilitary(){
   if(march)march.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'MARCH',tile:{col:selectedTile[0],row:selectedTile[1]},army_id:selectedArmy},'行军令已下达').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-recruiting]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUITING',army_id:b.dataset.recruiting,recruiting:b.dataset.on==='1'},'募兵开关已更新').then(renderMilitary);
   for(const s of document.querySelectorAll('[data-recruit-unit]'))s.onchange=()=>submitPlayerAction({type:'MILITARY',operation:'SET_RECRUIT_UNIT',army_id:s.dataset.recruitUnit,unit:s.value},'练兵兵种已设定').then(renderMilitary);
-  for(const b of document.querySelectorAll('[data-army-pick]'))b.onclick=()=>{selectedArmy=b.dataset.armyPick;renderMilitary();};
+  for(const b of document.querySelectorAll('[data-army-pick]'))b.onclick=()=>{selectedArmy=selectedArmy===b.dataset.armyPick?null:b.dataset.armyPick;renderMilitary();};
   bindCampControls();
   arrangeMilitaryCards(openCards);
   renderMilitaryCommand(c,mover);

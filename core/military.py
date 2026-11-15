@@ -632,7 +632,7 @@ class Military:
         return self._order(country, army, plan, "MARCH",
                            expedition=self._expedition(actor, plan, owners))
 
-    def deployment_plan(self, actor, city_id, tile, target):
+    def deployment_plan(self, actor, city_id, tile, target, host=None):
         country = self.state.countries[actor]
         city = next((city for city in country.cities if city.city_id == city_id), None)
         if city is None:
@@ -654,13 +654,14 @@ class Military:
                 raise ActionRejected("NO_PATH", "城市守军无法在一条命令内到达目标，请先驻守前线")
             plan, _, expedition = approach
         else:
-            if self._city_of(country, tile):
+            if self._city_of(country, tile) and host is None:
                 raise ActionRejected("CITY_ALREADY_DEFENDED", "城市已有默认守军")
             if not self._marchable(actor, tile, owners):
                 raise ActionRejected("FOREIGN_GROUND", "别国领土只能进攻")
-            if any(self._camps_of(rival, tile) for rival in self.state.countries.values()):
+            if any(army is not host for rival in self.state.countries.values()
+                   for army in self._camps_of(rival, tile)):
                 raise ActionRejected("ALREADY_GARRISONED", "目标格已有驻军")
-            if self._landing_claimed(country, None, tile):
+            if self._landing_claimed(country, host, tile):
                 raise ActionRejected("ALREADY_GARRISONED", "已有军队正在前往此格")
             route = self._road(actor, city.center, tile, explain=True)
             plan = route["plan"]
@@ -668,6 +669,74 @@ class Military:
                 raise ActionRejected(*self._refusal(tile, route, self.movement_config["maximum_order_cost"]))
             expedition = self._expedition(actor, plan, owners)
         return city, plan, expedition
+
+    def reinforcement_host(self, country, host_id, tile):
+        if not host_id:
+            return None
+        host = country.find_army(host_id)
+        if host is None or not host.strength or host.march or host.tile != tile:
+            raise ActionRejected("NO_REINFORCEMENT_HOST", "目标格已没有这支待命军队")
+        return host
+
+    def national_deployment_plan(self, actor, tile, target, city_id=None, host_id=None):
+        country = self.state.countries[actor]
+        host = self.reinforcement_host(country, host_id, tile)
+        if city_id:
+            return self.deployment_plan(actor, city_id, tile, target, host)
+        origins = [city for city in country.cities if country.city_reserves.get(city.city_id)]
+        if not origins:
+            raise ActionRejected("RESERVE_SHORTAGE", "全国没有可派守军")
+        plans, refusal = [], None
+        for city in origins:
+            try:
+                plans.append(self.deployment_plan(actor, city.city_id, tile, target, host))
+            except ActionRejected as error:
+                refusal = error
+        if not plans:
+            raise refusal
+        return min(plans, key=lambda choice: (choice[1]["cost"], choice[0].city_id))
+
+    def retask_plan(self, actor, slot, tile, target):
+        country = self.state.countries[actor]
+        army = country.deployed_slots().get(slot)
+        if army is None or army.tile is None:
+            raise ActionRejected("NO_ARMY", "这支军队尚未出征")
+        if army.march and army.march.rendezvous:
+            raise ActionRejected("MARCH_IN_PROGRESS", "这支军队正在执行旧会师命令")
+        owners = self._owners()
+        if target:
+            defender = self.state.countries.get(target)
+            if defender is None or target not in country.at_war_with:
+                raise ActionRejected("NOT_AT_WAR", "必须先宣战")
+            if tile not in defender.tiles and not self._camps_of(defender, tile):
+                raise ActionRejected("NOT_ENEMY_TILE", "目标格已无敌方领土或驻军")
+            city = self._city_of(defender, tile)
+            radius = int(self.siege_rules["blockade_radius"]) if city else 1
+            if (hex_distance(army.tile, tile) <= radius
+                    and not self._landing_claimed(country, army, army.tile)):
+                return army, {"route": [army.tile], "cumulative": [0.0], "cost": 0.0, "days": 0}, False
+            approach = self._approach_to(actor, army, defender, tile,
+                                         allow_hostile_staging=owners.get(army.tile) == target)
+            if approach is None:
+                raise ActionRejected("NO_PATH", "从军队当前位置无法在一条命令内抵达目标")
+            plan, _, expedition = approach
+            return army, plan, expedition
+        if not self._marchable(actor, tile, owners):
+            raise ActionRejected("FOREIGN_GROUND", "别国领土只能进攻")
+        if self._landing_claimed(country, army, tile) or any(
+            self._camps_of(rival, tile) for rival in self.state.countries.values() if rival is not country
+        ):
+            raise ActionRejected("ALREADY_GARRISONED", "目标格已有驻军或已有军队前往")
+        route = self._road(actor, army.tile, tile, explain=True)
+        if route["plan"] is None:
+            raise ActionRejected(*self._refusal(tile, route, self.movement_config["maximum_order_cost"]))
+        return army, route["plan"], self._expedition(actor, route["plan"], owners)
+
+    def retask(self, actor, slot, tile, target):
+        country = self.state.countries[actor]
+        army, plan, expedition = self.retask_plan(actor, slot, tile, target)
+        return self._order(country, army, plan, "ATTACK" if target else "MARCH",
+                           target=target, objective=tile if target else None, expedition=expedition)
 
     def deploy(self, actor, action):
         country = self.state.countries[actor]
@@ -680,7 +749,8 @@ class Military:
             raise ActionRejected("DEPLOYMENT_LOCKED", f"第 {slot} 支军队尚未解锁")
         if slot not in available:
             raise ActionRejected("DEPLOYMENT_OCCUPIED", f"第 {slot} 支军队已经派出")
-        stock = country.city_reserves.get(action["city_id"], {})
+        city_id = action.get("city_id")
+        stock = country.city_reserves.get(city_id, {}) if city_id else country.reserve_roster()
         units = {unit: count for unit, count in action["units"].items() if count}
         if not units:
             raise ActionRejected("EMPTY_DEPLOYMENT", "至少选择 1 名士兵")
@@ -689,17 +759,28 @@ class Military:
                 raise ActionRejected("RESERVE_SHORTAGE", f"{self.units[unit]['label']}可派 {stock.get(unit, 0)} 人")
         tile = action["tile"]["col"], action["tile"]["row"]
         target = action["target"]
-        city, plan, expedition = self.deployment_plan(actor, action["city_id"], tile, target)
-        for unit, count in units.items():
-            stock[unit] -= count
-            if not stock[unit]:
-                del stock[unit]
+        host_id = action.get("host_id")
+        city, plan, expedition = self.national_deployment_plan(actor, tile, target, city_id, host_id)
+        source_cities = [city] if city_id else sorted(
+            country.cities, key=lambda item: (hex_distance(city.center, item.center), item.city_id))
+        for unit, amount in units.items():
+            for source in source_cities:
+                reserves = country.city_reserves.get(source.city_id, {})
+                used = min(reserves.get(unit, 0), amount)
+                if used:
+                    reserves[unit] -= used
+                    if not reserves[unit]:
+                        del reserves[unit]
+                    amount -= used
+                if not amount:
+                    break
         army = country.new_army(tile=city.center, units=units)
         army.deployment_slot = slot
         self.state.record("army_deployed", country_id=actor, city_id=city.city_id,
                           army_id=army.army_id, slot=slot, units=units, tile=self._tile(tile))
-        return self._order(country, army, plan, "ATTACK" if target else "MARCH",
-                           target=target, objective=tile if target else None, expedition=expedition)
+        purpose = "REINFORCE" if host_id else "ATTACK" if target else "MARCH"
+        return self._order(country, army, plan, purpose, target=host_id or target,
+                           objective=tile if target else None, expedition=expedition)
 
     def reserve_campaigns(self, country, minimum):
         if not self.config.get("deployment_levels"):
@@ -1055,7 +1136,7 @@ class Military:
         plan, _hold, objective = found
         return plan, objective, self._expedition(actor, plan, self._owners())
 
-    def _approach_to(self, actor: str, army, defender, objective, *, reserved=()):
+    def _approach_to(self, actor: str, army, defender, objective, *, reserved=(), allow_hostile_staging=False):
         """Cheapest single order that ends beside one named tile, as (plan, hold, expedition).
 
         `strike_options` picks whichever frontier tile is nearest; a player pointing at a
@@ -1067,7 +1148,8 @@ class Military:
         country = self.state.countries[actor]
         staging = {
             coord for coord in self.state.world.neighbors(*objective)
-            if coord not in defender.tiles and coord not in reserved and movement.cost(coord) is not None
+            if (allow_hostile_staging or coord not in defender.tiles)
+            and coord not in reserved and movement.cost(coord) is not None
             and not self._landing_claimed(country, army, coord)
         }
         if not staging:
@@ -2556,6 +2638,23 @@ class Military:
         if order.rendezvous:
             self._finish_rendezvous(country, army, order)
             return
+        if order.purpose == "REINFORCE":
+            host = country.find_army(order.target)
+            if host and host.strength and not host.march and host.tile == army.tile:
+                for unit, count in army.units.items():
+                    host.units[unit] = host.units.get(unit, 0) + count
+                country.armies.remove(army)
+                country.army_tombstones[army.army_id] = {
+                    "army_id": army.army_id, "host_id": host.army_id,
+                    "day": self.state.day_index, "reason": "REINFORCED",
+                }
+                self.state.record("army_reinforced", country_id=country.country_id, army_id=host.army_id,
+                                  source_id=army.army_id, units=dict(army.units))
+                return
+            if not self._marchable(country.country_id, army.tile, self._owners()):
+                self._return_to_free_tile(country, army, order)
+            self.state.record("army_reinforcement_missed", country_id=country.country_id, army_id=army.army_id,
+                              target=order.target, tile=self._tile(army.tile))
         if order.purpose == "RETURN":
             city = self._city_of(country, army.tile)
             if city is not None and city.city_id == order.target:
