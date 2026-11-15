@@ -264,8 +264,11 @@ def test_the_snapshot_files_every_realm_s_alerts_for_the_panel():
         assert session.player_action("ELAR", {
             "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 4,
         })["ok"]
+        state = session.simulation.state
+        route = Military(state).reserve_campaigns(state.countries["ELAR"], minimum=3)["VAYR"]
         assert session.player_action("ELAR", {
-            "type": "MILITARY", "operation": "ATTACK", "target": "VAYR",
+            "type": "MILITARY", "operation": "DEPLOY",
+            **{key: route[key] for key in ("city_id", "target", "tile", "units")},
         })["ok"]
         rows = session.snapshot()["incoming_threats"]["VAYR"]
         assert len(rows) == 1 and rows[0]["attacker"] == "ELAR"

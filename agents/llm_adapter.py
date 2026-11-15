@@ -191,7 +191,7 @@ class OpenAICompatibleAgent(CountryAgent):
             "upkeep_food 与 military_upkeep_food 是每日口粮，成兵后不扣财政。"
             "training_days 是单营工期。各营独立练兵并把新兵送到最近的本国城市，库存见 country.cities[].reserve_units。"
             "DEPLOY 按兵种从一个城市调兵，选进攻时提供 target；数量由库存决定。country.deployment 提供已用出征名额、上限和下一解锁等级。"
-            "reserve_campaigns 是库存可开赴的敌方目标报价，含 city_id、target、tile、units 与 days。RETURN 把待命军队撤回最近本国城市并归还兵力。"
+            "country.reserve_campaigns 是库存可开赴的敌方目标报价，含 city_id、target、tile、units 与 days。RETURN 把待命军队撤回最近本国城市并归还兵力。"
             "面板与你的观察读的是同一份 movement_specs（含 hostile_cost）与 military_specs，没有第二套账；"
             "campaign_options[敌国] 给出最早能抵达的军队、行军天数与集结格（march_target 是落脚格、"
             "objective 是这一令真正打的那一格，ATTACK 就带着 objective 下），country.armies[].march 是它在途的状态与剩余天数；"

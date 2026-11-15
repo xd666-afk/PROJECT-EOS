@@ -354,7 +354,7 @@ class HeuristicAgent(CountryAgent):
 
         wars = country.get("at_war_with", [])
         campaigns = observation.get("campaign_options", {})
-        reserve_campaigns = observation.get("reserve_campaigns", {})
+        reserve_campaigns = country.get("reserve_campaigns", {})
         total_force = country.get("army_strength", 0) + country.get("reserve_strength", 0)
         if wars:
             if country.get("war_exhaustion", 0) >= self._peace_gate(profile, country, rules):

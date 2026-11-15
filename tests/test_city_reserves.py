@@ -88,9 +88,10 @@ def test_new_rendezvous_orders_are_refused(engine):
     assert result.reason_code == "RENDEZVOUS_REMOVED"
 
 
-def test_live_preview_picks_same_route_as_dispatch(monkeypatch, tmp_path):
+def test_live_preview_picks_same_route_as_dispatch(monkeypatch, tmp_path, request):
     monkeypatch.setattr("live_server.SAVE_DIR", tmp_path)
     session = LiveSession(paused=True)
+    request.addfinalizer(session._stop.set)
     session.player_country = "ELAR"
     state = session.simulation.state
     country = state.countries["ELAR"]

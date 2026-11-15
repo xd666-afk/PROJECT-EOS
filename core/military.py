@@ -493,10 +493,10 @@ class Military:
                     code = "INSUFFICIENT_FOOD"
                 if not code:
                     country.treasury -= wage
-                    camp.progress += 1
+                    camp.progress += 1.0
                     if camp.progress + 1e-9 >= days:
                         country.food -= food
-                        camp.progress = max(0, camp.progress - days)
+                        camp.progress = max(0.0, camp.progress - days)
                         camp.raised += 1
                         stock = country.city_reserves.setdefault(city.city_id, {})
                         stock[unit] = stock.get(unit, 0) + 1

@@ -116,7 +116,7 @@ def test_movement_table_is_the_only_source_of_marching_numbers():
 
 
 def test_military_panel_lists_armies_instead_of_one_implicit_host_army():
-    assert "const armies=c.armies||[]" in DASHBOARD
+    assert "const armies=(c.armies||[]).filter(a=>a.strength>0)" in DASHBOARD
     assert "<th>兵营募兵</th>" in DASHBOARD
     assert "operation:'SET_RECRUITING'" in DASHBOARD
     assert "operation:'SET_RECRUIT_UNIT'" in DASHBOARD

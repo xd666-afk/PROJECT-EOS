@@ -141,6 +141,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "military_upkeep_food": country.military_food(state.config),
             "deployment": country.deployment_status(state.config),
             "reserve_strength": sum(sum(stock.values()) for stock in country.city_reserves.values()),
+            "reserve_campaigns": Military(state).reserve_campaigns(country, minimum=3),
             "army_units": dict(country.army_units),
             "army_position": list(country.army_position) if country.army_position else None,
             "armies": [army_payload(army, country, state.config) for army in country.armies],
@@ -169,7 +170,6 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             for other_id, other in state.countries.items() if other_id != country_id
         },
         "campaign_options": _campaign_options(state, country),
-        "reserve_campaigns": Military(state).reserve_campaigns(country, minimum=3),
         "incoming_threats": _threat_alerts(state, country_id),
         "tiles": tiles,
         "frontier_candidates": frontier,
