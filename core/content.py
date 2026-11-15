@@ -93,7 +93,8 @@ def _validate_buildings(config: dict[str, Any], fields: list[str], max_level: in
         _number(spec.get("days"), f"{where} days", low=1.0)
         allowed = spec.get("allowed_biomes")
         _require(isinstance(allowed, list) and allowed, f"{where} 必须列出 allowed_biomes")
-        unknown = [biome for biome in allowed if biome not in biomes]
+        known_biomes = biomes | (BIOME_KEYS_FALLBACK - {"ocean"} if building_id == "ROAD" else set())
+        unknown = [biome for biome in allowed if biome not in known_biomes]
         _require(not unknown, f"{where} 引用未知地形 {unknown}")
         _require(len(set(allowed)) == len(allowed), f"{where} 的 allowed_biomes 有重复")
         _technology(spec.get("required_technology"), fields, max_level, where)

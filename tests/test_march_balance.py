@@ -101,6 +101,15 @@ def test_paving_appetite_is_a_profile_knob_and_stops_when_it_is_filled(monkeypat
     assert agent._building_choice(country, rules) == "ROAD"
     paved = {**country, "buildings": {"T1": "ROAD", "T2": "ROAD"}}
     assert agent._building_choice(paved, rules) != "ROAD"
+    shortcut = [{"tile": {"col": 2, "row": 0}, "days_saved": 33}]
+    assert agent._building_choice({**paved, "roadworks": shortcut}, rules) == "ROAD"
+    tiles = [
+        {"col": 1, "row": 0, "biome": "grassland", "elevation_m": 400,
+         "river": False, "building": None, "project": None},
+        {"col": 2, "row": 0, "biome": "alpine", "elevation_m": 2900,
+         "river": False, "building": None, "project": None},
+    ]
+    assert agent._choose_tile(tiles, "ROAD", shortcut) == tiles[1]
     monkeypatch.setitem(profile, "roads", 0)
     assert agent._building_choice(country, rules) != "ROAD"
 

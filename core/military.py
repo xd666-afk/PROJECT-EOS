@@ -69,7 +69,7 @@ class Military:
             )
         return roads
 
-    def movement(self, actor: str | None = None) -> Movement:
+    def movement(self, actor: str | None = None, *, extra_roads=()) -> Movement:
         """March costs over the live world: terrain, roads, the daily budget and borders.
 
         With an `actor` the price is that realm's: every hex another crown holds is marched
@@ -79,7 +79,7 @@ class Military:
         """
         world = self.state.world
         tiles = world.tiles
-        roads = self._roads()
+        roads = self._roads().union(extra_roads)
         owners = self._owners() if actor is not None else {}
 
         def state_of(coord: tuple[int, int]) -> dict | None:
@@ -92,6 +92,48 @@ class Military:
             }
 
         return Movement(self.state.config, state_of, lambda coord: world.neighbors(*coord))
+
+    def roadwork_options(self, country) -> list[dict]:
+        """Price the best single new road on routes from the capital to cities and frontiers."""
+        actor = country.country_id
+        start = self.state.capital_center(actor)
+        if start is None:
+            return []
+        world = self.state.world
+        pending = {tuple(project["tile"]): project["building"] for project in country.projects}
+        roads = self._roads()
+        spec = self.state.config["buildings"]["ROAD"]
+        candidates = {coord for coord in country.tiles
+                      if coord != start and coord not in roads and coord not in country.buildings
+                      and coord not in pending and world.tile(coord)["biome"] in spec["allowed_biomes"]}
+        if not candidates:
+            return []
+        movement = self.movement(actor, extra_roads={coord for coord, kind in pending.items() if kind == "ROAD"})
+        costs, _ = movement.search(start, cap=movement.maximum_order_cost * 2)
+        destinations = {city.center for city in country.cities if city.center != start and city.center in costs}
+        rivals = [other for other in self.state.countries.values() if other is not country and other.cities]
+        rivals.sort(key=lambda other: (other.country_id not in country.at_war_with,
+                                       hex_distance(start, other.cities[0].center), other.country_id))
+        for rival in rivals[:2]:
+            staging = self._staging_map(rival, {city.center for city in rival.cities}, movement)
+            gate = min((coord for coord in staging if coord != start and coord in costs),
+                       key=lambda coord: (costs[coord], coord), default=None)
+            if gate is not None:
+                destinations.add(gate)
+        best = {}
+        for destination in sorted(destinations, key=lambda coord: (costs[coord], coord))[:4]:
+            current = costs[destination]
+            # On reverse traversal the cost of leaving a tile equals the forward entry cost.
+            # That excludes the candidate's entry from its remaining cost to the destination.
+            tails, _ = movement.search(destination, cap=current, reverse=True)
+            for coord in candidates.intersection(costs, tails):
+                entry = movement.cost(coord)
+                revised = costs[coord] - entry + movement.road_cost + tails[coord]
+                saved = movement.days(current) - movement.days(revised)
+                if saved > 0 and saved > best.get(coord, {}).get("days_saved", 0):
+                    best[coord] = {"tile": self._tile(coord), "destination": self._tile(destination),
+                                   "days_saved": saved}
+        return sorted(best.values(), key=lambda row: (-row["days_saved"], row["tile"]["row"], row["tile"]["col"]))[:6]
 
     def _marchable(self, actor: str, tile: tuple[int, int],
                    owners: dict[tuple[int, int], str]) -> bool:

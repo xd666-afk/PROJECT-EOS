@@ -1,6 +1,7 @@
 {
   "rules_version": "0.3.0",
   "slow_march": true,
+  "terrain_campaigns": true,
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,
@@ -106,7 +107,8 @@
         "wetland",
         "desert",
         "alpine",
-        "tundra"
+        "tundra",
+        "rainforest"
       ]
     },
     "GRANARY": {
@@ -776,20 +778,20 @@
     "loser_loss_rate": 0.42
   },
   "movement": {
-    "daily_budget": 0.20,
+    "daily_budget": 0.05,
     "road_cost": 0.35,
     "hostile_cost": 1.25,
     "maximum_order_cost": 60.0,
     "biome_cost": {
       "grassland": 1.0,
-      "steppe": 1.0,
-      "savanna": 1.2,
-      "wetland": 1.7,
-      "forest": 1.8,
-      "desert": 1.9,
-      "tundra": 2.1,
-      "rainforest": 2.2,
-      "alpine": 2.4
+      "steppe": 1.1,
+      "savanna": 1.5,
+      "wetland": 4.5,
+      "forest": 5.0,
+      "desert": 7.0,
+      "tundra": 8.0,
+      "rainforest": 12.0,
+      "alpine": 16.0
     }
   },
   "social_events": {

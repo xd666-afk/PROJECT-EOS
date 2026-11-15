@@ -1,5 +1,6 @@
 """Marching is settled by the world itself: weighted routes, daily budget, roads, arrival battles."""
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
 
@@ -126,6 +127,36 @@ def test_a_road_beats_the_terrain_under_it_whatever_the_biome():
     plan = paved.plan((0, 0), (11, 0))
     assert plan["cost"] == pytest.approx(7 * 1.0 + 4 * 0.35)
     assert plan["days"] == 3
+
+
+def test_campaign_detours_around_an_unpaved_pass_and_ai_prices_the_shortcut(engine, monkeypatch):
+    state = engine.state
+    country = state.countries["ELAR"]
+    start = country.cities[0].center
+    mountain, end, low1, low2 = (0, 0), (1, 0), (2, 0), (3, 0)
+    graph = {
+        start: [mountain, low1], mountain: [start, end], end: [mountain, low2],
+        low1: [start, low2], low2: [low1, end],
+    }
+    cells = {point: {"land": True, "biome": "alpine" if point == mountain else "grassland"}
+             for point in graph}
+    state.world = replace(state.world, tiles=cells, data={**state.world.data, "road_cells": []})
+    monkeypatch.setattr(type(state.world), "neighbors", lambda world, col, row: graph[(col, row)])
+    state.countries = {"ELAR": country}
+    country.tiles = list(graph)
+    country.cities.append(replace(country.cities[0], city_id="ELAR-C2", center=end))
+    country.buildings.clear()
+    movement = engine.military.movement("ELAR")
+    assert movement.plan(start, end)["route"] == [start, low1, low2, end]
+    assert movement.days(movement.cost(mountain)) == 320
+    assert movement.days(movement.cost(low1)) == 20
+    options = engine.military.roadwork_options(country)
+    assert options[0] == {"tile": {"col": 0, "row": 0}, "destination": {"col": 1, "row": 0},
+                          "days_saved": 33}
+    country.buildings[mountain] = "ROAD"
+    opened = engine.military.movement("ELAR").plan(start, end)
+    assert opened["route"] == [start, mountain, end]
+    assert opened["days"] == 27
 
 
 def test_orders_are_refused_once_the_route_costs_more_than_the_cap():

@@ -1556,6 +1556,9 @@ class GameState:
         state.config = _merge_defaults(default_config, data["rules"])
         if not data["rules"].get("slow_march", False):
             state.config["movement"]["daily_budget"] = default_config["movement"]["daily_budget"]
+        if not data["rules"].get("terrain_campaigns", False):
+            state.config["movement"]["daily_budget"] = default_config["movement"]["daily_budget"]
+            state.config["movement"]["biome_cost"] = deepcopy(default_config["movement"]["biome_cost"])
         saved_military = data["rules"]["military"]
         migrate_personnel = "soldiers_per_unit" not in saved_military
         if migrate_personnel:

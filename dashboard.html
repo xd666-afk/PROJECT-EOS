@@ -4615,7 +4615,7 @@ function renderMilitary(){
       <div class="hint">攻占敌国带建筑的格子才会立账：每栋按 ${fmtNum((milRules.capture_tribute_share||0)*100,0)}% 的缴付方日收入抽取，持续 ${milRules.capture_tribute_days||0} 天，对同一对手合计封顶 ${tributeCap()}%。围城账满、整座易主时，城域里换主的建筑按同一条规则立账；道路等不分归属的设施不产生贡金。</div>
     </div>`:''}
   </div>
-  <details class="military-fold"><summary>行军规则说明</summary><div class="hint"><b>行军：</b>先在地图选中一格陆地——本国领土、无主地、乃至别国领土都算，地块卡上的「行军至此」会逐支军队报出天数与成本；选中一支军队后再点「行军至已选地块」，下的就是那一支的令。行军是下单，不是瞬移：单日推进 ${fmtNum(mv.daily_budget,2)} 点成本，道路每格 ${fmtNum(mv.road_cost,2)}（不分归属都算），${Object.entries(mv.biome_cost||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${fmtNum(v,1)}`).join('、')}，${hostilePaceText()}——别国领土只是减速，不是墙。单条命令上限 ${fmtNum(mv.maximum_order_cost,0)} 点：超了就分两段下令。在途军队不能再下令；行军令只能落在己方或无主的格子上，要进别国领土就打进攻令，撞上没有主人的营地就用「就地打击」。</div></details>`;
+  <details class="military-fold"><summary>行军规则说明</summary><div class="hint">军队按成本最低的路线前进。高山、密林和湿地耗时长，修路或绕行可以大幅缩短时间。每天推进 ${fmtNum(mv.daily_budget,2)} 点，每格道路消耗 ${fmtNum(mv.road_cost,2)} 点；${hostilePaceText()}。每道命令最多 ${fmtNum(mv.maximum_order_cost,0)} 点，远程路线可以分段下令。改令时从军队当前位置按最新路网计算。</div></details>`;
   bindThreats($('militaryBody'));
   for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy},'行军令已下达，抵达当日结算战果').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-attack-army]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attackArmy,army_id:b.dataset.army},'这一路的行军令已下达').then(renderMilitary);
@@ -4856,13 +4856,13 @@ function renderTechIndex(){
     ['可走与可停','任何陆地格都走得过去；MARCH 的落点仍只能是己方或无主的格子，别国领土用进攻令'],
     ['单条命令上限',orderCap?`${fmtNum(orderCap,0)} 点：超了就分两段下令（≈ ${fmtNum(orderCap/budget,1)} 天）`:'不设上限'],
     ['下单与开战','MARCH / ATTACK 只排队，抵达当日才结算'],
-    ['在途军队','不能再下令；沿途易主则就地停下']
+    ['在途改令','从当前位置按批准时的路网继续行军']
   ].map(([label,value])=>stat(label,value)).join('');
   const marchRows=Object.entries(mv.biome_cost||{}).sort((a,b)=>a[1]-b[1]).map(([biome,value])=>{
     const cost=Math.max(Number(value),1e-9);
     return `<tr><td>${esc(BIOME_NAMES[biome]||biome)}<small>${esc(biome)}</small></td>
       <td>${fmtNum(cost,2)}</td>
-      <td>${Math.floor(budget/cost)} 格<small>道路 ${Math.floor(budget/roadCost)} 格</small></td>
+      <td>${Math.ceil(cost/budget-1e-9)} 日<small>道路 ${Math.ceil(roadCost/budget-1e-9)} 日</small></td>
       <td>${orderCap?`${Math.floor(orderCap/cost)} 格`:'—'}<small>道路 ${Math.floor(orderCap/roadCost)} 格</small></td></tr>`;
   }).join('');
   $('techIndex').innerHTML=`<div class="mil-card"><h3>兵种解锁阶梯</h3>
@@ -4889,8 +4889,8 @@ function renderTechIndex(){
     <div class="hint">会战打在对方城域内才走这本账：旷野与无守军的门栅仍是原来的等比例消耗。这里的三个数与地块卡的溃退账、边警的全歼警告、战报里的退路格同源，都读自军事结算那一本溃退账。</div>
   </div>
   <div class="mil-card"><h3>行军与道路常量</h3>${marchStats}
-    <table class="unit-table"><thead><tr><th>群系</th><th>每格成本</th><th>单日可走</th><th>单条命令最远</th></tr></thead><tbody>${marchRows}</tbody></table>
-    <div class="hint">最短路按这张表的每格成本加权，道路格一律取 road_cost，${hostile?`走进别国领土的那一格再叠上 hostile_cost ${fmtNum(hostile,2)} 点`:'领土不额外加价'}，所以同一距离走法不同、耗时不同；命令只按当下路网与当下边界定价，路上新建的道路、途中易主的格子都要等下一条命令才生效。想在本格逐支军队看报价，就去地块卡上的「行军至此」。</div>
+    <table class="unit-table"><thead><tr><th>群系</th><th>每格成本</th><th>走一格需时</th><th>单条命令最远</th></tr></thead><tbody>${marchRows}</tbody></table>
+    <div class="hint">最短路按这张表的每格成本加权，道路格一律取 road_cost，${hostile?`走进别国领土的那一格再叠上 hostile_cost ${fmtNum(hostile,2)} 点`:'领土不额外加价'}，所以同一距离走法不同、耗时不同；命令只按当下路网与当下边界定价，路上新建的道路、途中易主的格子都要等下一条命令才生效。点地块的「驻守」或「进攻」可查看所选军队的报价。</div>
   </div>
   <div class="mil-card"><h3>时代推进</h3>
     <table class="unit-table"><thead><tr><th>时代</th><th>推进条件</th><th>状态</th></tr></thead><tbody>${eraRows}</tbody></table>

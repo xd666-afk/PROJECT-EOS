@@ -468,6 +468,7 @@ class HeuristicAgent(CountryAgent):
             tile = self._choose_tile(
                 [tile for tile in observation["tiles"] if (tile["col"], tile["row"]) not in chosen_tiles],
                 building,
+                country.get("roadworks", []) if building == "ROAD" else (),
             )
             if tile is None:
                 break
@@ -645,6 +646,12 @@ class HeuristicAgent(CountryAgent):
             return "FARM"
         barracks = rules["buildings"].get("BARRACKS")
         profile = personality_definition(personality)["mock"]
+        road_target = int(profile.get("roads", 0))
+        roadworks = country.get("roadworks") or []
+        if road_target and roadworks and roadworks[0]["days_saved"] >= 30 and not any(
+            project["building"] == "ROAD" for project in country["projects"]
+        ):
+            return "ROAD"
         if barracks and profile.get("barracks", 0) > 0:
             need = barracks.get("required_technology") or {}
             ready = technology.get(need.get("field", ""), 0) >= need.get("level", 0)
@@ -655,7 +662,6 @@ class HeuristicAgent(CountryAgent):
             )
             if ready and country["treasury"] >= barracks["cost"] and reserve >= 120:
                 return "BARRACKS"
-        road_target = int(personality_definition(personality)["mock"].get("roads", 0))
         if road_target and counts.get("ROAD", 0) < road_target:
             # Paving is the one investment that changes what an army can reach, so a
             # road-hungry realm finishes it before it builds its industry.
@@ -692,10 +698,16 @@ class HeuristicAgent(CountryAgent):
         return preferred
 
     @staticmethod
-    def _choose_tile(tiles: list[dict[str, Any]], building: str) -> dict[str, Any] | None:
+    def _choose_tile(tiles: list[dict[str, Any]], building: str, roadworks=()) -> dict[str, Any] | None:
         candidates = [tile for tile in tiles if not tile["building"] and not tile["project"]]
         if not candidates:
             return None
+        if roadworks:
+            by_coord = {(tile["col"], tile["row"]): tile for tile in candidates}
+            for row in roadworks:
+                coord = row["tile"]["col"], row["tile"]["row"]
+                if coord in by_coord:
+                    return by_coord[coord]
         def score(tile: dict[str, Any]) -> tuple[float, int, int]:
             if building == "FARM":
                 biome = {"grassland": 4.0, "wetland": 4.5, "savanna": 3.5,
