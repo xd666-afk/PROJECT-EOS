@@ -2195,7 +2195,7 @@ function openTileDispatch(intent,tile){
   cities.sort((a,b)=>distance(a)-distance(b));
   const title=target?'进攻':'驻守';
   const preview=$('tileDispatchPreview');
-  let request,ready=false,sending=false;
+  let request,routeRefused=false,sending=false;
   $('tileDispatchTitle').textContent=title+' · ('+tile.col+', '+tile.row+')';
   $('tileDispatchClose').onclick=()=>dialog.close();
   confirm.textContent='确认'+title;
@@ -2213,7 +2213,7 @@ function openTileDispatch(intent,tile){
       move.disabled=true;
       try{
         const accepted=await submitPlayerAction({type:'MILITARY',operation:target?'ATTACK':'MARCH',
-          army_id:picker.value,tile:coordinate,...(target?{target}:{})},title+'命令已下达');
+          army_id:picker.value,tile:coordinate,...(target?{target}:{})},title+'命令已下达',false);
         if(accepted)dialog.close();
       }finally{move.disabled=false;}
     };
@@ -2239,13 +2239,13 @@ function openTileDispatch(intent,tile){
       total+=Number(slider.value);
     }
     confirm.textContent='确认'+title+(total?' · '+fmtInt(total)+' 支':'');
-    confirm.disabled=!total||!ready||sending||slots.used>=slots.limit;
+    confirm.disabled=!total||routeRefused||sending||slots.used>=slots.limit;
   }
   async function renderCity(){
     request?.abort();
     const controller=new AbortController();
     request=controller;
-    ready=false;
+    routeRefused=false;
     const city=cities.find(city=>city.city_id===picker.value);
     const stock=city.reserve_units||{};
     const row=unit=>'<label class="dispatch-troop"><span>'+esc(unitName(unit))+'</span><input type="range" name="'+unit+
@@ -2259,13 +2259,16 @@ function openTileDispatch(intent,tile){
     if(target)query.set('target',target);
     try{
       const response=await fetch('/api/deployment_preview?'+query,{signal:controller.signal});
+      if(!response.ok)throw new Error('deployment preview');
       const quote=await response.json();
       if(controller.signal.aborted||!dialog.open)return;
-      ready=quote.ok;
-      preview.textContent=ready?(quote.days?'行军约 '+quote.days+' 日':'可立即交战'):quote.error;
+      routeRefused=!quote.ok;
+      preview.textContent=quote.ok
+        ?(quote.days?'行军约 '+quote.days+' 日':'已在交战范围')+' · 行军成本 '+fmtNum(quote.cost,2)+' 点'
+        :quote.error;
       updateSelection();
     }catch(error){
-      if(!controller.signal.aborted)preview.textContent='暂时无法计算行军时间';
+      if(!controller.signal.aborted)preview.textContent='暂未取得报价，确认时会核验路线';
     }
   }
   sliders.oninput=updateSelection;
@@ -2276,7 +2279,7 @@ function openTileDispatch(intent,tile){
     sending=true;updateSelection();
     try{
       const accepted=await submitPlayerAction({type:'MILITARY',operation:'DEPLOY',
-        city_id:picker.value,tile:coordinate,target,units:selection()},title+'命令已下达');
+        city_id:picker.value,tile:coordinate,target,units:selection()},title+'命令已下达',false);
       if(accepted)dialog.close();
     }finally{sending=false;updateSelection();}
   };
@@ -2650,7 +2653,7 @@ async function control(action,value){
     if(action==='observe'){selectTab('country');showToast('已返回观战模式');}
   }catch(err){showToast('本地模拟服务连接中断',true);}
 }
-async function submitPlayerAction(action,successText){
+async function submitPlayerAction(action,successText,waitForRefresh=true){
   if(!STATE?.player_country)return;
   try{
     const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -2662,7 +2665,8 @@ async function submitPlayerAction(action,successText){
     }
     else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
     tileStrikeKey='';tileStrikes=null;
-    await poll(true);
+    const refresh=poll(true);
+    if(waitForRefresh)await refresh;
     return data.ok;
   }catch(err){showToast('命令请求失败',true);}
 }
@@ -2676,7 +2680,9 @@ function setOffline(flag){if(flag)showToast('观察台连接中断',true);}
 let stateRequest=null;
 let campaignRequest=null,campaignRevision=null;
 function loadCampaignQuotes(){
-  if(!STATE||$('militaryModal').hidden||campaignRevision===STATE.revision)return;
+  if(!STATE||$('militaryModal').hidden||$('tileDispatchDialog').open
+    ||!document.querySelector('#militaryBody details[data-campaign-pricing][open]')
+    ||campaignRevision===STATE.revision)return;
   const revision=STATE.revision;
   if(campaignRequest?.revision===revision)return;
   campaignRequest?.controller.abort();
@@ -4398,6 +4404,10 @@ function arrangeMilitaryCards(openCards){
   for(const [index,card] of [...document.querySelectorAll('#militaryBody [data-mil-sect]')].entries()){
     const fold=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');
     fold.className='military-fold';fold.dataset.card=String(index);fold.open=openCards.has(String(index));
+    if(card.hasAttribute('data-campaign-pricing')){
+      fold.dataset.campaignPricing='';
+      fold.addEventListener('toggle',()=>{if(fold.open)loadCampaignQuotes();});
+    }
     summary.textContent=card.querySelector('h3')?.textContent||'详细操作';
     card.before(fold);fold.append(summary,body);body.append(card);
   }
@@ -4617,7 +4627,7 @@ function renderMilitary(){
       ${alerts.map(threatCard).join('')}`:'<div class="mini-empty">当前没有敌军开向我国领土。</div>'}
       <div class="hint">天数与抵达日期直接读结算引擎的行军账本：对方每天按地形与道路成本推进，路线中途被切断当场就从这张表上消失，所以这里写的日子就是它真会打到的日子。<b>「我方到场 N 支」只算缺口 ${milRules.mass_radius||1} 格内的待命军队</b>：那一格站着人，对方抵达当日就要打会战；一格都没有，对方几乎不折兵就踏过去。想回防就点这一格，再用地块上的「驻守」派兵。<b>都城中心格被围下，整座城连同该国全部领土、国库与粮仓一并易主</b>，该国当场灭国。</div>
     </div>
-    <div class="mil-card" data-mil-sect="war"><h3>战争与和平</h3>${peaceRows}${warRows}
+    <div class="mil-card" data-mil-sect="war" data-campaign-pricing><h3>战争与和平</h3>${peaceRows}${warRows}
       ${isPlayer&&warTargets.length?`<div class="mil-buttons"><select id="warTarget">${warTargets.map(p=>`<option value="${p.id}" ${p.id===militaryWarTarget?'selected':''}>${esc(p.name)}</option>`).join('')}</select><button data-declare-war>宣战</button></div>`:''}
       <div class="hint">宣战之后，「下令进攻」会把所选军队的行军单排到敌国边缘城池：军队每天按地形与道路成本推进，抵达当日才结算会战，打赢只夺下那一格、把它并入最近的己方城池。已经在目标旁边的军队当场就开打。<b>城池中心格不打会战：下令打中心就是开围</b>，军队站在封锁圈里每天啃一口墙，账满整座易主，那一本账列在下面「围城战线」里；还没有军队围着时也有一张「可开赴的城墙」表，点它就是把这一支开进封锁圈、抵达当日自动开围。每场战争最多同时报价 ${milRules.strike_columns||1} 路，下表按军队逐条列出各自最快的一条，点「另一路」那一行就能分兵合击。<b>会战只算缺口 ${milRules.mass_radius||1} 格内到场的军队</b>：单独一支只打 ${fmtNum(milRules.minimum_mass_share||0.5,2)} 的力，几座兵营的兵汇到同一格才打满——点「其余向此集结」就把别的待命军队开进这一格。</div>
     </div>

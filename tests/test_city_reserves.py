@@ -107,5 +107,6 @@ def test_live_preview_picks_same_route_as_dispatch(monkeypatch, tmp_path, reques
     result = session.player_action("ELAR", action)
     assert result["ok"], result
     assert result["result"]["effects"]["days"] == preview["days"]
+    assert result["result"]["effects"]["cost"] == preview["cost"]
     fresh = session.snapshot(lightweight=True, since=snapshot["revision"])
     assert fresh["countries"]["ELAR"]["cities"][0]["reserve_units"] == {"MILITIA": 50}

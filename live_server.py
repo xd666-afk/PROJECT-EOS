@@ -828,7 +828,7 @@ class LiveSession:
                 _, plan, _ = military.deployment_plan(actor, city, (col, row), target)
             except ActionRejected as error:
                 return {"ok": False, "error": error.text, "code": error.code}
-            return {"ok": True, "days": plan["days"]}
+            return {"ok": True, "days": plan["days"], "cost": plan["cost"]}
 
 
     def seat(self) -> str | None:

@@ -583,13 +583,13 @@ class Military:
         movement = self.movement(actor) if movement is None else movement
         if movement.cost(target) is None:
             return {"plan": None, "reason": "SEA", "cost": None, "days": None}
-        costs, previous = movement.search(start)
+        costs, previous = movement.search(start, targets={target})
         if target in costs:
             return {"plan": self._road_plan(movement, previous, start, target),
                     "reason": None, "cost": None, "days": None}
         if not explain:
             return {"plan": None, "reason": "NO_ROAD", "cost": None, "days": None}
-        reached, previous = movement.search(start, cap=float("inf"))
+        reached, previous = movement.search(start, targets={target}, cap=float("inf"))
         if target not in reached:
             return {"plan": None, "reason": "ENCLAVED", "cost": None, "days": None}
         needed = float(reached[target])
@@ -1059,16 +1059,16 @@ class Military:
         the border surcharge it pays, and only the fight at the far end is penalised.
         """
         movement = self.movement(actor)
-        staging = [
+        country = self.state.countries[actor]
+        staging = {
             coord for coord in self.state.world.neighbors(*objective)
             if coord not in defender.tiles and coord not in reserved and movement.cost(coord) is not None
-        ]
+            and not self._landing_claimed(country, army, coord)
+        }
         if not staging:
             return None
-        costs, previous = movement.search(army.tile)
-        country = self.state.countries[actor]
-        reached = [coord for coord in staging if coord in costs
-                   and not self._landing_claimed(country, army, coord)]
+        costs, previous = movement.search(army.tile, targets=staging, first_target=True)
+        reached = staging.intersection(costs)
         if not reached:
             return None
         hold = min(reached, key=lambda coord: (costs[coord], coord[1], coord[0]))

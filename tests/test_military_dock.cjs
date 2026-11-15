@@ -69,8 +69,10 @@ test('military dock retains all existing advanced commands',()=>{
 });
 
 
-test('city dispatch renders five sliders and only confirmation sends a command',async()=>{
+test('attack can be confirmed while the route quote is still pending',async()=>{
   const elements=new Map(),orders=[],requests=[];
+  let resolveQuote;
+  const quote=new Promise(resolve=>{resolveQuote=resolve;});
   const node=()=>({children:[],append(...items){this.children.push(...items);},
     add(option){if(!this.value)this.value=option.value;},
     showModal(){this.open=true;},close(){this.open=false;},
@@ -80,25 +82,31 @@ test('city dispatch renders five sliders and only confirmation sends a command',
     }});
   const get=id=>{if(!elements.has(id))elements.set(id,node());return elements.get(id);};
   const context={$:get,document:{createElement:node},URLSearchParams,AbortController,
-    Option:function(text,value){this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,
+    Option:function(text,value){this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,fmtNum:x=>x,
     tileEnemyCamps:()=>[],STATE:{player_country:'A',countries:{A:{deployment:{used:0,limit:1},
       cities:[{city_id:'C',name:'City',center:[0,0],reserve_units:{MILITIA:120,ARCHER:4}}]}}},
-    fetch:async url=>{requests.push(url);return {json:async()=>({ok:true,days:4})};},
+    fetch:url=>{requests.push(url);return quote;},
     submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return true;}};
   vm.createContext(context);
   vm.runInContext(html.slice(html.indexOf('function openTileDispatch('),html.indexOf('function routHexText(')),context);
-  context.openTileDispatch('march',{col:2,row:3,owner:null});
-  await new Promise(setImmediate);
+  context.openTileDispatch('attack',{col:2,row:3,owner:'B'});
+  assert.equal(get('tileDispatchDialog').open,true);
+  assert.match(get('tileDispatchPreview').textContent,/正在计算/);
   const sliders=get('tileDispatchRows').children.at(-1);
   assert.deepEqual(sliders.querySelectorAll('input').map(i=>i.max),['120','4','0','0','0']);
   sliders.inputs={MILITIA:{name:'MILITIA',max:'120',value:'100',nextElementSibling:{}}};
   sliders.oninput();sliders.oninput();
   assert.equal(requests.length,1);
   assert.equal(orders.length,0);
+  assert.equal(get('tileDispatchConfirm').disabled,false);
   await get('tileDispatchConfirm').onclick();
   assert.equal(orders[0].operation,'DEPLOY');
+  assert.equal(orders[0].target,'B');
   assert.equal(orders[0].units.MILITIA,100);
   assert.equal(get('tileDispatchDialog').open,false);
+  resolveQuote({ok:true,json:async()=>({ok:true,days:4,cost:3})});
+  await new Promise(setImmediate);
+  assert.doesNotMatch(get('tileDispatchPreview').textContent,/行军成本/);
 });
 
 test('tile shows the intent before exposing individual army rows',()=>{
