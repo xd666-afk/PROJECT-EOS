@@ -151,8 +151,9 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
     assert engine.apply_action("ELAR", {
         "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 2,
     }).accepted
-    assert elar.army_units == {"MILITIA": 2}
-    assert elar.army_strength == 2
+    city = elar.cities[0]
+    assert elar.city_reserves[city.city_id] == {"MILITIA": 2}
+    assert elar.army_strength == 0
     price = float(state.config["units"]["MILITIA"]["cost"]["treasury"])
     assert elar.treasury == pytest.approx(before_treasury - 2 * price)
     rejected = engine.apply_action("ELAR", {
@@ -160,11 +161,11 @@ def test_military_recruitment_march_war_battle_and_peace(engine):
     })
     assert not rejected.accepted and rejected.reason_code == "TECHNOLOGY_REQUIRED"
     own_target = next(
-        coord for coord in neighbors(*elar.army_position)
+        coord for coord in neighbors(*city.center)
         if coord in elar.tiles
     )
     ordered = engine.apply_action("ELAR", {
-        "type": "MILITARY", "operation": "MARCH",
+        "type": "MILITARY", "operation": "DEPLOY", "city_id": city.city_id, "units": {"MILITIA": 2},
         "tile": {"col": own_target[0], "row": own_target[1]},
     })
     assert ordered.accepted

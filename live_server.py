@@ -127,6 +127,8 @@ class LiveSession:
         agent_meta: dict | None = None,
     ) -> None:
         self.lock = threading.RLock()
+        self._snapshot_cache = {}
+        self._snapshot_epoch = 0
         self.scheduler = scheduler
         self.budget = budget or CallBudget()
         self.agent_meta = agent_meta or {}
@@ -816,6 +818,19 @@ class LiveSession:
 
         return march_preview(draft, self.rules, start, target)
 
+    def deployment_preview(self, city, col, row, target):
+        with self.lock:
+            actor = self.seat()
+            if actor is None:
+                return {"ok": False, "error": "请先接管一个国家"}
+            military = Military(self.simulation.state)
+            try:
+                _, plan, _ = military.deployment_plan(actor, city, (col, row), target)
+            except ActionRejected as error:
+                return {"ok": False, "error": error.text, "code": error.code}
+            return {"ok": True, "days": plan["days"]}
+
+
     def seat(self) -> str | None:
         """The realm the player still holds a chair at, or None once it has been annexed.
 
@@ -847,7 +862,7 @@ class LiveSession:
                 action = validate_action(actor, {"type": "MILITARY", "operation": "DISPATCH",
                                                  "orders": payload.get("orders")}, state.config)
                 if all(order["operation"] == "RENDEZVOUS" for order in action["orders"]):
-                    quote = Military(state).rendezvous_batch_quote(actor, action["orders"])
+                    quote = Military(state).rendezvous_batch_quote(actor, action["orders"], price_route=False)
                     return {"ok": True, **quote}
                 targets = {(o["tile"]["col"], o["tile"]["row"]) for o in action["orders"]
                            if o["operation"] == "ATTACK" and o.get("tile")}
@@ -875,7 +890,8 @@ class LiveSession:
             try:
                 action = validate_action(actor, raw, state.config)
                 quote = Military(state).rendezvous_quote(
-                    actor, action["army_id"], action["host_id"], action["units"]
+                    actor, action["army_id"], action["host_id"], action["units"],
+                    price_route=payload.get("validate_only") is not True,
                 )
             except ActionRejected as error:
                 return {"ok": False, "error": str(error)}
@@ -900,14 +916,27 @@ class LiveSession:
     def world_payload(self) -> dict:
         return project_world(self.simulation.state.world.data)
 
-    def snapshot(self) -> dict:
+    def snapshot(self, *, lightweight=False, since=None) -> dict:
         with self.lock:
+            state = self.simulation.state
+            key = (state, state.day_index, len(state.event_log), len(state.action_log),
+                   self.paused, self.finished, self.speed, self.maximum_day, self.player_country,
+                   self.current_save_id, self.current_save_name, self._snapshot_epoch)
+            revision = ':'.join(map(str, (id(state), *key[1:])))
+            if lightweight and since == revision:
+                return {"unchanged": True, "revision": revision}
+            cached = self._snapshot_cache.get(lightweight)
+            if cached and cached[0] == key:
+                return cached[1]
             summary = self.simulation.state.summary()
             threats = Military(self.simulation.state).incoming_threats()
-            recent = [
-                deepcopy(event) for event in self.simulation.state.event_log
-                if event["type"] not in {"economy_daily"}
-            ][-35:]
+            recent = []
+            for event in reversed(state.event_log):
+                if event["type"] != "economy_daily":
+                    recent.append(deepcopy(event))
+                    if len(recent) == 35:
+                        break
+            recent.reverse()
             buildings = []
             projects = []
             for country_id, country in self.simulation.state.countries.items():
@@ -922,15 +951,10 @@ class LiveSession:
                         round(1.0 - project["remaining_days"] / total, 4),
                         total,
                     ])
-            llm_calls = [
-                deepcopy(event) for event in self.simulation.state.event_log
-                if event["type"] == "llm_call"
-            ]
-            llm_decisions = [
-                deepcopy(event) for event in self.simulation.state.event_log
-                if event["type"] == "llm_decision"
-            ]
-            return {
+            latest_call = next((event for event in reversed(state.event_log) if event["type"] == "llm_call"), None)
+            latest_decision = next((event for event in reversed(state.event_log) if event["type"] == "llm_decision"), None)
+            payload = {
+                "revision": revision,
                 "day": self.simulation.state.day_index,
                 "date": summary["date"],
                 "paused": self.paused,
@@ -946,10 +970,8 @@ class LiveSession:
                 "building_specs": self.simulation.state.config["buildings"],
                 "unit_specs": self.simulation.state.config["units"],
                 "military_specs": self.simulation.state.config["military"],
-                "rendezvous_hosts": (Military(self.simulation.state).rendezvous_hosts(self.seat())
-                                     if self.seat() else []),
                 "movement_specs": self.simulation.state.config["movement"],
-                "campaign_quotes": self.campaign_quotes(),
+                **({} if lightweight else {"campaign_quotes": self.campaign_quotes()}),
                 "incoming_threats": threats,
                 "policy_options": sorted(self.simulation.state.config["policies"]),
                 "research_fields": self.simulation.state.config["research_fields"],
@@ -970,8 +992,8 @@ class LiveSession:
                 "buildings": buildings,
                 "projects": projects,
                 "agents": self.agent_meta,
-                "latest_llm_decision": llm_decisions[-1] if llm_decisions else None,
-                "latest_llm_call": llm_calls[-1] if llm_calls else None,
+                "latest_llm_decision": deepcopy(latest_decision),
+                "latest_llm_call": deepcopy(latest_call),
                 "llm_budget": self.budget.summary(),
                 "fairness": self.simulation.state.world.data["metadata"].get("fairness"),
                 "start_year": self.simulation.state.start_astronomical_year,
@@ -986,6 +1008,8 @@ class LiveSession:
                 },
                 "trades": summary["trades"],
             }
+            self._snapshot_cache[lightweight] = (key, payload)
+            return payload
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -1021,7 +1045,13 @@ class Handler(BaseHTTPRequestHandler):
             else:
                 self._json({"error": "terrain texture not found"}, 404)
         elif path == "/api/state":
-            self._json(self.session.snapshot())
+            query = parse_qs(urlparse(self.path).query)
+            self._json(self.session.snapshot(
+                lightweight=query.get("light") == ["1"], since=query.get("since", [None])[0],
+            ))
+        elif path == "/api/campaign_quotes":
+            with self.session.lock:
+                self._json({"quotes": self.session.campaign_quotes()})
         elif path == "/api/agents":
             self._json(self.session.agent_payload())
         elif path == "/api/setup":
@@ -1060,6 +1090,16 @@ class Handler(BaseHTTPRequestHandler):
             except ValueError:
                 limit = 80
             self._json(self.session.diary_payload(country_id, limit))
+        elif path == "/api/deployment_preview":
+            params = parse_qs(urlparse(self.path).query)
+            try:
+                col = int(params.get("col", [""])[0])
+                row = int(params.get("row", [""])[0])
+            except ValueError:
+                self._json({"ok": False, "error": "col、row 必须是整数"}, 400)
+                return
+            self._json(self.session.deployment_preview(
+                params.get("city", [""])[0], col, row, params.get("target", [None])[0]))
         elif path == "/api/tile_strikes":
             params = parse_qs(urlparse(self.path).query)
             try:
@@ -1149,6 +1189,9 @@ class Handler(BaseHTTPRequestHandler):
                 )
         except (ValueError, TypeError, json.JSONDecodeError) as exc:
             result = {"ok": False, "error": str(exc)}
+        if self.path not in {"/api/dispatch_preview", "/api/rendezvous_preview", "/api/march_preview", "/api/map_preview"}:
+            with self.session.lock:
+                self.session._snapshot_epoch += 1
         self._json(result)
 
     def log_message(self, fmt: str, *args) -> None:

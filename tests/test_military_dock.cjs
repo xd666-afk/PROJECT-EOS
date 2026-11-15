@@ -36,7 +36,7 @@ function dock(paused){
   const context={STATE:{paused},selectedTile:null,selectedCountry:'A',militaryResume:false,militaryTileHome:null,
     $:id=>nodes[id],countryMeta:()=>({capital:{col:2,row:3}}),
     document:{body:{classList:{add:x=>classes.add(x),remove:x=>classes.delete(x)}}},
-    setRail:()=>{},showToast:()=>{},renderRight:()=>{},renderMilitary:()=>{},resize:()=>{},
+    setRail:()=>{},showToast:()=>{},renderRight:()=>{},renderMilitary:()=>{},resize:()=>{},loadCampaignQuotes:()=>{},
     control:async action=>{calls.push(action);}};
   vm.createContext(context);
   vm.runInContext(html.slice(html.indexOf('async function openMilitary(){'),html.indexOf('function renderMilitary(){')),context);
@@ -69,46 +69,37 @@ test('military dock retains all existing advanced commands',()=>{
 });
 
 
-test('rendezvous creates one slider per unit, revalidates on input and only confirms one order',async()=>{
-  const nodes=new Map();
-  const element=()=>({children:[],open:false,disabled:true,append(...children){this.children.push(...children);},
-    replaceChildren(){this.children=[];},setAttribute(){},showModal(){this.open=true;},close(){this.open=false;}});
-  const get=id=>{if(!nodes.has(id))nodes.set(id,element());return nodes.get(id);};
-  const previews=[],orders=[],pending=[];
-  const quote={room:3,source_strength:7,maximum:3,source_units:{MILITIA:5,ARCHER:2},
-    source_labels:{MILITIA:'民兵',ARCHER:'弓兵'}};
-  const context={$:get,document:{createElement:element},
-    fetch:async(url,options)=>{assert.equal(url,'/api/rendezvous_preview');previews.push(JSON.parse(options.body));
-      if(previews.length>1)return new Promise(resolve=>pending.push(resolve));
-      return {json:async()=>({ok:true,quote:{...quote,errors:[{text:'至少选择 1 支兵'}]}})};
-    },
+test('city dispatch renders five sliders and only confirmation sends a command',async()=>{
+  const elements=new Map(),orders=[],requests=[];
+  const node=()=>({children:[],append(...items){this.children.push(...items);},
+    add(option){if(!this.value)this.value=option.value;},
+    showModal(){this.open=true;},close(){this.open=false;},
+    addEventListener(){},querySelectorAll(){
+      return [...(this.innerHTML||'').matchAll(/name="([A-Z_]+)" min="0" max="(\d+)"/g)]
+        .map(([,name,max])=>this.inputs?.[name]||{name,max,value:'0',nextElementSibling:{}});
+    }});
+  const get=id=>{if(!elements.has(id))elements.set(id,node());return elements.get(id);};
+  const context={$:get,document:{createElement:node},URLSearchParams,AbortController,
+    Option:function(text,value){this.value=value;},unitName:x=>x,esc:x=>x,fmtInt:x=>x,
+    tileEnemyCamps:()=>[],STATE:{player_country:'A',countries:{A:{deployment:{used:0,limit:1},
+      cities:[{city_id:'C',name:'City',center:[0,0],reserve_units:{MILITIA:120,ARCHER:4}}]}}},
+    fetch:async url=>{requests.push(url);return {json:async()=>({ok:true,days:4})};},
     submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return true;}};
   vm.createContext(context);
-  vm.runInContext(html.slice(html.indexOf('async function openRendezvous('),html.indexOf('let militaryTileHome=')),context);
-  await context.openRendezvous('A1','A2');
-  const slider=get('rendezvousSliders').children.map(label=>label.children[1]);
-  assert.deepEqual(slider.map(input=>input.max),['5','2']);
-  assert.match(get('rendezvousTotals').textContent,/还能装 3.*共 7.*最多可派 3/);
-  slider[0].value='4';slider[0].oninput();
-  slider[1].value='1';slider[1].oninput();
-  assert.deepEqual(previews.map(p=>p.units),[{},{MILITIA:4},{MILITIA:4,ARCHER:1}]);
-  const errors=[{text:'源军兵种名额到底'},{text:'装不下，还能装 3 支'},{text:'宿主兵营同兵种名额已满'}];
-  pending[1]({json:async()=>({ok:true,quote:{...quote,errors}})});
+  vm.runInContext(html.slice(html.indexOf('function openTileDispatch('),html.indexOf('function routHexText(')),context);
+  context.openTileDispatch('march',{col:2,row:3,owner:null});
   await new Promise(setImmediate);
-  assert.match(get('rendezvousErrors').textContent,/源军兵种名额到底.*还能装 3.*宿主兵营同兵种名额/);
-  pending[0]({json:async()=>({ok:true,quote:{...quote,errors:[]}})});
-  await new Promise(setImmediate);
-  assert.equal(get('rendezvousConfirm').disabled,true);
+  const sliders=get('tileDispatchRows').children.at(-1);
+  assert.deepEqual(sliders.querySelectorAll('input').map(i=>i.max),['120','4','0','0','0']);
+  sliders.inputs={MILITIA:{name:'MILITIA',max:'120',value:'100',nextElementSibling:{}}};
+  sliders.oninput();sliders.oninput();
+  assert.equal(requests.length,1);
   assert.equal(orders.length,0);
-  slider[0].value='0';slider[0].oninput();
-  pending[2]({json:async()=>({ok:true,quote:{...quote,errors:[]}})});
-  await new Promise(setImmediate);
-  await get('rendezvousConfirm').onclick();
-  assert.equal(orders.length,1);
-  assert.deepEqual(orders[0].units,{MILITIA:0,ARCHER:1});
-  assert.equal(get('rendezvousDialog').open,false);
+  await get('tileDispatchConfirm').onclick();
+  assert.equal(orders[0].operation,'DEPLOY');
+  assert.equal(orders[0].units.MILITIA,100);
+  assert.equal(get('tileDispatchDialog').open,false);
 });
-
 
 test('tile shows the intent before exposing individual army rows',()=>{
   const context={STATE:{player_country:'A'},tileGarrisonAt:()=>[],countryMeta:id=>({name:id}),esc:x=>x};
@@ -118,10 +109,10 @@ test('tile shows the intent before exposing individual army rows',()=>{
   vm.runInContext(march+attack,context);
   const tile={col:1,row:2,land:true,owner:null};
   const pricing={march:{rows:[{army_id:'A1',days:6}]},field:[],garrison:[]};
-  assert.match(context.tileMarchCard(tile,pricing),/驻扎/);
+  assert.match(context.tileMarchCard(tile,pricing),/驻守/);
   assert.doesNotMatch(context.tileMarchCard(tile,pricing),/A1|6 日/);
-  pricing.garrison.push({country_id:'A',strength:3});
-  assert.match(context.tileMarchCard(tile,pricing),/会师/);
+  context.tileGarrisonAt=()=>[{army_id:'A1',country_id:'A',strength:3}];
+  assert.match(context.tileMarchCard(tile,pricing),/撤回城内/);
   assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:false}),/宣战/);
-  assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:true,strikes:[{army_id:'A1'}]}),/攻打/);
+  assert.match(context.tileStrikeCard({...tile,owner:'B'},{at_war:true,strikes:[{army_id:'A1'}]}),/进攻/);
 });

@@ -208,6 +208,13 @@ def _validate_units(config: dict[str, Any], fields: list[str], max_level: int) -
 def _validate_military(config: dict[str, Any]) -> None:
     military = config["military"]
     _require(isinstance(military, dict), "military 必须是对象")
+    if "deployment_levels" in military:
+        levels = military["deployment_levels"]
+        available = {row["level"] for row in config["tech_tree"]["bronze_metallurgy"]["levels"]}
+        _require(isinstance(levels, list) and len(levels) == 2
+                 and all(type(level) is int and level in available for level in levels)
+                 and 1 < levels[0] < levels[1],
+                 "military.deployment_levels 必须是两档递增的有效军事科技等级")
     extra = military.get("capital_extra_capacity", 4)
     _require(type(extra) is int and extra >= 0, "military.capital_extra_capacity 必须是非负整数")
     if "victor_loss_rate" in military:

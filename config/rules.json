@@ -714,6 +714,7 @@
   },
   "building_upkeep_per_day": 0.004,
   "military": {
+    "deployment_levels": [3, 5],
     "maximum_strength": 12,
     "capital_extra_capacity": 14,
     "recruit_batch_max": 4,
@@ -875,7 +876,7 @@
         {
           "level": 3,
           "name": "铁器锻造",
-          "effect": "矿业 +24%，军队战力 +12%",
+          "effect": "矿业 +24%，军队战力 +12%，出征名额增至 2 支",
           "unlocks": [
             "大工坊",
             "城墙"
@@ -890,7 +891,7 @@
         {
           "level": 5,
           "name": "机械装置",
-          "effect": "矿业 +40%，军队战力 +20%",
+          "effect": "矿业 +40%，军队战力 +20%，出征名额增至 3 支",
           "unlocks": []
         },
         {

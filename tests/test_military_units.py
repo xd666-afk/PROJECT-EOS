@@ -120,6 +120,7 @@ def test_v1_scalar_save_migrates_into_the_default_unit(state, tmp_path):
 
 
 def test_recruit_is_gated_per_unit_type(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     country = state.countries["ELAR"]
     specs = state.config["units"]
@@ -156,6 +157,7 @@ def test_recruit_is_gated_per_unit_type(engine):
 
 
 def test_recruit_charges_per_unit_costs_and_only_moves_its_own_army(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     country = state.countries["ELAR"]
     country.treasury = country.food = 10_000.0

@@ -449,4 +449,4 @@ def test_the_tile_panel_reads_garrisons_and_prices_from_the_engine():
         "a city center is no longer refused: it opens a blockade"
     )
     assert 'data-tile-intent="attack"' in dashboard and 'id="tileDispatchDialog"' in dashboard
-    assert "if(tileStrikeKey!==key)return;" in dashboard, "a late answer must not paint a new tile"
+    assert "if(controller.signal.aborted||!dialog.open)return;" in dashboard

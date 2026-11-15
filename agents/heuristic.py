@@ -292,6 +292,13 @@ class HeuristicAgent(CountryAgent):
 
     def _barracks_orders(self, observation: dict[str, Any], profile: dict[str, Any],
                          rules: dict[str, Any], country: dict[str, Any]) -> list[dict[str, Any]]:
+        if rules["military"].get("deployment_levels"):
+            rows = []
+            for camp in country.get("barracks", []):
+                if camp["army_id"] and not camp["recruiting"]:
+                    rows.append({"type": "MILITARY", "operation": "SET_RECRUITING",
+                                 "army_id": camp["army_id"], "recruiting": True})
+            return rows
         eligible = [army for army in country.get("armies", [])
                     if army["barracks"] and army["strength"] and not army.get("march")]
         if not eligible:
@@ -347,6 +354,8 @@ class HeuristicAgent(CountryAgent):
 
         wars = country.get("at_war_with", [])
         campaigns = observation.get("campaign_options", {})
+        reserve_campaigns = observation.get("reserve_campaigns", {})
+        total_force = country.get("army_strength", 0) + country.get("reserve_strength", 0)
         if wars:
             if country.get("war_exhaustion", 0) >= self._peace_gate(profile, country, rules):
                 actions.append({
@@ -378,8 +387,12 @@ class HeuristicAgent(CountryAgent):
                 if strike["companion"] and len(actions) < limit:
                     actions.append(self._strike_action(
                         strike["target"], strike["companion"], strike["companion_objective"]))
+            if len(actions) < limit and reserve_campaigns:
+                route = min(reserve_campaigns.values(), key=lambda row: row["days"])
+                actions.append({"type": "MILITARY", "operation": "DEPLOY",
+                                **{key: route[key] for key in ("city_id", "target", "tile", "units")}})
         elif observation["world_day"] >= profile["recruit_day"]:
-            army = country.get("army_strength", 0)
+            army = total_force
             size = 0
             if army == 0 and country["food"] > 30:
                 size = 2
@@ -491,18 +504,19 @@ class HeuristicAgent(CountryAgent):
 
         if (
             not wars and country["food"] >= 30 * country.get("military_upkeep_food", 0)
-            and country.get("army_strength", 0) >= profile["war_min_army"]
+            and total_force >= profile["war_min_army"]
             and observation["world_day"] >= profile["recruit_day"] and len(actions) < 4
         ):
             foreign = observation.get("foreign_military", {})
             rivals = [
                 partner for partner, relation in relations.items()
-                if relation <= profile["war_relation"] and foreign.get(partner, 0) < country["army_strength"]
-                and campaigns.get(partner, {}).get("reachable")
+                if relation <= profile["war_relation"] and foreign.get(partner, 0) < total_force
+                and (campaigns.get(partner, {}).get("reachable") or partner in reserve_campaigns)
             ]
             if rivals and ((observation["world_day"] // 90 + len(self.country_id)) % profile["war_roll"] == 0):
                 # Strike the nearest quarrel: the march is paid for out of the campaign season.
-                rival = min(rivals, key=lambda partner: (campaigns[partner]["days"], partner))
+                rival = min(rivals, key=lambda partner: (
+                    (campaigns.get(partner) or reserve_campaigns[partner])["days"], partner))
                 actions.append({
                     "type": "DIPLOMACY", "operation": "DECLARE_WAR",
                     "target": rival,

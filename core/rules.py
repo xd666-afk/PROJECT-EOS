@@ -361,6 +361,10 @@ class RuleEngine:
             return self.diplomacy.respond_pact(actor, action)
         if action_type == "MILITARY":
             operation = action["operation"]
+            if operation == "DEPLOY":
+                return self.military.deploy(actor, action)
+            if operation == "RETURN":
+                return self.military.return_army(actor, action["army_id"])
             if operation == "RECRUIT":
                 return self.military.recruit(
                     actor, action["unit"], action["strength"], action.get("army_id")

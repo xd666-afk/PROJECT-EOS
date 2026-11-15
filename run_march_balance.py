@@ -190,6 +190,8 @@ def run_one(seed: int, assignment: list[str], scenario: dict) -> dict:
     world, world_path = generate_fair_world(COUNTRIES, base_seed=seed, attempts=10)
     polities = {polity["id"]: polity for polity in world["polities"]}
     config = deepcopy(json.loads(DEFAULT_RULES.read_text(encoding="utf-8")))
+    if scenario.get("rendezvous_setup"):
+        config["military"].pop("deployment_levels", None)
     config["movement"].update(scenario.get("movement", {}))
     cap = float(config["movement"]["maximum_order_cost"])
     appetite = scenario.get("roads")

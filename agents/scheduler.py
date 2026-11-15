@@ -8,7 +8,6 @@ from typing import Any
 from agents.heuristic import HeuristicAgent
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
-from core.content import army_upkeep
 from core.military import Military
 from core.society import (
     city_static_metrics,
@@ -139,10 +138,11 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "specialization": specialty,
             "outposts": len(country.outposts),
             "army_strength": country.army_strength,
-            "military_upkeep_food": army_upkeep(country.army_units, state.config),
+            "military_upkeep_food": country.military_food(state.config),
+            "deployment": country.deployment_status(state.config),
+            "reserve_strength": sum(sum(stock.values()) for stock in country.city_reserves.values()),
             "army_units": dict(country.army_units),
             "army_position": list(country.army_position) if country.army_position else None,
-            "rendezvous_hosts": Military(state).rendezvous_hosts(country_id),
             "armies": [army_payload(army, country, state.config) for army in country.armies],
             "barracks": barracks_reports(country, state.config),
             "recruit_options": recruit_options(country, state.config),
@@ -156,7 +156,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
                     "siege": siege_ledger(state.countries, country, city, state.config),
                     # Which wall is the seat: its fall is the whole realm, not one more town.
                     "capital": state.is_capital(country, city),
-                    "military_capacity": tile_army_capacity(
+                    "reserve_units": dict(country.city_reserves.get(city.city_id, {})),
+                    "military_capacity": None if state.config["military"].get("deployment_levels") else tile_army_capacity(
                         country, state.config, capital=state.is_capital(country, city)
                     ),
                 }
@@ -164,10 +165,11 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             ],
         },
         "foreign_military": {
-            other_id: other.army_strength
+            other_id: other.army_strength + sum(sum(stock.values()) for stock in other.city_reserves.values())
             for other_id, other in state.countries.items() if other_id != country_id
         },
         "campaign_options": _campaign_options(state, country),
+        "reserve_campaigns": Military(state).reserve_campaigns(country, minimum=3),
         "incoming_threats": _threat_alerts(state, country_id),
         "tiles": tiles,
         "frontier_candidates": frontier,

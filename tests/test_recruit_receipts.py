@@ -44,8 +44,10 @@ def recruit(unit_id: str, amount: int, army_id: str | None = None) -> dict:
 
 def engine_of() -> RuleEngine:
     """A bare settlement: no planners, so only these orders and the daily wage move the state."""
+    state = GameState.new(seed=2000)
+    state.config["military"].pop("deployment_levels", None)
     return RuleEngine(
-        GameState.new(seed=2000), planner=None,
+        state, planner=None,
         enable_city_manager=False, enable_frontier_ai=False,
     )
 

@@ -450,14 +450,36 @@ def recruit_stall(country: "CountryState", army: ArmyState, unit_id: str,
 def camp_garrison(country: "CountryState", tile: tuple[int, int],
                   config: dict[str, Any]) -> ArmyState | None:
     """The one army a camp draws its wage for: the first here that is recruiting."""
-    return next((army for army in country.armies
-                 if army.tile == tile and army.march is None), None)
+    return next((army for army in country.armies if army.tile == tile and army.march is None
+                 and (not config["military"].get("deployment_levels") or not army.strength)), None)
 
 
 def barracks_report(country: "CountryState", tile: tuple[int, int],
                     config: dict[str, Any]) -> dict[str, Any]:
     """One camp: who trains here, what comes out of it, and how long until the next soldier."""
     barracks = config["military"]["barracks"]
+    if config["military"].get("deployment_levels"):
+        army = camp_garrison(country, tile, config)
+        city = country.reserve_city(tile)
+        unit = barracks_target(country, army, config) if army else barracks["default_unit"]
+        spec = config["units"][unit]
+        price = training_days(config, unit)
+        active = bool(army and army.recruiting)
+        stall = (army.stall or "") if active else "PAUSED"
+        progress = army.progress if army else 0
+        return {
+            "tile": list(tile), "army_id": army.army_id if army else None,
+            "recruiting": active, "training_army_id": army.army_id if active else None,
+            "progress_per_day": 1 if active else 0,
+            "reserve_city": city.name if city else None,
+            "unit": unit, "label": spec["label"], "preferred": army.preferred_unit if army else None,
+            "price": price, "training_days": price, "food_cost": spec["cost"]["food"],
+            "upkeep": unit_food_upkeep(spec), "power": spec["power"], "wage": barracks["daily_cost"],
+            "progress": round(progress, 3), "days_left": math.ceil(max(0, price - progress)) if active and not stall else None,
+            "strength": country.city_reserves.get(city.city_id, {}).get(unit, 0) if city else 0,
+            "capacity": None, "room": None, "unit_rooms": {}, "raised": army.raised if army else 0,
+            "stall": stall, "stall_label": stall_label(stall),
+        }
     active = training_army(country)
     army = camp_garrison(country, tile, config)
     target = active or army
@@ -524,6 +546,7 @@ def recruit_options(country: "CountryState", config: dict[str, Any]) -> list[dic
     military = config["military"]
     batch_max = int(military["recruit_batch_max"])
     army = country.main_army
+    reserve_dispatch = bool(military.get("deployment_levels"))
     city = country.cities[0] if country.cities else None
     tile = army.tile if army and army.tile else (city.center if city else None)
     capital = city is not None and city.center == tile
@@ -531,9 +554,10 @@ def recruit_options(country: "CountryState", config: dict[str, Any]) -> list[dic
     space = max(0, tile_army_capacity(country, config, capital=capital) - occupied)
     rows: list[dict[str, Any]] = []
     for unit_id, spec in config["units"].items():
-        have = army.units.get(unit_id, 0) if army else 0
-        unit_room = army_unit_room(country, army, unit_id, config)
-        room = min(unit_room, space)
+        have = (sum(stock.get(unit_id, 0) for stock in country.city_reserves.values())
+                if reserve_dispatch else (army.units.get(unit_id, 0) if army else 0))
+        unit_room = batch_max if reserve_dispatch else army_unit_room(country, army, unit_id, config)
+        room = unit_room if reserve_dispatch else min(unit_room, space)
         batch = min(batch_max, room)
         treasury_cost = float(spec["cost"]["treasury"])
         food_cost = float(spec["cost"]["food"])
@@ -545,7 +569,7 @@ def recruit_options(country: "CountryState", config: dict[str, Any]) -> list[dic
             reason = f"需「{branch}」{requirement['level']} 级"
         elif unit_room <= 0:
             reason = "该兵种名额已满"
-        elif space <= 0:
+        elif space <= 0 and not reserve_dispatch:
             reason = "驻格容量不足"
         elif country.treasury + 1e-9 < batch * treasury_cost:
             reason = "财政不足"
@@ -648,6 +672,8 @@ def siege_ledger(countries: dict[str, "CountryState"], defender: "CountryState",
     walls = defender.buildings.get(city.center) == "WALL"
     attack_value = sum(roster_value(army.units, config, "power") for army in besieging)
     defense_value = sum(roster_value(army.units, config, "defense") for army in garrisoned)
+    reserve = defender.city_reserves.get(city.city_id, {})
+    defense_value += roster_value(reserve, config, "defense")
     defense_value += float(table["wall_bonus"]) if walls else 0.0
     total = attack_value + defense_value
     # Nobody around the wall is not an unopposed blockade: the ledger quotes a stalled
@@ -666,6 +692,7 @@ def siege_ledger(countries: dict[str, "CountryState"], defender: "CountryState",
         "open": booked,
         "armies": [army.army_id for army in besieging],
         "garrison": [army.army_id for army in garrisoned],
+        "reserve_strength": sum(reserve.values()),
         "walls": walls,
         "attack_power": round(attack_value, 3),
         "defense_power": round(defense_value, 3),
@@ -827,6 +854,7 @@ class CountryState:
     armies: list[ArmyState] = field(default_factory=list)
     army_serial: int = 0
     army_tombstones: dict[str, Any] = field(default_factory=dict)
+    city_reserves: dict[str, dict[str, int]] = field(default_factory=dict)
     barracks_dispatches: dict[tuple[int, int], dict] = field(default_factory=dict)
     at_war_with: list[str] = field(default_factory=list)
     war_exhaustion: float = 0.0
@@ -858,6 +886,22 @@ class CountryState:
     def army_position(self) -> tuple[int, int] | None:
         main = self.main_army
         return main.tile if main else None
+
+    def reserve_city(self, tile: tuple[int, int]) -> CityState | None:
+        from worldgen import hex_distance
+
+        return min(self.cities, key=lambda city: hex_distance(tile, city.center), default=None)
+
+    def deployment_status(self, config: dict) -> dict:
+        levels = config["military"].get("deployment_levels", [])
+        level = self.technology.get("bronze_metallurgy", 1)
+        return {"used": sum(army.strength > 0 for army in self.armies),
+                "limit": 1 + sum(level >= threshold for threshold in levels),
+                "next_level": next((threshold for threshold in levels if level < threshold), None)}
+
+    def military_food(self, config: dict) -> float:
+        return army_upkeep(self.army_units, config) + sum(
+            army_upkeep(stock, config) for stock in self.city_reserves.values())
 
     def find_army(self, army_id: str) -> ArmyState | None:
         return next((army for army in self.armies if army.army_id == army_id), None)
@@ -900,6 +944,7 @@ class CountryState:
             "stability": self.stability,
             "armies": [army.to_dict() for army in self.armies],
             "army_serial": self.army_serial,
+            "city_reserves": {city: dict(stock) for city, stock in self.city_reserves.items()},
             **({"barracks_dispatches": [[list(tile), row] for tile, row in self.barracks_dispatches.items()]}
                if self.barracks_dispatches else {}),
             **({"army_tombstones": self.army_tombstones} if self.army_tombstones else {}),
@@ -943,6 +988,7 @@ class CountryState:
             armies=armies,
             army_serial=int(data.get("army_serial", len(armies)) or 0),
             army_tombstones=dict(data.get("army_tombstones") or {}),
+            city_reserves={key: dict(units) for key, units in data.get("city_reserves", {}).items()},
             barracks_dispatches={tuple(tile): row for tile, row in data.get("barracks_dispatches", [])},
             at_war_with=list(data.get("at_war_with", [])),
             war_exhaustion=float(data.get("war_exhaustion", 0.0)),
@@ -1340,9 +1386,10 @@ class GameState:
                             "garrison_food_per_day": round(sum(
                                 army_upkeep(a.units, self.config) for a in country.armies
                                 if a.tile in city.tiles and a.march is None
-                            ), 4),
+                            ) + army_upkeep(country.city_reserves.get(city.city_id, {}), self.config), 4),
+                            "reserve_units": dict(country.city_reserves.get(city.city_id, {})),
                             "capital": self.is_capital(country, city),
-                            "military_capacity": tile_army_capacity(
+                            "military_capacity": None if self.config["military"].get("deployment_levels") else tile_army_capacity(
                                 country, self.config, capital=self.is_capital(country, city)
                             ),
                             "siege": siege_ledger(self.countries, country, city, self.config),
@@ -1353,6 +1400,7 @@ class GameState:
                     "stability": round(country.stability, 2),
                     "stability_factor": round(stability_factor(country.stability, self.config), 4),
                     "army_strength": country.army_strength,
+                    "deployment": country.deployment_status(self.config),
                     "army_tombstones": dict(country.army_tombstones),
                     "army_units": dict(country.army_units),
                     "army_power": round(roster_value(country.army_units, self.config), 3),
@@ -1365,7 +1413,7 @@ class GameState:
                     "war_exhaustion": round(country.war_exhaustion, 2),
                     "tribute": tribute_payload(country, self.countries, self.config),
                     "personality": country.personality,
-                    "military_upkeep_food": round(army_upkeep(country.army_units, self.config), 4),
+                    "military_upkeep_food": round(country.military_food(self.config), 4),
                     "housing": housing_capacity(country, self.config),
                     "food_capacity": food_capacity(country, self.config),
                     "city_tier": city_tier(country.population),
@@ -1518,6 +1566,21 @@ class GameState:
             key: CountryState.from_dict(value, state.config)
             for key, value in data["countries"].items()
         }
+        if state.config["military"].get("deployment_levels"):
+            for key, country in state.countries.items():
+                if "city_reserves" in data["countries"][key]:
+                    continue
+                for army in country.armies:
+                    if not army.strength or army.march or army.tile is None:
+                        continue
+                    city = country.reserve_city(army.tile)
+                    if city and (army.tile == city.center or (
+                        army.recruiting and country.buildings.get(army.tile) == "BARRACKS"
+                    )):
+                        stock = country.city_reserves.setdefault(city.city_id, {})
+                        for unit, count in army.units.items():
+                            stock[unit] = stock.get(unit, 0) + count
+                        army.units.clear()
         state.trades = data["trades"]
         state.relations = data.get("relations", {})
         for index, left in enumerate(sorted(state.countries)):

@@ -1,7 +1,14 @@
 from copy import deepcopy
 
+import pytest
+
 from core.military import Military
 from core.state import GameState
+
+
+@pytest.fixture(autouse=True)
+def legacy_rendezvous_rules(state):
+    state.config["military"].pop("deployment_levels", None)
 
 
 def setup_armies(state, *, camps=2):

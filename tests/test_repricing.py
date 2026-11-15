@@ -36,6 +36,7 @@ def test_twenty_camps_can_be_built_and_enabled(engine):
 
 
 def test_training_cost_and_speed_are_independent_and_use_one_pool(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     realm = state.countries["ELAR"]
     realm.armies.clear()
@@ -91,6 +92,7 @@ def test_one_dispatch_orders_two_armies_and_refuses_double_stationing(engine):
 
 
 def test_existing_overflow_keeps_its_troops_but_cannot_recruit_more(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     realm = state.countries["ELAR"]
     realm.armies.clear()
