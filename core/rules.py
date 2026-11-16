@@ -441,6 +441,9 @@ class RuleEngine:
     def step_day(self, force: bool = False) -> bool:
         if self.clock.paused and not force:
             return False
+        from core import situations
+        situations.begin_day(self.state)
+        situation_replans = situations.replan_due(self.state)
         self.diplomacy.expire_due()
         self.diplomacy.expire_proposals()
         interval = self.state.config["planning_interval_days"]
@@ -452,7 +455,7 @@ class RuleEngine:
         elif self.planner is not None:
             # A council held every 90 days cannot answer a 17-day blockade, so the realms the
             # alert is about sit down today; everyone else keeps the ordinary rhythm.
-            alarmed = self.military.alarm_watch()
+            alarmed = self.military.alarm_watch() | situation_replans
             if alarmed:
                 self.planner.plan(self, only=alarmed)
         if self.enable_frontier_ai:
@@ -484,6 +487,7 @@ class RuleEngine:
         for country in self.state.countries.values():
             reconcile_stocks(country, self.state.config)
         self.state.day_index += 1
+        situations.finish_day(self.state)
         return True
 
     def _expand_frontiers(self) -> None:

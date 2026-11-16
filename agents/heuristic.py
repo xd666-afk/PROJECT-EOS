@@ -449,10 +449,20 @@ class HeuristicAgent(CountryAgent):
             if country["research_field"] != research and len(actions) < 4:
                 actions.append({"type": "SET_RESEARCH", "field": research})
         policy = self.preference["policy"]
+        situations = country.get("active_situations", [])
+        domestic_events = {item["preset_id"] for item in situations if item["target"] == self.country_id}
+        if "drought" in domestic_events:
+            policy = "AGRICULTURE"
+        elif "harvest" in domestic_events and country["food"] > 60:
+            policy = "TRADE"
+        elif "discovery" in domestic_events:
+            policy = "RESEARCH"
         if country["policy"] != policy and len(actions) < 4:
             actions.append({"type": "SET_POLICY", "priority": policy})
 
         desired_workers = self._workers(country)
+        if "drought" in domestic_events:
+            desired_workers = {"agriculture": .6, "mining": .2, "construction": .2}
         if country["workers"] != desired_workers and len(actions) < 4:
             actions.append({"type": "ALLOCATE_WORKERS", **desired_workers})
 
@@ -557,7 +567,7 @@ class HeuristicAgent(CountryAgent):
             "country_id": self.country_id,
             "world_day": observation["world_day"],
             "actions": actions[: rules["max_actions_per_decision"]],
-            "reason": self._reason(country, personality),
+            "reason": ("关注中的事态：" + "、".join(item["name"] for item in situations) + "。" if situations else "") + self._reason(country, personality),
         }
 
     def _settle_action(

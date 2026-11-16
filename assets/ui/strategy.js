@@ -30,7 +30,9 @@ function commandButton(key,label,detail='',options={}){
 
 function refreshStrategyUI(){
   if(!STATE||!$('commandActions'))return;
+  if(typeof refreshSituationChrome==='function')refreshSituationChrome();
   renderStrategyHeader();
+  if(activeDeck==='situations'&&typeof renderSituationCommands==='function'){renderSituationCommands();return;}
   if(strategyCommand==='road'&&!roadPlan)strategyCommand='inspect';
   const tile=selectedTileData(),city=strategyCity(tile),army=controlledArmy();
   const controlled=STATE.countries[STATE.player_country]?STATE.player_country:null,owned=!!controlled&&tile?.owner===controlled;

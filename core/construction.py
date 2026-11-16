@@ -16,6 +16,9 @@ class Construction:
             labor_factor = country.workers["construction"] / baseline if baseline else 1.0
             policy_factor = self.state.config["policies"][country.policy]["construction"]
             daily_progress = labor_factor * policy_factor
+            from core.situations import factor, account
+            normal_progress = daily_progress
+            daily_progress *= factor(self.state, country.country_id, "construction")
             completed = []
             pending_ids = {p["project_id"] for p in country.projects}
             for project in country.projects:
@@ -30,6 +33,9 @@ class Construction:
                         project["blocked_reason"] = permit[1] if permit else "道路接入点失效，等待重新连通"
                         continue
                 project.pop("blocked_reason", None)
+                account(self.state, country.country_id, "construction",
+                        min(project["remaining_days"], normal_progress),
+                        min(project["remaining_days"], daily_progress))
                 project["remaining_days"] = max(
                     0.0, project["remaining_days"] - daily_progress
                 )

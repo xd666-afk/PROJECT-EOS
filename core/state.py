@@ -994,6 +994,9 @@ class GameState:
         self.action_log: list[dict[str, Any]] = []
         self.receipts: dict[str, list[dict[str, Any]]] = {}
         self.event_log: list[dict[str, Any]] = []
+        self.situations: dict[str, dict[str, Any]] = {}
+        self.next_situation_number = 1
+        self.situation_cursor = 0
         self.next_action_number = 1
         self.next_project_number = 1
         self.next_trade_number = 1
@@ -1446,6 +1449,11 @@ class GameState:
             "pacts": self.pacts,
             "diplomatic_proposals": self.diplomatic_proposals,
             "weather": self.weather.to_dict(),
+            "situations": {key: {field: item.get(field) for field in (
+                "id", "preset_id", "country_id", "partner_id", "start_day", "end_day",
+                "intensity", "status", "ended_day", "totals")}
+                for key, item in self.situations.items()},
+            "next_situation_number": self.next_situation_number,
             "counters": [
                 self.next_action_number, self.next_project_number,
                 self.next_trade_number, self.next_diplomacy_number,
@@ -1486,6 +1494,9 @@ class GameState:
             "action_log": self.action_log,
             "receipts": {key: list(value) for key, value in self.receipts.items()},
             "event_log": self.event_log,
+            "situations": self.situations,
+            "next_situation_number": self.next_situation_number,
+            "situation_cursor": self.situation_cursor,
         }
 
     def save(self, path: str | Path) -> Path:
@@ -1554,6 +1565,9 @@ class GameState:
             key: list(value)[-RECEIPT_LIMIT:] for key, value in data.get("receipts", {}).items()
         }
         state.event_log = data["event_log"]
+        state.situations = deepcopy(data.get("situations", {}))
+        state.next_situation_number = int(data.get("next_situation_number", 1))
+        state.situation_cursor = int(data.get("situation_cursor", len(state.event_log)))
         counters = data["counters"]
         state.next_action_number = counters["action"]
         state.next_project_number = counters["project"]

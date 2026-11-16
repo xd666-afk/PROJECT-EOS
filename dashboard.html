@@ -708,6 +708,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 }
 </style>
 <link rel="stylesheet" href="/assets/ui/strategy.css">
+<link rel="stylesheet" href="/assets/ui/situations.css">
 </head>
 <body>
 <div class="screen menu" id="menuScreen">
@@ -755,6 +756,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
   <nav class="rail" id="primaryRail" aria-label="一级导航">
     <div class="rail-brand"><span>E</span></div>
     <button data-deck="world" class="on" title="世界地图"><b>世</b><span>世界</span></button>
+    <button data-deck="situations" title="世界事态与观众干预"><b>事</b><span>事态</span></button>
     <button data-deck="nation" title="国家治理"><b>国</b><span>国家</span></button>
     <button data-deck="city" title="城市与规划"><b>城</b><span>城市</span></button>
     <button data-deck="tech" title="科技树"><b>科</b><span>科技</span></button>
@@ -785,6 +787,19 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
     </div>
   </header>
   <main class="workspace">
+    <button id="situationFocusBar" class="situation-focus-bar" hidden aria-label="打开焦点事态详情"></button>
+    <aside id="situationHub" class="situation-hub" hidden aria-label="二级菜单：世界事态">
+      <div class="situation-panel-head"><div><small>世界 / 事态</small><h2>世界事态</h2></div><button data-sit-action="close" aria-label="关闭事态菜单">收起</button></div>
+      <nav id="situationSections" class="situation-sections" aria-label="事态二级导航">
+        <button data-sit-section="active" class="on">进行中</button><button data-sit-section="archive">编年</button><button data-sit-section="library">施加事件</button>
+      </nav>
+      <div id="situationList" class="situation-list"></div>
+      <p class="situation-list-note">多个事态同时演进；单击其中一个设为唯一焦点。</p>
+    </aside>
+    <aside id="situationDetail" class="situation-detail" hidden aria-label="三级菜单：事态详情">
+      <div class="situation-panel-head"><button data-sit-action="back">← 返回列表</button><button data-sit-action="detail-close" aria-label="收起事态详情">收起详情</button></div>
+      <div id="situationDetailBody" class="situation-detail-body"></div>
+    </aside>
     <aside class="left" id="worldLeft">
       <div class="side-head"><span>国家与领土</span><button id="collapseLeft">收起</button></div>
       <div class="object-header"><label for="realmPicker">正在查看的国家</label><select id="realmPicker"></select>      <div class="modebar">
@@ -2229,6 +2244,7 @@ function render(force=false){
     }
   }
   if(STATE)drawThreatMarkers(scale);
+  if(typeof drawSituationOverlay==='function')drawSituationOverlay(scale);
   drawStockWarnings(scale);
   if(selectedTile){
     const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
@@ -3171,6 +3187,7 @@ async function poll(force=false){
   try{
     const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw new Error('state');
     STATE=await r.json();
+    if(typeof refreshSituations==='function')refreshSituations();
     syncDiaryBubbles();syncNoticeBubbles();
     if(!$('notifyModal').hidden)renderNotifyProjects();
     if(!$('nationModal').hidden){renderNationCities();renderNationRanking();}
@@ -3528,6 +3545,7 @@ async function closeDeck(name){
   setRail('world');
 }
 async function closeAllDecks(){
+  if(typeof closeSituationHub==='function')closeSituationHub();
   if(!$('techModal').hidden)await closeTechTree();
   if(!$('diploModal').hidden)await closeDiplomacy();
   if(!$('militaryModal').hidden)await closeMilitary();
@@ -3547,6 +3565,7 @@ async function openDeck(name,force=false){
   else if(name==='diplo')await openDiplomacy();
   else if(name==='military')await openMilitary();
   else if(name==='ai')await openAgents();
+  else if(name==='situations')openSituationHub();
   else if(name==='system')await openPauseMenu();
   requestAnimationFrame(alignDrawerMap);
 }
@@ -4543,6 +4562,7 @@ function nextFrame(){
   });
 }
 function showOnlyScreen(name){
+  if(name!=='game'&&typeof closeSituationHub==='function')closeSituationHub();
   $('menuScreen').hidden=name!=='menu';
   $('loadScreen').hidden=name!=='load';
   $('painterScreen').hidden=name!=='painter';
@@ -4597,6 +4617,7 @@ async function startSession(){
   else if(bootParams.get('diplo')==='1')await openDiplomacy();
   else if(bootParams.get('mil')==='1')await openMilitary();
   else if(bootParams.get('city')==='1')await openCities();
+  else if(bootParams.get('story')==='1')await openDeck('situations',true);
   else if(bootParams.get('citymap')==='1'){
     await openCities();
     const first=STATE.countries[selectedCountry].cities?.[0];
@@ -5446,6 +5467,7 @@ function renderTechTree(){
 }
 document.addEventListener('keydown',async e=>{
   if(e.key!=='Escape')return;
+  if(typeof handleSituationEscape==='function'&&handleSituationEscape())return;
   if(!$('endModal').hidden)return;
   if(!$('cityModal').hidden){await closeCities();return;}
   if(!$('militaryModal').hidden){await closeMilitary();return;}
@@ -5472,6 +5494,7 @@ async function boot(){
 }
 </script>
 <script src="/assets/ui/strategy.js"></script>
+<script src="/assets/ui/situations.js"></script>
 <script>boot();</script>
 </body>
 </html>

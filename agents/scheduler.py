@@ -142,6 +142,12 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "policy": country.policy,
             "buildings": {f"{c[0]},{c[1]}": b for c, b in country.buildings.items()},
             "projects": Construction.describe(country),
+            "active_situations": [
+                {"id": item["id"], "name": item["name"], "preset_id": item["preset_id"], "target": item["country_id"],
+                 "remaining_days": max(0, item["end_day"] - state.day_index), "intensity": item["intensity"]}
+                for item in state.situations.values()
+                if item["status"] == "active" and country_id in item["participants"]
+            ],
             "contacts": country.contacts,
             "last_economy": country.last_economy,
             "shortage_days_total": country.shortage_days_total,

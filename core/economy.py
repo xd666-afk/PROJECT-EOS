@@ -158,7 +158,11 @@ class Economy:
         )
         from core.technology import bonus
         food_factor *= 1 + bonus(country, self.config, "food")
+        from core.situations import factor, account
+        normal_food = baseline_food * food_factor
+        food_factor *= factor(self.state, country.country_id, "food")
         food_production = baseline_food * food_factor
+        account(self.state, country.country_id, "food", normal_food, food_production)
         mine_count = counts.get("MINE", 0)
         extraction_efficiency = 1.0
         excess_mines = max(0, mine_count - self.config["mine_diminishing_start"])
@@ -217,6 +221,9 @@ class Economy:
             tax_income *= security_tax_factor
         mine_income *= 1 + bonus(country, self.config, "mining")
         tax_income *= 1 + bonus(country, self.config, "tax")
+        normal_tax = tax_income
+        tax_income *= factor(self.state, country.country_id, "tax")
+        account(self.state, country.country_id, "tax", normal_tax, tax_income)
         upkeep = (len(country.buildings) + len(country.roads)) * self.config["building_upkeep_per_day"] * (1 - bonus(country, self.config, "upkeep_discount"))
         food_per_1000 = self.config["food_per_1000_people_per_day"]
         consumption = country.population / 1000.0 * food_per_1000
@@ -421,6 +428,10 @@ class Economy:
             * city_research_multiplier
         )
         from core.technology import advance
+        from core.situations import factor, account
+        normal_points = points
+        points *= factor(self.state, country.country_id, "research")
+        account(self.state, country.country_id, "research", normal_points, points)
         advance(self.state, country, points)
 
     def grow_population_monthly(self) -> None:

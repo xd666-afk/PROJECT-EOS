@@ -823,6 +823,36 @@ class LiveSession:
             result = self.simulation.engine.apply_action(actor, action)
             return {"ok": result.accepted, "result": result.to_dict()}
 
+    def situation_payload(self, situation_id: str | None = None) -> dict:
+        from core import situations
+        with self.lock:
+            state = self.simulation.state
+            situations.capture(state)
+            if situation_id:
+                if situation_id not in state.situations:
+                    raise ValueError("找不到这个事态")
+                return {"ok": True, "situation": situations.snapshot(state, state.situations[situation_id], detailed=True)}
+            return {"ok": True, "presets": situations.catalog(), "active_limit": 12,
+                    "situations": [situations.snapshot(state, item) for item in reversed(list(state.situations.values()))]}
+
+    def change_situation(self, payload: dict) -> dict:
+        from core import situations
+        if not isinstance(payload, dict):
+            raise ValueError("事态请求必须是对象")
+        with self.lock:
+            state = self.simulation.state
+            operation = payload.get("operation")
+            if operation == "create":
+                item = situations.create(state, payload.get("event"))
+            elif operation == "update":
+                item = situations.update(state, payload.get("id"), payload.get("changes"))
+            elif operation == "end":
+                item = situations.end(state, payload.get("id"))
+            else:
+                raise ValueError("未知事态操作")
+            self.save_current()
+            return {"ok": True, "situation": situations.snapshot(state, item, detailed=True)}
+
     def road_preview(self, actor, start, end):
         from core.actions import ActionRejected, validate_action
         from core.road_planner import plan
@@ -975,6 +1005,7 @@ class LiveSession:
                 "leader": summary["leader"],
                 "victory": summary["victory"],
                 "recent_events": recent,
+                "situations": self.situation_payload()["situations"],
                 "buildings": buildings,
                 "projects": projects,
                 "agents": self.agent_meta,
@@ -1030,6 +1061,12 @@ class Handler(BaseHTTPRequestHandler):
                 self._json({"error": "terrain texture not found"}, 404)
         elif path == "/api/state":
             self._json(self.session.snapshot())
+        elif path == "/api/situations":
+            try:
+                situation_id = parse_qs(urlparse(self.path).query).get("id", [None])[0]
+                self._json(self.session.situation_payload(situation_id))
+            except ValueError as exc:
+                self._json({"ok": False, "error": str(exc)}, 404)
         elif path == "/api/agents":
             self._json(self.session.agent_payload())
         elif path == "/api/setup":
@@ -1100,13 +1137,18 @@ class Handler(BaseHTTPRequestHandler):
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
             "/api/agents/budget", "/api/agents/personality", "/api/new_game", "/api/saves",
             "/api/map_preview", "/api/march_preview", "/api/road_preview",
+            "/api/situations",
         }:
             self._json({"error": "not found"}, 404)
             return
         length = int(self.headers.get("Content-Length", "0"))
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/api/agents/test":
+            if not isinstance(payload, dict):
+                raise ValueError("请求必须是 JSON 对象")
+            if self.path == "/api/situations":
+                result = self.session.change_situation(payload)
+            elif self.path == "/api/agents/test":
                 result = self.session.test_agent(str(payload.get("country_id", "")))
             elif self.path == "/api/agents/budget":
                 result = self.session.configure_budget(
