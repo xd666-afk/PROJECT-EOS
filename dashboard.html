@@ -710,6 +710,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 <link rel="stylesheet" href="/assets/ui/strategy.css">
 <link rel="stylesheet" href="/assets/ui/situations.css">
 <link rel="stylesheet" href="/assets/ui/compact.css">
+<script src="/assets/ui/territory.js"></script>
 </head>
 <body>
 <div class="screen menu" id="menuScreen">
@@ -2102,7 +2103,7 @@ document.addEventListener('click',async e=>{
 
 function render(force=false){
   const positions=STATE?(STATE.roads||[]).map(x=>x.join(',')).join('|')+STATE.buildings.map(x=>x[0]+','+x[1]+x[2]).join('|')+STATE.projects.map(x=>x[0]+','+x[1]+x[2]+x[5]).join('|'):'';
-  const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
+  const key=[STATE?.day,selectedTile?.join(','),mapMode,positions,territoryStateKey(),zoom.toFixed(2),panX.toFixed(0),panY.toFixed(0),STATE?threatSignature():''].join('~');
   if(!force&&key===renderKey)return;renderKey=key;
   const w=mapPanel.clientWidth,h=mapPanel.clientHeight;ctx.clearRect(0,0,w,h);
   if(!WORLD)return;
@@ -2120,7 +2121,7 @@ function render(force=false){
   const vx0=(-(baseOffX+panX))/scale,vx1=(w-(baseOffX+panX))/scale;
   const vy0=(-(baseOffY+panY))/scale,vy1=(h-(baseOffY+panY))/scale;
   for(const t of WORLD.tiles){
-    const owner=owners[t[0]+','+t[1]]||t[4];
+    const owner=STATE?owners[t[0]+','+t[1]]:t[4];
     const x=cx(t),y=cy(t);
     if(x<vx0-1.2||x>vx1+1.2||y<vy0-1.2||y>vy1+1.2)continue;
     hexPath(x,y);
@@ -2142,10 +2143,6 @@ function render(force=false){
       ctx.strokeStyle=useTerrain?'rgba(6,20,26,.12)':(coastal?'rgba(8,30,39,.58)':'rgba(6,20,26,.09)');
       ctx.lineWidth=coastal?Math.max(.05,.24/scale):Math.max(.03,.11/scale);
       ctx.stroke();
-      if(owner){
-        ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.23;ctx.fill();ctx.globalAlpha=1;
-        ctx.strokeStyle=countryColor(owner)+'dd';ctx.lineWidth=Math.max(.06,.2/scale);ctx.stroke();
-      }
     }else if(mapMode==='political'){
       ctx.fillStyle=BIOME_COLORS[t[3]]||'#71857b';ctx.fill();
       if(owner){ctx.fillStyle=countryColor(owner);ctx.globalAlpha=.33;ctx.fill();ctx.globalAlpha=1;
@@ -2174,6 +2171,7 @@ function render(force=false){
   if(['satellite','political','terrain','routes'].includes(mapMode)){
     drawRiverNetwork(scale,mapMode==='routes');
   }
+  if(mapMode==='satellite')drawSatelliteTerritories(scale,STATE?owners:Object.fromEntries(WORLD.tiles.filter(t=>t[4]).map(t=>[t[0]+','+t[1],t[4]])),{left:vx0,right:vx1,top:vy0,bottom:vy1});
   if(mapMode!=='resources')drawRoadNetwork(scale,mapMode==='routes'||mapMode==='satellite');
   if(mapMode==='logistics')drawLogisticsNetwork(scale);
   drawOrderPreview(scale);
@@ -2266,6 +2264,7 @@ function render(force=false){
   if(STATE)drawThreatMarkers(scale);
   if(typeof drawSituationOverlay==='function')drawSituationOverlay(scale);
   drawStockWarnings(scale);
+  if(mapMode==='satellite')drawSatelliteControlLabels(scale,STATE?owners:Object.fromEntries(WORLD.tiles.filter(t=>t[4]).map(t=>[t[0]+','+t[1],t[4]])));
   if(selectedTile){
     const x=cx(selectedTile),y=cy(selectedTile);hexPath(x,y,1.02);
     ctx.strokeStyle='#fff2bc';ctx.lineWidth=Math.max(.11,.28/scale);ctx.stroke();
@@ -2280,7 +2279,7 @@ function updateMapLegend(){
   const water=waterColor(), road=roadColor();
   const items={
     logistics:[['可运输','#85c9a4'],['运输中断','#e18a7c'],['城市缺粮','#eead63']],
-    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(hasWater?[['河流 / 湖泊',water]]:[]),...(hasEndorheic?[['内流河 / 内流湖',water]]:[]),['道路',road],...(WORLD?livePolities().map(p=>[p.name+'领土',p.color]):[])],
+    satellite:[['森林','#487754'],['草原','#7c9e69'],['干旱','#a49169'],['高山','#b0b4a8'],['海洋','#0d3346'],...(hasWater?[['河流 / 湖泊',water]]:[]),...(hasEndorheic?[['内流河 / 内流湖',water]]:[]),['道路',road],...(WORLD?livePolities().map(p=>[p.name+'控制区'+(STATE?' · '+(STATE.countries[p.id]?.tiles?.length||0)+'格':''),p.color]):[])],
     political:WORLD?livePolities().map(p=>[p.name,p.color]):[],
     terrain:[['低地','#b8cda8'],['丘陵','#beb984'],['高地','#997461'],['山脊','#e8e8dc'],['海洋','#17465c'],...(hasWater?[['湖泊',water]]:[])],
     rain:[['少雨','#cebe93'],['中等','#6e9e91'],['多雨','#1f5d7f'],...(hasWater?[['湖泊',water]]:[])],
@@ -3222,7 +3221,7 @@ async function poll(force=false){
 let lastStateKey='';
 function renderIfChanged(){
   const marching=STATE?Object.values(STATE.countries).some(c=>(c.armies||[]).some(a=>a.march))?'m':'-':'';
-  const key=STATE?[STATE.day,STATE.paused,STATE.mode,STATE.player_country,STATE.finished,selectedCountry,STATE.buildings.length,marching,STATE.projects.map(x=>x.join(',')).join('|'),threatSignature()].join('~'):'';
+  const key=STATE?[STATE.day,STATE.paused,STATE.mode,STATE.player_country,STATE.finished,selectedCountry,territoryStateKey(),STATE.buildings.length,marching,STATE.projects.map(x=>x.join(',')).join('|'),threatSignature()].join('~'):'';
   if(key===lastStateKey)return;lastStateKey=key;
   healSelection();
   const active=document.activeElement;

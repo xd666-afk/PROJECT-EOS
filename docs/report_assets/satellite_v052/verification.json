@@ -1,0 +1,18 @@
+{
+  "javascript_errors": [],
+  "geometry": {
+    "adjacent_pairs": 12,
+    "hole": true,
+    "disconnected": true,
+    "foreign_boundary": true
+  },
+  "ownership": {
+    "same_day": true,
+    "key_changed": true,
+    "unclaimed_not_restored": true,
+    "eliminated_removed": true
+  },
+  "visible_overlay": {
+    "changed_pixels": 77758
+  }
+}
