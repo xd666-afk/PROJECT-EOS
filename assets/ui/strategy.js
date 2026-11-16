@@ -10,7 +10,8 @@ function renderStrategyHeader(){
   if(!STATE)return;
   const id=governingRealm(),c=STATE.countries[id];if(!c)return;
   const meta=countryMeta(id),economy=c.last_economy||{},playing=!!STATE.countries[STATE.player_country];
-  document.documentElement.style.setProperty('--accent',countryColor(id));
+  document.documentElement.style.setProperty('--realm-accent',countryColor(id));
+  document.documentElement.style.setProperty('--accent','#d3b16d');
   $('realmEmblem').textContent=id;$('realmName').textContent=meta?.name||id;
   $('realmHome').title=`${playing?'正在治理':'正在查看'} ${meta?.name||id} · 点击打开国家概览`;
   $('eraLine').textContent=`${c.era?.short||'文明'} · ${playing?'玩家执政':'观战视角'}`;
@@ -21,7 +22,14 @@ function renderStrategyHeader(){
     <button class="hud-stat" data-hud="stability" title="查看稳定、政策与国家概况"><small>稳定度</small><strong>${fmtNum(c.stability,0)}<i>${c.stability<35?'动荡':c.stability>65?'安定':'平稳'}</i></strong></button>`;
   $('timeState').textContent=STATE.paused?'实时演进 · 已暂停':'实时演进 · 运行中';
   $('nextPlan').textContent=`第 ${STATE.day} 日 · ${STATE.paused?'等待指令':STATE.speed+' 日 / 秒'}`;
-  $('stepBtn').textContent='推进 1 日';$('pauseBtn').title='空格：暂停 / 继续';
+  $('stepBtn').textContent='+1 日';$('stepBtn').title='推进 1 个游戏日';$('stepBtn').setAttribute('aria-label','推进 1 个游戏日');$('pauseBtn').title='空格：暂停 / 继续';
+  $('date').title=`${STATE.date} · 第 ${STATE.day} 日 · ${STATE.paused?'已暂停':'实时演进'}`;
+  $('date').textContent=String(STATE.date).replace('公元前','前').replace('公元','').replace('年','.').replace('月','.').replace('日','');
+  $('timeDock').classList.toggle('is-paused',STATE.paused);
+  const layer=document.querySelector(`[data-layer="${mapMode}"]`);if(layer)$('mapLayerSummary').textContent='图层 · '+layer.textContent;
+  document.body.classList.toggle('has-map-commands',activeDeck==='world'&&!!(selectedTile||roadPlan||strategyCommand==='move'));
+  document.body.classList.toggle('has-context-selection',!!selectedTile);
+  document.body.classList.toggle('pending-map-order',activeDeck==='world'&&!!(roadPlan||strategyCommand==='move'));
 }
 
 function commandButton(key,label,detail='',options={}){
@@ -248,7 +256,7 @@ canvas.addEventListener('contextmenu',event=>{
 });
 document.addEventListener('keydown',event=>{
   if(!gameLoaded||!STATE||event.repeat)return;
-  if(event.target.closest('input,select,textarea,[contenteditable=true]'))return;
+  if(event.target.closest('input,select,textarea,summary,[contenteditable=true]'))return;
   if(event.key==='Escape'&&activeDeck==='world'&&(roadPlan||strategyCommand==='move')){
     event.preventDefault();event.stopImmediatePropagation();runStrategyCommand('cancel');return;
   }
@@ -267,3 +275,4 @@ function adaptStrategyViewport(){
 }
 compactStrategyLayout.addEventListener('change',adaptStrategyViewport);
 adaptStrategyViewport();
+document.addEventListener('pointerdown',event=>{if(!event.target.closest('#mapLayerMenu'))$('mapLayerMenu').open=false;});

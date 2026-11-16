@@ -709,6 +709,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 </style>
 <link rel="stylesheet" href="/assets/ui/strategy.css">
 <link rel="stylesheet" href="/assets/ui/situations.css">
+<link rel="stylesheet" href="/assets/ui/compact.css">
 </head>
 <body>
 <div class="screen menu" id="menuScreen">
@@ -823,6 +824,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
       <div class="side-reopen left-open" id="leftReopen" hidden><button id="reopenLeft">国家</button></div>
       <div class="side-reopen right-open" id="rightReopen" hidden><button id="reopenRight">详情</button></div>
       <div class="map-toolbar">
+        <details class="map-layer-menu" id="mapLayerMenu"><summary id="mapLayerSummary">图层 · 卫星</summary>
         <div class="map-tools">
           <button class="on" data-layer="satellite">卫星</button>
           <button data-layer="logistics">物流</button>
@@ -831,11 +833,13 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
           <button data-layer="rain">降水</button>
           <button data-layer="resources">资源</button>
           <button data-layer="routes">交通</button>
+          <button id="fitWorldBtn">适应全图</button>
           <span class="panel-toggle">
             <button class="on" id="toggleLeft">国家</button>
             <button class="on" id="toggleRight">详情</button>
           </span>
         </div>
+        </details>
         <div class="layer-note"><b>设施以点标记</b><br>虚线环表示施工进度，完工后变为实心设施点。<br>双击城市标记进入二级规划地图。</div>
       </div>
       <div class="map-legend" id="mapLegend"></div>
@@ -1167,7 +1171,23 @@ function fitMap(){
       panY=h/2-baseOffY-cy([capital.col,capital.row])*fitScale;
     }
   }
-  render(true);
+  constrainMapView();render(true);
+}
+function constrainMapView(left=0,top=0,right=mapPanel.clientWidth,bottom=mapPanel.clientHeight){
+  if(!WORLD)return;
+  const scale=fitScale*zoom,width=WORLD.metadata.grid_width,height=WORLD.metadata.grid_height;
+  const fit=(offset,pan,minimum,maximum,start,end)=>{
+    if((maximum-minimum)*scale<=end-start)return(start+end-(minimum+maximum)*scale)/2-offset;
+    return Math.max(end-offset-maximum*scale,Math.min(start-offset-minimum*scale,pan));
+  };
+  panX=fit(baseOffX,panX,-1,Math.sqrt(3)*(width-.5)+1,left,right);
+  panY=fit(baseOffY,panY,-1,1.5*(height-1)+1,top,bottom);
+}
+function showWholeMap(){
+  if(!WORLD)return;
+  const w=mapPanel.clientWidth,h=mapPanel.clientHeight,scale=fitScale;
+  zoom=Math.min((w-26)/(Math.sqrt(3)*(WORLD.metadata.grid_width+.5)*scale),(h-72)/((1.5*WORLD.metadata.grid_height+1)*scale));
+  constrainMapView(8,8,w-8,h-48);render(true);
 }
 function hexPath(x,y,r=.98,c=ctx){c.beginPath();for(let i=0;i<6;i++){
   const a=(60*i-30)*Math.PI/180,xx=x+r*Math.cos(a),yy=y+r*Math.sin(a);
@@ -3305,9 +3325,11 @@ canvas.addEventListener('wheel',e=>{
   panX=mx-(mx-(baseOffX+panX))*k-baseOffX;panY=my-(my-(baseOffY+panY))*k-baseOffY;render(true);
 },{passive:false});
 for(const b of document.querySelectorAll('#worldRight .tabs button'))b.onclick=()=>selectTab(b.dataset.tab);
-for(const b of document.querySelectorAll('.map-tools button'))b.onclick=()=>{
+for(const b of document.querySelectorAll('.map-tools [data-layer]'))b.onclick=()=>{
   mapMode=b.dataset.layer;for(const x of document.querySelectorAll('.map-tools button'))x.classList.toggle('on',x===b);updateMapLegend();render(true);
+  if(b.dataset.layer){$('mapLayerSummary').textContent='图层 · '+b.textContent;$('mapLayerMenu').open=false;}
 };
+$('fitWorldBtn').onclick=()=>{showWholeMap();$('mapLayerMenu').open=false;};
 $('pauseBtn').onclick=()=>control(STATE?.paused?'resume':'pause');
 $('stepBtn').onclick=()=>control('step');
 for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed',Number(b.dataset.speed));
@@ -3545,6 +3567,7 @@ async function closeDeck(name){
   setRail('world');
 }
 async function closeAllDecks(){
+  $('mapLayerMenu').open=false;
   if(typeof closeSituationHub==='function')closeSituationHub();
   if(!$('techModal').hidden)await closeTechTree();
   if(!$('diploModal').hidden)await closeDiplomacy();
@@ -3686,6 +3709,7 @@ function setSidePanel(side,open){
   const reopen=side==='left'?$('leftReopen'):$('rightReopen');
   const toggle=side==='left'?$('toggleLeft'):$('toggleRight');
   panel.classList.toggle('collapsed',!open);
+  document.body.classList.toggle('world-panel-open',!$('worldLeft').classList.contains('collapsed')||!$('worldRight').classList.contains('collapsed'));
   if(side==='right')document.body.classList.toggle('right-panel-open',open);
   reopen.hidden=open;toggle.classList.toggle('on',open);
   if(side==='right'&&open){$('worldLeft').classList.remove('collapsed');$('leftReopen').hidden=true;}
@@ -4611,6 +4635,7 @@ async function startSession(){
   await nextFrame();resize();fitMap();await poll(true);
   renderTop();renderCountries();renderRight();updateMapLegend();render();selectTab('tile');
   setSidePanel('right',false);
+  setSidePanel('left',false);
   if(!pollTimer)pollTimer=setInterval(()=>{if(gameLoaded)poll(false);},500);
   await refreshSaves();
   if(bootParams.get('tech')==='1')await openTechTree();
@@ -5467,6 +5492,7 @@ function renderTechTree(){
 }
 document.addEventListener('keydown',async e=>{
   if(e.key!=='Escape')return;
+  if($('mapLayerMenu').open){$('mapLayerMenu').open=false;return;}
   if(typeof handleSituationEscape==='function'&&handleSituationEscape())return;
   if(!$('endModal').hidden)return;
   if(!$('cityModal').hidden){await closeCities();return;}

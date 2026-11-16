@@ -1,5 +1,5 @@
 {
-  "rules_version": "0.50.0-observer-situations",
+  "rules_version": "0.51.0-compact-map-ui",
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,

@@ -67,6 +67,8 @@ def verify(output: Path) -> dict:
                 page.wait_for_function("STATE?.countries && document.querySelector('#realmName').textContent")
                 assert page.request.get(base + "/assets/ui/strategy.css").headers["content-type"].startswith("text/css")
                 assert "javascript" in page.request.get(base + "/assets/ui/strategy.js").headers["content-type"]
+                if page.locator('#realmPicker').is_hidden():
+                    page.locator('#reopenLeft').click()
                 page.locator("#realmPicker").select_option("A")
                 page.locator("#interveneBtn").click()
                 page.wait_for_function('STATE.player_country==="A"')
@@ -128,6 +130,7 @@ def verify(output: Path) -> dict:
                 page.screenshot(path=str(output / "finance.png"))
                 page.locator('[data-hud="food"]').click()
                 page.wait_for_function('document.querySelector("#nationModal").hidden && mapMode==="logistics"')
+                page.locator('#mapLayerSummary').click()
                 page.locator('[data-layer="satellite"]').click()
 
                 # Context construction uses the same backend and actual project queue.
@@ -141,6 +144,12 @@ def verify(output: Path) -> dict:
                 page.locator('[data-command="road"]').click()
                 click_hex((13, 20))
                 page.wait_for_function("roadPlan?.quote&&!roadPlan.loading")
+                assert page.locator('#commandHint').is_visible()
+                page.set_viewport_size({'width':390,'height':844})
+                assert page.locator('#commandHint').is_visible()
+                assert page.locator('[data-command="confirm-road"]').is_visible()
+                page.screenshot(path=str(output/'mobile_road_quote.png'))
+                page.set_viewport_size({'width':1440,'height':1000})
                 page.screenshot(path=str(output / "road.png"))
                 page.locator('[data-command="confirm-road"]').click()
                 page.wait_for_function('!roadPlan && STATE.projects.some(p=>p[2]==="ROAD"&&p[3]==="A")')
@@ -191,10 +200,11 @@ def verify(output: Path) -> dict:
                 for width in (1440, 1024, 800, 390):
                     page.set_viewport_size({"width": width, "height": 900})
                     page.wait_for_timeout(100)
-                    for selector in ("#timeDock", "#commandDock", "#realmHome", "#pauseBtn"):
+                    for selector in ("#timeDock", "#realmHome", "#pauseBtn"):
                         bounds = page.locator(selector).bounding_box()
                         assert bounds and bounds["x"] >= -1 and bounds["x"] + bounds["width"] <= width + 1, (width, selector, bounds)
                     assert page.locator("#pauseBtn").is_visible()
+                    assert page.locator('#commandDock').is_hidden(), 'idle commands must not occupy map space'
                     page.screenshot(path=str(output / f"workspace_{width}.png"))
                 assert not errors, errors
                 browser.close()

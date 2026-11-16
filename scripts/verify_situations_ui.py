@@ -41,6 +41,7 @@ def verify(output):
                 page.wait_for_function('STATE?.countries && gameLoaded')
                 assert page.request.get(base+'/api/situations').json()['active_limit'] == 12
                 assert 'javascript' in page.request.get(base+'/assets/ui/situations.js').headers['content-type']
+                assert page.locator('#situationFocusBar').is_hidden(), 'empty state belongs in the sidebar'
 
                 page.locator('[data-deck="situations"]').click()
                 page.wait_for_selector('#situationHub:not([hidden])')
@@ -59,10 +60,12 @@ def verify(output):
                 assert page.evaluate('situationUI.focus') is None
                 page.locator(f'[data-sit-id="{first}"]').click()
                 page.wait_for_selector('#situationDetailBody h2')
+                assert page.locator('#situationHub').evaluate('(r)=>getComputedStyle(r).visibility')=='hidden'
                 assert '持续干旱' in page.locator('#situationDetailBody h2').inner_text()
                 assert '持续干旱' in page.locator('#situationFocusBar').inner_text()
 
                 # Creating another event never steals the existing focus.
+                page.locator('[data-sit-action="back"]').click()
                 page.locator('#situationSections [data-sit-section="library"]').click()
                 page.locator('[data-sit-preset="harvest"]').click()
                 page.locator('#situationCreateForm [name="country_id"]').select_option('B')

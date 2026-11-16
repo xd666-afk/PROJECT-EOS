@@ -14,10 +14,10 @@ function refreshSituationChrome(){
   if(!STATE)return;
   const item=focusedSituation(),bar=$('situationFocusBar');
   const inMap=activeDeck==='world'||activeDeck==='situations';
-  bar.hidden=!inMap||(!item&&activeDeck!=='situations');
+  bar.hidden=!inMap||!item;
   document.body.classList.toggle('has-situation-focus',!bar.hidden);
+  document.body.classList.toggle('has-situation-commands',activeDeck==='situations'&&!!item);
   if(bar.hidden)return;
-  if(!item){bar.innerHTML='<strong>选择一个事态追踪</strong><small>多个事态 · 一个焦点</small><span class="situation-bar-caption">从左侧列表选择，或进入“施加事件”挑选预设。</span>';return;}
   const percent=Math.round(item.progress*100);
   bar.innerHTML=`<strong>${esc(item.name)} · ${esc(item.country_name)}</strong><small>${item.status==='active'?`剩余 ${item.remaining_days} 日`:'已结束'}</small><div class="situation-progress" role="progressbar" aria-label="事态持续时间进度" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><i style="width:${percent}%"></i></div><span class="situation-bar-caption">${esc(item.stage)} · 已持续 ${item.elapsed} 日 · ${item.action_count} 条相关行动与结果 · 点击查看</span>`;
 }
@@ -187,11 +187,11 @@ function locateSituation(){
   const item=focusedSituation();if(!item)return;
   const country=STATE.countries[item.country_id];const center=country?.cities?.[0]?.center;if(!center){showToast('目标国家已退出世界',true);return;}
   const scale=fitScale*zoom;let left=0;
-  if(!$('situationDetail').hidden&&innerWidth>1150)left=696;
-  else if(!$('situationDetail').hidden&&innerWidth>600)left=370;
-  else if(!$('situationHub').hidden&&innerWidth>600)left=310;
+  const panel=!$('situationDetail').hidden?$('situationDetail'):!$('situationHub').hidden?$('situationHub'):null;
+  if(panel&&innerWidth>600)left=panel.getBoundingClientRect().right-mapPanel.getBoundingClientRect().left+12;
   panX=(left+mapPanel.clientWidth)/2-baseOffX-cx(center)*scale;
-  panY=mapPanel.clientHeight*.56-baseOffY-cy(center)*scale;render(true);
+  panY=mapPanel.clientHeight*.56-baseOffY-cy(center)*scale;
+  constrainMapView(left,50,mapPanel.clientWidth,mapPanel.clientHeight-48);render(true);
 }
 function drawSituationOverlay(scale){
   const item=focusedSituation();if(!item||!STATE?.countries[item.country_id])return;
