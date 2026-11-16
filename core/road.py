@@ -30,7 +30,7 @@ def river_width(world, coord):
             while True:
                 p = offset(q + sign * n * dq, r + sign * n * dr)
                 tile = world.tiles.get(p)
-                if tile is None or not tile.get("land"):
+                if tile is None or not tile.get("land") or tile.get('lake') or tile.get('biome') in {'ocean','lake'}:
                     break
                 if not tile.get("river"):
                     banks += 1
@@ -46,7 +46,7 @@ def road_permit(state, country, coord):
     tile = state.world.tiles.get(coord)
     if coord not in country.tiles:
         return "TILE_NOT_OWNED", "只能在本国领土修筑道路"
-    if not tile or not tile.get("land") or tile["biome"] in {"ocean", "lake"}:
+    if not tile or not tile.get("land") or tile.get('lake') or tile["biome"] in {"ocean", "lake"}:
         return "INVALID_TERRAIN", "海洋和湖泊不能修路，也不能作为桥梁支点"
     if tile["biome"] not in state.config["buildings"]["ROAD"]["allowed_biomes"]:
         return "INVALID_TERRAIN", "该地形不在道路修筑范围内"

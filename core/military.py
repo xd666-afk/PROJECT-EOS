@@ -161,8 +161,7 @@ class Military:
         army = army or country.new_army()
         army.units[unit_id] = army.units.get(unit_id, 0) + amount
         if army.tile is None:
-            capital = self.state.world.polities[actor]["capital"]
-            army.tile = (capital["col"], capital["row"])
+            army.tile = self.state.capital_center(actor)
         self.state.record(
             "army_recruited", country_id=actor, army_id=army.army_id, unit=unit_id,
             amount=amount, strength=country.army_strength,

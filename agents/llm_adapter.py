@@ -266,7 +266,7 @@ class OpenAICompatibleAgent(CountryAgent):
             "被抽贡会加速对方求和，收到贡金则更值得把仗打下去。"
             "country.cities 内标记 managed_by=llm 的城市由你直接规划；"
             "当这些城市粮食不足、服务偏低或宜居下降时，优先用 SET_CITY_FOCUS/SET_CITY_ZONE/SET_CITY_BUDGET 调整。"
-            "不得输出代码、密钥或修改规则；无法决定时返回 NO_OP。"
+            "tiles 中 water=true 的水面不能 BUILD 普通建筑或 SET_CITY_ZONE 城市分区；灌溉渠须在 river_bank=true 的岸上陆地，跨河 ROAD 仍须道路桥梁许可。不得输出代码、密钥或修改规则；无法决定时返回 NO_OP。"
         )
         return {
             "model": self.settings.model,

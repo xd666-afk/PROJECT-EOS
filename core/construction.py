@@ -22,6 +22,10 @@ class Construction:
             completed = []
             pending_ids = {p["project_id"] for p in country.projects}
             for project in country.projects:
+                from core.terrain import is_water
+                if project['building']!='ROAD' and is_water(self.state.world.tiles.get(tuple(project['tile']))):
+                    project['blocked_reason']='水面不能放置建筑，请迁移至岸上陆地'
+                    continue
                 if project.get("depends_on") in pending_ids:
                     project["blocked_reason"] = "等待前一段道路完工"
                     continue

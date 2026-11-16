@@ -1,5 +1,5 @@
 {
-  "rules_version": "0.53.0-monthly-time",
+  "rules_version": "0.54.0-water-safe-placement",
   "planning_interval_days": 90,
   "max_actions_per_decision": 4,
   "trade_expiry_days": 180,

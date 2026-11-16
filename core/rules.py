@@ -130,6 +130,8 @@ class RuleEngine:
             )
             if occupied_by is not None:
                 raise ActionRejected("TILE_ALREADY_OWNED", f"地块已属于 {occupied_by}")
+            if tile.get('lake') or tile['biome']=='lake':
+                raise ActionRejected('LAKE_TILE','不能在湖泊水面上建城；请选择岸上陆地')
             if tile["river"]:
                 raise ActionRejected("RIVER_TILE", "不能在河道水面上建城；请选择相邻的干燥陆地")
             if not any(hex_distance(coord, own) == 1 for own in country.tiles):
@@ -219,6 +221,9 @@ class RuleEngine:
             if not tile["land"]:
                 raise ActionRejected("INVALID_TERRAIN", "海域不能建设")
             building = action["building"]
+            from core.terrain import is_water, river_bank
+            if building != 'ROAD' and is_water(tile):
+                raise ActionRejected('WATER_TILE', '河流、湖泊和海洋水面不能放置建筑；请选择岸上陆地')
             from core.road import built_roads, road_permit, road_quote
             conflicts = any(tuple(p["tile"]) == coord and (p["building"] == "ROAD") == (building == "ROAD") for p in country.projects)
             if conflicts or (building != "ROAD" and country.buildings.get(coord) not in (None, "ROAD")):
@@ -236,16 +241,16 @@ class RuleEngine:
             spec = self.state.config["buildings"][building]
             if tile["biome"] not in spec["allowed_biomes"]:
                 raise ActionRejected("INVALID_TERRAIN", f"{tile['biome']} 不适合建设 {building}")
-            if building == "FARM" and tile["biome"] == "desert" and not tile["river"]:
-                raise ActionRejected("INVALID_TERRAIN", "无河道荒漠地块不能建设农田")
+            if building == "FARM" and tile["biome"] == "desert" and not river_bank(self.state.world,coord):
+                raise ActionRejected("INVALID_TERRAIN", "荒漠农田须位于紧邻河流的岸上陆地")
             required = spec.get("required_technology")
             if required and country.technology.get(required["field"], 0) < required["level"]:
                 raise ActionRejected(
                     "TECHNOLOGY_REQUIRED",
                     f"{building} 需要 {required['field']} 达到 {required['level']} 级",
                 )
-            if spec.get("requires_river") and not tile["river"]:
-                raise ActionRejected("REQUIRES_RIVER", f"{building} 必须建在河道地块")
+            if spec.get("requires_river") and not river_bank(self.state.world,coord):
+                raise ActionRejected("REQUIRES_RIVER", f"{building} 必须建在紧邻河流的岸上陆地")
             limit = spec.get("max_per_country")
             if limit is not None:
                 existing = sum(value == building for value in country.buildings.values())
@@ -337,6 +342,9 @@ class RuleEngine:
                 raise ActionRejected("TILE_NOT_IN_CITY", "地块不属于该城市")
             if action["zone"] not in self.state.config["city_zones"]:
                 raise ActionRejected("INVALID_PARAMETER", "未知城市分区")
+            from core.terrain import is_water
+            if action['zone']!='unzoned' and is_water(self.state.world.tile(coord)):
+                raise ActionRejected('WATER_TILE','水面不能划设住宅、农田或其他城市分区')
             previous = city.zones.get(coord, "unzoned")
             city.zones[coord] = action["zone"]
             self.state.record(

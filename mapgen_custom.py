@@ -155,6 +155,8 @@ def normalize_draft(payload: dict[str, Any]) -> dict[str, Any]:
         capital = _coord(item.get("capital"), f"国家 {country['name']} 的都城", width, height)
         if not tiles[capital]["land"]:
             raise ValueError(f"国家 {country['name']} 的都城必须位于陆地")
+        if tiles[capital]['river']:
+            raise ValueError(f"国家 {country['name']} 的都城不能位于河道水面，请移到岸上陆地")
         if capital in capitals:
             raise ValueError(f"国家 {country['name']} 的都城与其他国家重叠")
         capitals.append(capital)

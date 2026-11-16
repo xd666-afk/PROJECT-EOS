@@ -25,12 +25,12 @@ def replay_saved_actions(path: str | Path) -> GameState:
     # Audience commands share ordering with ordinary action receipts on the same day.
     commands = {}
     monthly_game=saved.get('time_unit')=='month'
-    command_mode=bool(saved.get('situations')) or monthly_game
+    command_mode=bool(saved.get('situations')) or monthly_game or any(e['type']=='water_placements_repaired' for e in final.event_log)
     period=None
     if command_mode:
         actions = {entry["result"]["action_id"]: entry for entry in saved["action_log"]}
-        for event in saved["event_log"]:
-            if event["type"] in {"situation_created", "situation_adjusted", "situation_ended", "action_result",'monthly_time_migrated','monthly_period_started','monthly_settlement'}:
+        for event in final.event_log:
+            if event["type"] in {"situation_created", "situation_adjusted", "situation_ended", "action_result",'monthly_time_migrated','monthly_period_started','monthly_settlement','water_placements_repaired'}:
                 commands.setdefault(event["day"], []).append(event)
     for day in range(final.day_index + 1):
         if command_mode:
@@ -38,7 +38,13 @@ def replay_saved_actions(path: str | Path) -> GameState:
             from core import monthly
             for event in commands.get(day, []):
                 kind = event["type"]
-                if kind=='monthly_time_migrated':
+                if kind=='water_placements_repaired':
+                    from copy import deepcopy
+                    from core.state import CountryState
+                    if 'countries_after' in event:
+                        initial.countries={cid:CountryState.from_dict(value,initial.config) for cid,value in event['countries_after'].items()}
+                        initial.monthly_ledger=deepcopy(event.get('monthly_ledger',{}))
+                elif kind=='monthly_time_migrated':
                     # Pre-tree saves can retain inert legacy points which today's kernel
                     # no longer writes. Preserve those compatibility fields at migration.
                     from copy import deepcopy

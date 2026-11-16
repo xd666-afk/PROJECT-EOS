@@ -110,6 +110,7 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
     blocked = np.zeros((h, w), bool)
     for country in countries:
         valid, score = specs[country["archetype"]]
+        valid = valid & ~river
         location = None
         for separation in dict.fromkeys(max(4, round(value * spacing_scale)) for value in (12, 10, 8, 6)):
             candidate_scores = np.where(valid, score, -1e8).copy()
@@ -126,7 +127,7 @@ def _place_capitals(countries, land, elev, biome, p, tmean, river, basin, slope,
                 location = (int(x), int(y))
                 break
         if location is None and allow_fallback:
-            candidate_scores = np.where(land, score, -1e8).copy()
+            candidate_scores = np.where(land & ~river, score, -1e8).copy()
             if forbidden is not None:
                 candidate_scores[forbidden] = -1e8
             for capital in placed:

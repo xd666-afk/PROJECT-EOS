@@ -12,7 +12,7 @@ def test_build_success_completion_and_real_production_bonus(engine):
     state = engine.state
     country = state.countries["ELAR"]
     before_treasury = country.treasury
-    result = engine.apply_action("ELAR", build({"col": 13, "row": 10}))
+    result = engine.apply_action("ELAR", build({"col": 14, "row": 10}))
     assert result.accepted, result
     assert country.treasury == before_treasury - 18
     assert len(country.projects) == 1
@@ -24,7 +24,7 @@ def test_build_success_completion_and_real_production_bonus(engine):
     baseline = engine.economy.settle_country(country, weather)["food_production"]
     country.projects[0]["remaining_days"] = 0.1
     engine.construction.advance_all()
-    assert country.buildings[(13, 10)] == "FARM"
+    assert country.buildings[(14, 10)] == "FARM"
     improved = engine.economy.settle_country(country, weather)["food_production"]
     assert improved > baseline
 
@@ -36,8 +36,8 @@ def test_build_rejects_foreign_tile_conflict_and_insufficient_funds(engine):
     assert not foreign.accepted and foreign.reason_code == "TILE_NOT_OWNED"
     assert country.treasury == treasury
 
-    assert engine.apply_action("ELAR", build({"col": 13, "row": 10})).accepted
-    conflict = engine.apply_action("ELAR", build({"col": 13, "row": 10}, "MINE"))
+    assert engine.apply_action("ELAR", build({"col": 14, "row": 10})).accepted
+    conflict = engine.apply_action("ELAR", build({"col": 14, "row": 10}, "MINE"))
     assert not conflict.accepted and conflict.reason_code == "BUILDING_CONFLICT"
 
     other = engine.state.countries["MARIS"]
@@ -50,16 +50,16 @@ def test_advanced_building_requires_technology_and_raises_housing(engine):
     state = engine.state
     country = state.countries["ELAR"]
     before = state.summary()["countries"]["ELAR"]["housing"]
-    locked = engine.apply_action("ELAR", build({"col": 13, "row": 10}, "GRANARY"))
+    locked = engine.apply_action("ELAR", build({"col": 14, "row": 10}, "GRANARY"))
     assert not locked.accepted and locked.reason_code == "TECHNOLOGY_REQUIRED"
     country.technology["agriculture"] = 2
-    accepted = engine.apply_action("ELAR", build({"col": 13, "row": 10}, "GRANARY"))
+    accepted = engine.apply_action("ELAR", build({"col": 14, "row": 10}, "GRANARY"))
     assert accepted.accepted
     country.projects[0]["remaining_days"] = 0.1
     engine.construction.advance_all()
     after = state.summary()["countries"]["ELAR"]["housing"]
     assert after == before + 8
-    duplicate = engine.apply_action("ELAR", build({"col": 13, "row": 8}, "GRANARY"))
+    duplicate = engine.apply_action("ELAR", build({"col": 12, "row": 8}, "GRANARY"))
     assert not duplicate.accepted and duplicate.reason_code == "BUILDING_UNIQUE_LIMIT"
 
 
@@ -443,7 +443,7 @@ def test_trade_can_be_accepted_before_but_not_on_expiry_day(engine):
 
 @pytest.mark.parametrize("raw", [
     {"type": []},
-    {"type": "BUILD", "tile": {"col": 13, "row": 10}, "building": []},
+    {"type": "BUILD", "tile": {"col": 14, "row": 10}, "building": []},
     {"type": "SET_RESEARCH", "field": {}},
     {"type": "SET_POLICY", "priority": []},
     {"type": "TRADE", "operation": []},

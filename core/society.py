@@ -6,6 +6,7 @@ import math
 from typing import Any
 
 from core.state import tile_key
+from core.terrain import is_water, river_bank
 
 FOOD_BUILDINGS = {"FARM", "GRANARY", "IRRIGATION", "GREAT_GRANARY"}
 MINING_BUILDINGS = {"MINE", "WORKSHOP", "GREAT_FORGE"}
@@ -50,6 +51,7 @@ def food_capacity(country, config: dict[str, Any]) -> float:
 
 
 def default_zone(center: tuple[int, int], coord: tuple[int, int], tile: dict[str, Any]) -> str:
+    if is_water(tile):return 'unzoned'
     if coord == center:
         return "residential"
     if tile["elevation_m"] >= 800 or tile["biome"] in {"alpine", "tundra"}:
@@ -282,6 +284,8 @@ def city_static_metrics(city, country, world, config: dict[str, Any]) -> dict[st
             {
                 "coord": list(coord),
                 "biome": world.tile(coord)["biome"],
+                "water": is_water(world.tile(coord)),
+                "river_bank": river_bank(world,coord),
                 "zone": city.zones.get(coord, "unzoned"),
                 "adjacency": {
                     key: round(value, 3)

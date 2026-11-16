@@ -119,6 +119,7 @@ def march_days(payload, start, target, cap=None):
     (lambda p: p["polities"][0].update(color="#cc5545cc"), "#RRGGBB"),
     (lambda p: p["polities"][0].update(archetype="sky_dwellers"), "archetype"),
     (lambda p: p["polities"][0].update(population=7000), "starting population"),
+    (lambda p: p.update(rivers=[[8,20]]), "都城不能位于河道水面"),
 ])
 def test_draft_rejects_unpaintable_input(mutate, needle):
     payload = draft()
@@ -136,10 +137,10 @@ def test_capital_out_of_range_is_reported_with_coordinates():
 
 
 def test_normalize_expands_grid_into_tile_table():
-    drafted = normalize_draft(draft(rivers=[[8, 20]], roads=[[8, 21]]))
+    drafted = normalize_draft(draft(rivers=[[8, 19]], roads=[[8, 21]]))
     assert drafted["width"] == DRAFT_WIDTH and drafted["height"] == DRAFT_HEIGHT
     assert len(drafted["tiles"]) == DRAFT_WIDTH * DRAFT_HEIGHT
-    assert drafted["tiles"][(8, 20)] == {"biome": "grassland", "land": True,
+    assert drafted["tiles"][(8, 19)] == {"biome": "grassland", "land": True,
                                          "river": True, "road": False}
     assert drafted["tiles"][(8, 21)]["road"] is True
     assert drafted["capitals"] == [(8, 20), (58, 30)]
@@ -153,7 +154,7 @@ def test_land_without_any_sea_cannot_drain():
 # ---------------------------------------------------------------- world building
 
 def test_draft_becomes_a_valid_world_document():
-    world = build_world_from_draft(draft(rivers=[[8, 20], [9, 20]]))
+    world = build_world_from_draft(draft(rivers=[[8, 19], [9, 20]]))
     worldgen.validate(world)
     metadata = world["metadata"]
     assert metadata["generator"] == "mapgen_custom"
@@ -167,7 +168,7 @@ def test_draft_becomes_a_valid_world_document():
 
 
 def test_same_draft_and_seed_rebuild_identically():
-    payload = draft(rivers=[[8, 20], [9, 21]], roads=[[58, 30]])
+    payload = draft(rivers=[[8, 19], [9, 21]], roads=[[58, 30]])
     first = build_world_from_draft(payload, seed=777)
     second = build_world_from_draft(payload, seed=777)
     assert first["metadata"]["draft_digest"] == second["metadata"]["draft_digest"]
@@ -194,7 +195,7 @@ def test_capital_on_a_small_island_cannot_open():
 
 def test_draft_world_runs_in_the_engine(tmp_path, monkeypatch):
     monkeypatch.setattr(mapgen_custom, "BASE_DIR", tmp_path)
-    world = build_world_from_draft(draft(rivers=[[8, 20]]), seed=2024)
+    world = build_world_from_draft(draft(rivers=[[8, 19]]), seed=2024)
     path = write_draft_world(world)
     assert path.name.startswith("world_draft_2024_")
     simulation = Simulation.new(world_path=path, seed=2024)
@@ -326,7 +327,7 @@ def test_preview_names_the_biomes_it_walks_over():
 # ---------------------------------------------------------------- report panel
 
 def test_report_counts_land_and_flags_thin_countries():
-    report = draft_report(draft(rivers=[[8, 20]], roads=[[9, 21]]))
+    report = draft_report(draft(rivers=[[8, 19]], roads=[[9, 21]]))
     assert report["ok"] is True
     assert report["land_tiles"] == LAND_TILES
     assert report["ocean_tiles"] == DRAFT_WIDTH * DRAFT_HEIGHT - LAND_TILES
@@ -362,7 +363,7 @@ def test_painted_days_survive_into_the_running_engine(tmp_path, monkeypatch):
     cost model could silently drift: same route, same road network, same daily budget.
     """
     monkeypatch.setattr(mapgen_custom, "BASE_DIR", tmp_path)
-    payload = draft(rivers=[[8, 20], [9, 20], [10, 20]],
+    payload = draft(rivers=[[8, 19], [9, 20], [10, 20]],
                    roads=[[col, 20] for col in range(9, 40)])
     preview = march_preview(payload, RULES, [8, 20], [40, 20])
     world = build_world_from_draft(payload, seed=90210)

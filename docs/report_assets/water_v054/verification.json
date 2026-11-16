@@ -1,0 +1,8 @@
+{
+  "javascript_errors": [],
+  "legacy_facility_relocated": true,
+  "water_zones_cleared": true,
+  "world_menu_blocks_water": true,
+  "city_menu_blocks_water": true,
+  "direct_api_rejected_without_charge": true
+}

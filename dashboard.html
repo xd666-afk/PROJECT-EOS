@@ -1585,6 +1585,13 @@ function hexNeighbors(col,row){
     ?[[col,row-1],[col+1,row-1],[col-1,row],[col+1,row],[col,row+1],[col+1,row+1]]
     :[[col-1,row-1],[col,row-1],[col-1,row],[col+1,row],[col-1,row+1],[col,row+1]];
 }
+function waterTile(tile){
+  return !!tile&&(tile.water===true||tile.land===false||tile.land===0||!!tile.river||!!tile.lake||['ocean','lake'].includes(tile.biome));
+}
+function riverBankAt(col,row){
+  const t=getTile(col,row);
+  return !!t&&!!t[2]&&!t[5]&&!t[11]&&!['ocean','lake'].includes(t[3])&&hexNeighbors(col,row).some(([x,y])=>!!getTile(x,y)?.[5]);
+}
 function roadCellAt(col,row){
   return !!(WORLD?.road_cells||[]).some(cell=>cell.tile.col===col&&cell.tile.row===row)||(STATE?.roads||[]).some(p=>p[0]===col&&p[1]===row)||(STATE?.buildings||[]).some(p=>p[0]===col&&p[1]===row&&p[2]==='ROAD');
 }
@@ -2985,7 +2992,7 @@ function renderRight(){
       const allowed=(spec.allowed_biomes||[]).includes(tile.biome);
       const req=spec.required_technology;
       const techOk=!req||(player.technology?.[req.field]||0)>=req.level;
-      const riverOk=!spec.requires_river||tile.river;
+      const riverOk=!spec.requires_river||riverBankAt(tile.col,tile.row);
       const existing=Object.values(player.buildings).filter(x=>x===key).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===key).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
       const permit=STATE.road_permits?.[STATE.player_country]?.[`${tile.col},${tile.row}`];
@@ -2993,18 +3000,18 @@ function renderRight(){
       const moneyOk=player.treasury>=cost;
       const roadInfo=roadConnectionInfo(tile.col,tile.row);
       const roadOk=key!=='ROAD'||(permit?.allowed&&!permit?.bridge_plan&&!roadCellAt(tile.col,tile.row)&&roadInfo.connected);
-      const roadTileBlocked=false;
+      const roadTileBlocked=key!=='ROAD'&&waterTile(tile);
       const conflict=(STATE.projects||[]).some(p=>p[0]===tile.col&&p[1]===tile.row&&(p[2]==='ROAD')===(key==='ROAD'))||(key!=='ROAD'&&!!b&&b.building!=='ROAD'&&!b.project);
       const blocked=conflict || roadTileBlocked || !allowed || !techOk || !riverOk || !roadOk || !limitOk || !moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
       const roadWhy=permit&&!permit.allowed?permit.reason:permit?.bridge_plan?'多格河流请使用整段规划':roadCellAt(tile.col,tile.row)?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
-      const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
+      const why=roadTileBlocked?'水面不能放置建筑':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要紧邻河流的岸上陆地':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[key];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`;
       return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${cost} 财政 · ${buildMonthLabel(key,spec,permit)} · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
     }).join(''):'';
     $('panel-tile').innerHTML=`
-      <div class="heading"><div><h2>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
+      <div class="heading"><div><h2>${esc(tile.lake?'湖泊':tile.river?'河道':BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
       <span class="pill">${b?(b.project?'施工中':'已建设'):'未建设'}</span></div>
       <div class="context-tabs"><button data-inspect-mode="build">建设</button><button data-inspect-mode="orders">调动</button><button data-inspect-mode="info">详情</button></div>
       <div data-inspect-section="info"><div class="kv"><span>控制权</span><b>${tile.owner?esc(tile.owner):'无'}</b></div>
@@ -3021,7 +3028,7 @@ function renderRight(){
       ${tileMarchCard(tile,tilePrice(tile))}
       ${tileStrikeCard(tile,tilePrice(tile))}
       ${tileFieldCard(tile,tilePrice(tile))}
-      </div><div data-inspect-section="build">${roadPlannerCard(tile,owned)}${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
+      </div><div data-inspect-section="build">${waterTile(tile)?'<div class="hint water-building-notice">水面不能放置建筑或城市分区，请选择岸上陆地。跨河道路须另满足桥梁许可。</div>':''}${roadPlannerCard(tile,owned)}${owned?`<div class="sect"><span>可执行操作</span><span>玩家模式</span></div><div class="build-card">${buildRows||'<div class="build-option solo"><span class="hint">此地形暂无可建设施</span></div>'}</div>`:
         (settle.adjacent?`<div class="sect"><span>建立新城</span><span>${settle.cost} 财政</span></div>
           <div class="build-card">
             <div class="build-option row"><div><b>建立新城</b><small>在相邻无主地块建城，自动纳入约 5 格城域并计入新城上限</small></div><button id="settleBtn" ${settle.ok?'':'disabled'}>${settle.ok?'建城':'条件不足'}</button></div>
@@ -4005,7 +4012,7 @@ function painterNearestLand(centre,spots,minimum){
   for(let radius=0;radius<=reach;radius++){
     let best=null,bestScore=Infinity;
     const test=(col,row)=>{
-      if(pTileOn(PAINTER.grid,col,row)==='o')return;
+      if(pTileOn(PAINTER.grid,col,row)==='o'||PAINTER.rivers.has(pKey(col,row)))return;
       const candidate=[col,row];
       if(spots.some(spot=>hexDistance(spot,candidate)<minimum))return;
       const score=hexDistance(centre,candidate);
@@ -4316,6 +4323,9 @@ function painterStroke(col,row){
   if(tool==='river'||tool==='road'){
     if((pTile(col,row)||'o')==='o'){showToast('河流与道路只能画在陆地上',true);return false;}
     const set=tool==='river'?PAINTER.rivers:PAINTER.roads;
+    if(tool==='river'&&!set.has(key)&&PAINTER.countries.some(c=>c.capital?.[0]===col&&c.capital?.[1]===row)){
+      showToast('不能把都城所在格涂成河流，请先迁移都城',true);return false;
+    }
     if(set.has(key))set.delete(key);else set.add(key);
     changed=true;
   }else if(tool==='capital'){
@@ -4331,6 +4341,7 @@ function painterStroke(col,row){
 }
 function painterPlaceCapital(col,row){
   if((pTile(col,row)||'o')==='o'){showToast('都城必须落在陆地上',true);return false;}
+  if(PAINTER.rivers.has(pKey(col,row))){showToast('都城不能落在河道水面，请选择岸上陆地',true);return false;}
   const existing=PAINTER.countries.findIndex(country=>
     country.capital&&country.capital[0]===col&&country.capital[1]===row);
   if(existing>=0&&PAINTER.placeIndex===null){
@@ -4861,7 +4872,7 @@ function renderCityDetail(){
     const zone=STATE.city_zones[tile.zone]||STATE.city_zones.unzoned;
     c.beginPath();
     for(let i=0;i<6;i++){const a=(60*i-30)*Math.PI/180,xx=x+scale*.92*Math.cos(a),yy=y+scale*.92*Math.sin(a);if(i)c.lineTo(xx,yy);else c.moveTo(xx,yy);}
-    c.closePath();c.fillStyle=BIOME_COLORS[tile.biome]||'#567';c.fill();
+    c.closePath();c.fillStyle=waterTile(tile)?'#287b9c':BIOME_COLORS[tile.biome]||'#567';c.fill();
     c.fillStyle=zone.color;c.globalAlpha=.46;c.fill();c.globalAlpha=1;
     c.strokeStyle='#06171e';c.lineWidth=1;c.stroke();
     const building=city.building_tiles?.[tile.coord.join(',')];
@@ -4895,9 +4906,9 @@ function renderCityDetail(){
     ?`地块 ${selected.coord[0]},${selected.coord[1]} · ${BIOME_NAMES[selected.biome]||selected.biome} · ${STATE.city_zones[selected.zone]?.label||selected.zone}${bonuses?' · '+bonuses:''}`
     :'点击地图选择地块';
   $('cityZonePalette').innerHTML=Object.entries(STATE.city_zones).map(([key,zone])=>
-    `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'?'':'disabled'}>${ZONE_ICON[key]?`<img src="/assets/icons/buildings/${ZONE_ICON[key]}.png" alt="">`:'<i></i>'}${esc(zone.label)}</button>`
+    `<button class="zone-btn ${selected?.zone===key?'on':''}" style="--zc:${zone.color}" data-zone="${key}" ${isPlayer&&city.managed_by==='manual'&&(!waterTile(selected)||key==='unzoned')?'':'disabled'}>${ZONE_ICON[key]?`<img src="/assets/icons/buildings/${ZONE_ICON[key]}.png" alt="">`:'<i></i>'}${esc(zone.label)}</button>`
   ).join('');
-  $('cityZoneHint').textContent=!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':city.managed_by==='llm'?'这座城市由 LLM 托管；LLM 会在规划周期调整分区与预算。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
+  $('cityZoneHint').textContent=waterTile(selected)?'水面不可放置建筑或城市分区；请在岸上选择地块。':!isPlayer?'观战模式只能查看城市分区；介入国家后可编辑。':city.managed_by==='ai'?'这座城市由 AI 托管，收回手动治理后才能编辑分区。':city.managed_by==='llm'?'这座城市由 LLM 托管；LLM 会在规划周期调整分区与预算。':'选择地块后点击分区即可调整；AI 不会覆盖手动城市。';
   const player=STATE.countries[STATE.player_country];
   const canBuild=isPlayer&&city.managed_by==='manual';
   if(!selected){
@@ -4915,7 +4926,7 @@ function renderCityDetail(){
       const allowed=(spec.allowed_biomes||[]).includes(selected.biome);
       const req=spec.required_technology;
       const techOk=!req||(player.technology?.[req.field]||0)>=req.level;
-      const riverOk=!spec.requires_river||selected.river;
+      const riverOk=!spec.requires_river||selected.river_bank;
       const existing=Object.values(player.buildings||{}).filter(x=>x===kind).length+STATE.projects.filter(x=>x[3]===STATE.player_country&&x[2]===kind).length;
       const limitOk=!spec.max_per_country||existing<spec.max_per_country;
       const permit=STATE.road_permits?.[STATE.player_country]?.[key];
@@ -4923,12 +4934,12 @@ function renderCityDetail(){
       const moneyOk=player.treasury>=cost;
       const roadInfo=roadConnectionInfo(selected.coord[0],selected.coord[1]);
       const roadOk=kind!=='ROAD'||(permit?.allowed&&!permit?.bridge_plan&&!roadCellAt(selected.coord[0],selected.coord[1])&&roadInfo.connected);
-      const roadTileBlocked=false;
+      const roadTileBlocked=kind!=='ROAD'&&waterTile(selected);
       const conflict=(STATE.projects||[]).some(p=>p[0]===col&&p[1]===row&&(p[2]==='ROAD')===(kind==='ROAD'))||(kind!=='ROAD'&&!!building&&building!=='ROAD');
       const blocked=conflict||roadTileBlocked||!allowed||!techOk||!riverOk||!roadOk||!limitOk||!moneyOk;
       const techLine=STATE.tech_tree?.[req?.field]?.label||req?.field;
       const roadWhy=permit&&!permit.allowed?permit.reason:permit?.bridge_plan?'多格河流请使用整段规划':roadCellAt(selected.coord[0],selected.coord[1])?'已是道路':(roadInfo.denied.length?`需与 ${roadInfo.denied.map(id=>countryMeta(id)?.name||id).join('/')} 达到${roadConnectionLevelLabel()}`:'需连接城市或道路');
-      const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
+      const why=roadTileBlocked?'水面不能放置建筑':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要紧邻河流的岸上陆地':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[kind];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[kind]||kind).slice(0,1))}</span>`;
       return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${cost} 财政 · ${buildMonthLabel(kind,spec,permit)} · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;

@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections import Counter
 
 from core.society import city_housing
+from core.terrain import is_water
 from worldgen import neighbors
 
 
@@ -74,6 +75,7 @@ class CityManager:
                 candidates = [
                     coord for coord in city.tiles
                     if coord != city.center and city.zones.get(coord) != desired_zone
+                    and not is_water(self.state.world.tile(coord))
                 ]
                 if desired_zone == "residential" and health_pressed:
                     industry_candidates = [

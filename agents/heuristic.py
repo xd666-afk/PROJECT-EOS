@@ -727,6 +727,7 @@ class HeuristicAgent(CountryAgent):
         candidates = [
             tile for tile in tiles
             if (building == "ROAD" or tile["building"] in (None, "ROAD")) and not tile["project"]
+            and (building == 'ROAD' or not tile.get('water',bool(tile.get('river')) or tile['biome'] in {'ocean','lake'}))
         ]
         if building == "ROAD":
             candidates = [

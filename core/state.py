@@ -1061,6 +1061,8 @@ class GameState:
             from core.logistics import reconcile_stocks
             reconcile_stocks(state.countries[country_id], config)
         state.record("simulation_initialized", seed=seed, rules_version=config["rules_version"])
+        from core.terrain import repair_water_placements
+        repair_water_placements(state,preserve_checkpoint=False)
         return state
 
     @property
@@ -1097,11 +1099,16 @@ class GameState:
         target.population = max(0, target.population + difference)
 
     def capital_center(self, country_id: str) -> tuple[int, int] | None:
-        """Where the world set this realm's capital, whoever holds that hex today."""
+        """Capital position, including a historical water-center repair."""
         polity = self.world.polities.get(country_id)
         if polity is None:
             return None
-        return (int(polity["capital"]["col"]), int(polity["capital"]["row"]))
+        center=(int(polity["capital"]["col"]), int(polity["capital"]["row"]))
+        from core.terrain import is_water
+        if is_water(self.world.tiles.get(center)):
+            capital=next((city for c in self.countries.values() for city in c.cities if city.city_id==f'{country_id}-C1'),None)
+            if capital is not None:return capital.center
+        return center
 
     def is_capital(self, country: "CountryState", city: "CityState") -> bool:
         """Whether losing this city costs the realm its seat rather than one more town.
@@ -1601,4 +1608,6 @@ class GameState:
             state.sync_city_population(country)
             from core.logistics import reconcile_stocks
             reconcile_stocks(country, state.config if any(c.food_capacity <= 0 for c in country.cities) else None)
+        from core.terrain import repair_water_placements
+        repair_water_placements(state)
         return state

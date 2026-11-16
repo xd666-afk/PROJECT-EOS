@@ -118,12 +118,14 @@ def test_barracks_are_no_longer_a_one_off_building():
             "tile": {"col": coord[0], "row": coord[1]},
         })
 
-    built = [build("BARRACKS", coord) for coord in elar.tiles[:5]]
+    from core.terrain import is_water
+    dry=[p for p in elar.tiles if not is_water(state.world.tile(p))]
+    built = [build("BARRACKS", coord) for coord in dry[:5]]
     assert all(result.accepted for result in built), [result.reason_code for result in built]
     assert sum(project["building"] == "BARRACKS" for project in elar.projects) == 5
 
-    assert build("WORKSHOP", elar.tiles[5]).accepted
-    refused = build("WORKSHOP", elar.tiles[6])
+    assert build("WORKSHOP", dry[5]).accepted
+    refused = build("WORKSHOP", dry[6])
     assert not refused.accepted and refused.reason_code == "BUILDING_UNIQUE_LIMIT"
 
 

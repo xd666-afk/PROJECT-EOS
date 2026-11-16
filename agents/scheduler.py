@@ -7,6 +7,7 @@ from typing import Any
 
 from agents.heuristic import HeuristicAgent
 from core.monthly import calendar as monthly_calendar, economy_view as monthly_economy_view
+from core.terrain import is_water, river_bank
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
 from core.content import field_cap
@@ -94,6 +95,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         tiles.append({
             "col": coord[0], "row": coord[1], "biome": tile["biome"],
             "elevation_m": tile["elevation_m"], "river": tile["river"],
+            "water": is_water(tile), "river_bank": river_bank(state.world,coord),
             "annual_precip_mm": tile["annual_precip_mm"],
             "building": country.buildings.get(coord),
             "road_cell": coord in road_cells or coord in country.roads,

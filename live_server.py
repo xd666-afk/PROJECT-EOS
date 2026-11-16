@@ -950,7 +950,15 @@ class LiveSession:
             return {"ok": True, "tile": military.tile_strikes(self.seat(), (col, row))}
 
     def world_payload(self) -> dict:
-        return project_world(self.simulation.state.world.data)
+        with self.lock:
+            state=self.simulation.state
+            payload=project_world(state.world.data)
+            for polity in payload['polities']:
+                center=state.capital_center(polity['id'])
+                if center is not None:
+                    x,y=center
+                    polity['capital']={'col':x,'row':y,'q':x-(y-(y&1))//2,'r':y}
+            return payload
 
     def snapshot(self) -> dict:
         with self.lock:
