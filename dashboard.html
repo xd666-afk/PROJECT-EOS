@@ -711,6 +711,7 @@ body:has(.modal:not([hidden])) .right{visibility:hidden}
 <link rel="stylesheet" href="/assets/ui/situations.css">
 <link rel="stylesheet" href="/assets/ui/compact.css">
 <script src="/assets/ui/territory.js"></script>
+<script src="/assets/ui/monthly.js"></script>
 </head>
 <body>
 <div class="screen menu" id="menuScreen">
@@ -1972,17 +1973,17 @@ function loadTerrainTexture(url){
 }
 function pactName(kind){return STATE?.pact_specs?.[kind]?.label||({PEACE:'和平提议',TRADE:'贸易协定'}[kind])||kind||'协定';}
 function civilRoutes(){return STATE?.transport_network?.[selectedCountry]||[];}
-function supplyProblem(city){return city.food_unmet>0||((city.stock_days??Infinity)<3&&city.food_balance<0);}
+function supplyProblem(city){return city.food_unmet>0||((city.stock_days??Infinity)<1&&city.food_balance<0);}
 function cityStockCard(city){
   const routes=civilRoutes().filter(r=>r.source===city.city_id||r.target===city.city_id),connected=routes.filter(r=>r.status==='connected').length;
   const cities=STATE.countries[selectedCountry]?.cities||[];
   return `<div class="sect"><span>本城粮仓与运输</span><span>${esc(city.logistics_status||'待结算')}</span></div>
     <div class="garrison-card"><div class="split"><span>库存 / 仓容</span><b>${fmtNum(city.food_stock,2)} / ${fmtNum(city.food_capacity,2)}</b></div>
-    <div class="split"><span>按当前需求可供</span><b>${city.stock_days==null?'尚无消耗记录':`${fmtNum(city.stock_days,1)} 天`}</b></div>
-    <div class="split"><span>今日调入 / 调出</span><b>${fmtNum(city.food_imported,2)} / ${fmtNum(city.food_exported,2)}</b></div>
+    <div class="split"><span>按当前需求可供</span><b>${city.stock_days==null?'尚无消耗记录':`${fmtNum(city.stock_days,1)} 个月`}</b></div>
+    <div class="split"><span>本月调入 / 调出</span><b>${fmtNum(city.food_imported,2)} / ${fmtNum(city.food_exported,2)}</b></div>
     <div class="split"><span>未满足需求 / 运输损耗</span><b>${fmtNum(city.food_unmet,2)} / ${fmtNum(city.food_loss,2)}</b></div>
     <div class="hint">${connected} 条可用城际路线 · 全国存粮是各城库存合计。道路提高运量并降低损耗；隔离城市须靠本地储粮。</div>
-    ${routes.map(r=>{const peer=cities.find(c=>c.city_id===(r.source===city.city_id?r.target:r.source));return `<div class="hint"><b>${esc(peer?.name||'其他城市')}</b> · ${r.status==='connected'?`${fmtNum(r.capacity,1)} 粮/日 · 损耗 ${(r.loss_rate*100).toFixed(1)}%`:esc(r.reason)}</div>`;}).join('')}
+    ${routes.map(r=>{const peer=cities.find(c=>c.city_id===(r.source===city.city_id?r.target:r.source));return `<div class="hint"><b>${esc(peer?.name||'其他城市')}</b> · ${r.status==='connected'?`${fmtNum(r.capacity,1)} 粮/月 · 损耗 ${(r.loss_rate*100).toFixed(1)}%`:esc(r.reason)}</div>`;}).join('')}
     <div class="action-row"><button data-open-city-planner="${esc(city.city_id)}">进入城市规划</button><button data-supply-map="${esc(city.city_id)}">查看物流</button></div></div>`;
 }
 function renderSupplyOverview(){
@@ -1992,7 +1993,7 @@ function renderSupplyOverview(){
   host.hidden=false;
   host.innerHTML=`<div class="sect"><span>城市供应</span><span>${alerts.length?`${alerts.length} 城预警`:'库存与运输'}</span></div>
     ${cities.map(city=>`<button class="country" data-supply-city="${esc(city.city_id)}" style="--c:${supplyProblem(city)?'#eead63':'#85c9a4'}">
-      <span><b>${esc(city.name)}${supplyProblem(city)?' · 缺粮预警':''}</b><small>存粮 ${fmtNum(city.food_stock,1)}${city.stock_days==null?'':` · 可供 ${fmtNum(city.stock_days,1)} 天`} · ${esc(city.logistics_status||'待结算')}</small></span></button>`).join('')}
+      <span><b>${esc(city.name)}${supplyProblem(city)?' · 缺粮预警':''}</b><small>存粮 ${fmtNum(city.food_stock,1)}${city.stock_days==null?'':` · 可供 ${fmtNum(city.stock_days,1)} 个月`} · ${esc(city.logistics_status||'待结算')}</small></span></button>`).join('')}
     ${blocked.length?`<div class="hint">${blocked.length} 条城际路线中断：检查水域、桥接道路与开放边境。</div>`:''}`;
 }
 function diplomacyActions(peer,dip,isPlayer,relation,atWar){
@@ -2043,7 +2044,7 @@ function drawOrderPreview(scale){
   ctx.save();ctx.strokeStyle='#ffe2a0';ctx.lineWidth=Math.max(.1,2/scale);ctx.setLineDash([.3,.23]);
   ctx.beginPath();row.route.forEach((c,i)=>i?ctx.lineTo(cx(c),cy(c)):ctx.moveTo(cx(c),cy(c)));ctx.stroke();
   ctx.setLineDash([]);ctx.font=`600 ${Math.max(.4,11/scale)}px system-ui`;ctx.textAlign='center';
-  const x=cx(selectedTile),y=cy(selectedTile)-.8,text=`${selectedArmy} · ${row.days} 天 · ${fmtNum(row.cost,2)} 成本`;
+  const x=cx(selectedTile),y=cy(selectedTile)-.8,text=`${selectedArmy} · ${row.days} 个月 · ${fmtNum(row.cost,2)} 成本`;
   const width=ctx.measureText(text).width+.6;ctx.fillStyle='#102a32';ctx.fillRect(x-width/2,y-.5,width,.7);
   ctx.fillStyle='#ffe2a0';ctx.fillText(text,x,y);ctx.restore();
 }
@@ -2065,7 +2066,7 @@ function renderObjectNavigator(){
   if(document.activeElement!==picker){picker.innerHTML=livePolities().map(p=>`<option value="${p.id}" ${p.id===selectedCountry?'selected':''}>${esc(p.name)}</option>`).join('');}
   $('viewStatus').textContent=STATE.player_country?`正在治理 ${countryMeta(STATE.player_country)?.name||STATE.player_country} · ${selectedCountry===STATE.player_country?'本国视角':'查看其他国家'}`:'观战中 · 接管后可下达操作';
   const c=STATE.countries[selectedCountry];
-  $('objectArmies').innerHTML=(c?.armies||[]).filter(a=>a.strength>0).map(a=>`<button class="object-row" data-nav-army="${a.army_id}"><b>${esc(a.army_id)} · ${a.strength} 支</b><small>${a.march?`在途 · 剩余 ${a.march.days_left} 天`:'待命 · 点击定位并选择'}</small></button>`).join('')||'<div class="inspector-empty">尚无已编成军队。<button data-open-recruit>前往募兵</button></div>';
+  $('objectArmies').innerHTML=(c?.armies||[]).filter(a=>a.strength>0).map(a=>`<button class="object-row" data-nav-army="${a.army_id}"><b>${esc(a.army_id)} · ${a.strength} 支</b><small>${a.march?`在途 · 剩余 ${a.march.days_left} 个月`:'待命 · 点击定位并选择'}</small></button>`).join('')||'<div class="inspector-empty">尚无已编成军队。<button data-open-recruit>前往募兵</button></div>';
   $('worldSupply').hidden=objectTab!=='cities';$('objectArmies').hidden=objectTab!=='armies';
   $('worldThreats').hidden=objectTab!=='tasks'||!threatRows().length;
   $('activities').hidden=objectTab!=='tasks';$('activities').previousElementSibling.hidden=objectTab!=='tasks';
@@ -2227,7 +2228,7 @@ function render(force=false){
         if(army.army_id===selectedArmy){ctx.beginPath();ctx.arc(x,y,.53,0,Math.PI*2);ctx.stroke();}
         ctx.fillStyle='#f2ead8';ctx.font=`600 ${.42}px system-ui`;
         ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(army.strength),x,y+.02);
-        if(army.march){ctx.font=`600 ${Math.max(.32,10/scale)}px system-ui`;ctx.fillText(`${army.march.days_left}天`,x,y-.55);}
+        if(army.march){ctx.font=`600 ${Math.max(.32,10/scale)}px system-ui`;ctx.fillText(`${army.march.days_left} 个月`,x,y-.55);}
       }
       for(const army of c.armies||[])drawMarchRoute(army,cid,scale);
     }
@@ -2293,7 +2294,7 @@ function updateMapLegend(){
   $('mapLegend').innerHTML=list.map(([name,color])=>`<span><i style="background:${color}"></i>${esc(name)}</span>`).join('');
 }
 function nextPlanning(){
-  if(!STATE)return 0;const interval=90;return ((Math.floor(STATE.day/interval)+1)*interval)-STATE.day;
+  return STATE?1:0;
 }
 function renderTop(){
   if(!STATE)return;
@@ -2301,7 +2302,7 @@ function renderTop(){
   document.documentElement.style.setProperty('--accent',countryColor(selectedCountry));
   $('eraLine').textContent=(country.era?.short||'时代')+' · '+(country.era?.name||'');
   $('date').textContent=STATE.date;
-  $('nextPlan').textContent=`游戏日 ${STATE.day} / ${STATE.maximum_day} · 下一规划 ${nextPlanning()} 日`;
+  $('nextPlan').textContent=`游戏月 ${STATE.day} / ${STATE.maximum_day} · 下一规划 ${nextPlanning()} 月`;
   $('pauseBtn').textContent=STATE.paused?'继续':'暂停';
   for(const b of document.querySelectorAll('.speed'))b.classList.toggle('on',Number(b.dataset.speed)===STATE.speed);
   $('observeBtn').classList.toggle('on',STATE.mode==='observer');
@@ -2360,7 +2361,7 @@ function threatCard(row){
     <small>→ ${esc(threatWhere(row))}</small>
     <small>${undefended?'该处没有我方守军':`我方到场 ${row.defenders} 支`} · 对方抵达预计只折 ${fmtNum(row.attacker_loss,0)} 人</small>
     ${routDoomed(row)?'<span class="key-state missing">守军败则全歼（兵营在此）</span>':''}
-    <span class="when">还剩 ${row.days_left} 天行军 · 抵达于 ${esc(row.arrival_date)}</span></button>`;
+    <span class="when">还剩 ${row.days_left} 个月行军 · 抵达于 ${esc(row.arrival_date)}</span></button>`;
 }
 function tileIncoming(tile){
   const grouped=STATE?.incoming_threats||{};
@@ -2374,7 +2375,7 @@ function tileIncomingCard(tile){
   return `<div class="sect"><span>边警 · 有敌军正开向这一格</span><span>${rows.length} 路</span></div>
     <div class="threat-stack">${rows.map(threatCard).join('')}
     ${doomed?`<div class="camp-note">这一格是本国兵营：守军一旦打败就整军遣散，先想清楚是否解围。</div>`:''}
-    <div class="hint">这一格是它的落脚格：抵达当日结算，我方在周围 ${STATE?.military_specs?.mass_radius||1} 格内的待命军队才会到场应战。守军为空时对方几乎不折兵就能站上来。</div></div>`;
+    <div class="hint">这一格是它的落脚格：抵达当月结算，我方在周围 ${STATE?.military_specs?.mass_radius||1} 格内的待命军队才会到场应战。守军为空时对方几乎不折兵就能站上来。</div></div>`;
 }
 function bindThreats(root){
   for(const card of (root||document).querySelectorAll('[data-threat]')){
@@ -2394,7 +2395,7 @@ function renderThreats(){
   host.innerHTML=`<div class="sect"><span>边警 · 敌军正开向我国</span><span>${rows.length} 路</span></div>`
     +rows.map(threatCard).join('')
     +(doomed?`<div class="camp-note">其中一路打的是本国兵营：守军在那里打败就整军遣散。</div>`:'')
-    +`<div class="hint">天数与抵达日期读的是行军账本本身：对方每天按下令时的地形、道路与过境成本推进，途中易主不会撤销命令。`
+    +`<div class="hint">月数与抵达月份读的是行军账本本身：对方每月按下令时的地形、道路与过境成本推进，途中易主不会撤销命令。`
     +`都城一格若被围下，整座城连同全部领土、国库与粮仓一并易主。</div>`;
   bindThreats(host);
 }
@@ -2406,7 +2407,7 @@ function updateMilitaryDot(){
   dot.textContent=rows.length>9?'9+':String(rows.length);
   dot.classList.toggle('show',rows.length>0);
   dot.title=rows.length
-    ?`${rows.length} 路敌军正开向我国领土${capital?'，其中一路打的是都城':''}：最快一支还剩 ${rows[0].days_left} 天行军（${rows[0].arrival_date}）`
+    ?`${rows.length} 路敌军正开向我国领土${capital?'，其中一路打的是都城':''}：最快一支还剩 ${rows[0].days_left} 个月行军（${rows[0].arrival_date}）`
     :'没有敌军开向我国领土';
 }
 function healSelection(){
@@ -2435,7 +2436,7 @@ function renderCountries(){
   }).join('');
   const dead=Object.entries(STATE.eliminated||{});
   const footer=dead.length?`<div class="sect" style="margin-top:8px"><span>已被吞并</span><span>${dead.length} 国</span></div>
-    <div class="hint">${dead.map(([id,day])=>`${esc(countryMeta(id)?.name||id)}（覆灭于第 ${day} 日）`).join(' · ')}</div>`:'';
+    <div class="hint">${dead.map(([id,day])=>`${esc(countryMeta(id)?.name||id)}（覆灭于第 ${day} 月）`).join(' · ')}</div>`:'';
   $('countries').insertAdjacentHTML('beforeend',footer);
   for(const b of document.querySelectorAll('#countries .country'))b.onclick=()=>selectCountry(b.dataset.country);
   renderThreats();
@@ -2447,7 +2448,7 @@ function renderCountries(){
     const [col,row,building,cid,remaining,progress,total,queueStatus]=p,pct=Math.max(0,Math.min(100,progress*100));
     const icon=BUILD_ICON[building];
     return `<div class="job" style="--c:${countryColor(cid)}">
-      <div class="job-head"><b>${icon?`<img src="/assets/icons/${icon}.png" alt="">`:''}${esc(cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
+      <div class="job-head"><b>${icon?`<img src="/assets/icons/${icon}.png" alt="">`:''}${esc(cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining==null?'工期暂停':remaining+' 月'}</span></div>
       <div class="job-bar"><i style="width:${pct}%"></i></div>
       <div class="job-sub"><span>地块 ${col},${row} · ${esc(queueStatus||'施工中')}</span><span>${pct.toFixed(0)}%</span></div>
     </div>`;
@@ -2499,7 +2500,7 @@ function tileTributeNote(price){
     +`这类设施不分归属，攻占它不会带来贡金。</small></div></div>`;
   const atCap=levy.owed+1e-9>=levy.cap;
   return `<div class="build-option solo"><div><b>攻占此格可得贡金</b>
-    <small>这一格有 ${esc(rival)} 的${esc(levy.label)}：夺下后 ${levy.days} 天内每日抽取其日收入的 ${(levy.share*100).toFixed(0)}%（约 ${fmtNum(levy.daily,3)}/日）。</small>
+    <small>这一格有 ${esc(rival)} 的${esc(levy.label)}：夺下后 ${levy.days} 个月内每月抽取其月收入的 ${(levy.share*100).toFixed(0)}%（约 ${fmtNum(levy.daily,3)}/月）。</small>
     <small class="mut">对该国的贡金合计上限 ${(levy.cap*100).toFixed(0)}%，已计 ${fmtNum(levy.owed*100,0)}%${atCap?'——再占同样的建筑不再增加':''}。</small></div></div>`;
 }
 function cityAtTile(owner,col,row){
@@ -2517,14 +2518,14 @@ function siegeRing(){return Number(siegeTable().blockade_radius)||1}
 function siegeDate(ledger){
   if(!ledger)return '——';
   if(ledger.days_left==null)return '圈内没有军队：账不推进';
-  return ledger.days_left<=0?'即日城破':`${ledger.days_left} 日城破`;
+  return ledger.days_left<=0?'当月城破':`${ledger.days_left} 月城破`;
 }
 function siegeBar(ledger){
   const threshold=Number(ledger?.threshold)||0,progress=Number(ledger?.progress)||0;
   const pct=threshold>0?Math.max(0,Math.min(100,progress/threshold*100)):0;
   return `<div class="siege-meter" style="--c:${countryColor(ledger?.attacker)||'#e18a7c'}">
     <div class="bar"><i style="width:${pct}%"></i></div>
-    <div class="split"><span>围城进度 · 每日 ${fmtNum(ledger?.daily,3)}</span>
+    <div class="split"><span>围城进度 · 每月 ${fmtNum(ledger?.daily,3)}</span>
       <b>${fmtNum(progress,2)} / ${fmtNum(threshold,2)} · ${siegeDate(ledger)}</b></div></div>`;
 }
 function siegeArmies(ledger){
@@ -2537,12 +2538,12 @@ function tileSiegeCard(price){
   const mine=STATE.player_country,table=siegeTable();
   const held=price.siege_taken,ledger=held||price.siege;
   const head=`<div class="sect"><span>围城账</span><span>${esc(ledger?.name||'城池中心格')}</span></div>`;
-  if(!ledger)return `${head}<div class="build-option solo"><span class="hint">这座城还没有围城账：把军队开进中心格周围 ${siegeRing()} 格封锁圈，抵达当日即开账——中心格打的不是会战，是每天啃一口墙。</span></div>`;
+  if(!ledger)return `${head}<div class="build-option solo"><span class="hint">这座城还没有围城账：把军队开进中心格周围 ${siegeRing()} 格封锁圈，抵达当月即开账——中心格打的不是会战，是每月啃一口墙。</span></div>`;
   const ours=ledger.attacker===mine,home=ledger.defender===mine;
   const status=held
     ?`<b>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)} 已先围住这座城</b>`
     :(ledger.open
-      ?`${ours?'我方封锁中':'本国正被围'} · 日 ${ledger.started_day} 起账`
+      ?`${ours?'我方封锁中':'本国正被围'} · 月 ${ledger.started_day} 起账`
       :'尚未开账：以下按此刻站在圈里的军队预告');
   const walls=ledger.walls
     ?`城墙把守方分量抬高 ${fmtNum(table.wall_bonus,2)} 倍`
@@ -2555,7 +2556,7 @@ function tileSiegeCard(price){
       <small class="mut">${esc(walls)}</small></div></div>
     <div style="padding:6px 8px">${siegeBar(ledger)}${siegeArmies(ledger)}</div>
     <div class="build-option solo"><span class="hint">攻方成数 = 圈内兵力 ÷（圈内兵力 + 圈内守军 + 城墙分量），账满 ${fmtNum(ledger.threshold,2)} 即整座易主：`
-      +`土地、人口、建筑与贡金一起换手，守方稳定 -${fmtNum(table.stability_loss,0)}，双方每日各加 ${fmtNum(table.exhaustion_per_day,2)} 战争疲惫。`
+      +`土地、人口、建筑与贡金一起换手，守方稳定 -${fmtNum(table.stability_loss,0)}，双方每月各加 ${fmtNum(table.exhaustion_per_day,2)} 战争疲惫。`
       +`${home?` 城墙每被啃掉一分，本国求和的门槛就降 ${fmtNum(table.peace_pressure,0)}：解围要把圈里的兵打掉或议和，硬拼野战不会让进度停下。`:''}</span></div>
   </div>`;
 }
@@ -2564,7 +2565,7 @@ function campUnitRow(option,report,isPlayer){
   const room=Math.min(Number(option.batch)||0,Number(report.room)||0);
   return `<div class="camp-row${on?' on':''}">
     <div><b>${esc(option.label)}${on?' · 练兵目标':''}</b>
-      <small>${fmtNum(option.power,2)} 攻 · ${fmtNum(option.defense,2)} 防 · ${fmtNum(option.upkeep,3)}/日维护 · ${fmtNum(option.cost_treasury,1)} 财政 + ${fmtNum(option.cost_food,1)} 粮 · 全国编制 ${option.have}/${option.max_count}</small>
+      <small>${fmtNum(option.power,2)} 攻 · ${fmtNum(option.defense,2)} 防 · ${fmtNum(option.upkeep,3)}/月维护 · ${fmtNum(option.cost_treasury,1)} 财政 + ${fmtNum(option.cost_food,1)} 粮 · 全国编制 ${option.have}/${option.max_count}</small>
       <small class="mut">${esc(option.reason)}${on?` · 本营本回合还能收 ${room} 支`:''}</small></div>
     ${isPlayer?`<button data-camp-target="${esc(option.unit)}" data-army="${esc(report.army_id||'')}" ${report.army_id?'':'disabled'}>${on?'已设为目标':'设为练兵目标'}</button>`:''}</div>`;
 }
@@ -2587,11 +2588,11 @@ function barracksPanel(report,options,isPlayer){
         ?`<button data-camp-toggle="${esc(report.army_id)}" data-on="${report.recruiting?0:1}">${report.recruiting?'停募':'开募'}</button>`:''}</div>
     ${stalled?`<div class="camp-note">${esc(report.stall_label||report.stall)}</div>`:''}
     <div style="padding:6px 8px;border-bottom:1px solid #1f3843">
-      <div class="split"><span>练兵进度 · 日饷 ${fmtNum(report.wage,2)}</span>
+      <div class="split"><span>练兵进度 · 月饷 ${fmtNum(report.wage,2)}</span>
         <b>${fmtNum(progress,1)} / ${fmtNum(price,1)} 饷</b></div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="split"><span>${stalled?'出兵':'下一支新兵'}</span>
-        <b>${stalled?'本回合停摆':(report.days_left==null?'即将练成':`约 ${report.days_left} 日练成`)}</b></div>
+        <b>${stalled?'本回合停摆':(report.days_left==null?'即将练成':`约 ${report.days_left} 月练成`)}</b></div>
       <div class="split"><span>本营定额 · 单价 ${fmtNum(price,1)} 财政 + ${fmtNum(report.food_cost,1)} 粮</span>
         <b>${report.strength} / ${report.capacity} 支${room?`，还能收 ${room} 支`:'，已满'}</b></div>
     </div>
@@ -2660,7 +2661,7 @@ function receiptRow(r){
   const kind=RECEIPT_ACTIONS[r.action_type]||r.action_type||'命令';
   const op=RECEIPT_OPERATION_LABELS[r.operation]||r.operation||'';
   const ok=!!r.accepted;
-  return `<div class="receipt-row ${ok?'ok':'bad'}"><span class="rd">日 ${r.day}</span>
+  return `<div class="receipt-row ${ok?'ok':'bad'}"><span class="rd">月 ${r.day}</span>
     <div><b>${esc(kind)}${op?` · ${esc(op)}`:''}</b>
       <small>${esc(receiptDetail(r.action))}</small>
       <small class="mut">${esc(r.reason_text||'')} ${esc(ok?'':(r.reason_code||''))}</small></div>
@@ -2678,10 +2679,10 @@ function ledgerRow(row){
   const what=row.kind==='TRADE'?'贸易往来':pactName(row.pact)||'协定提案';
   const dir=row.direction==='incoming'?'对方来文':'我方发出';
   const good=row.status==='ACCEPTED'||row.status==='ACTIVE'||row.status==='PENDING';
-  const tail=row.days_left!=null?`剩 ${row.days_left} 天到期`
-    :(row.resolved_day!=null?`日 ${row.resolved_day} 定案`
+  const tail=row.days_left!=null?`剩 ${row.days_left} 个月到期`
+    :(row.resolved_day!=null?`月 ${row.resolved_day} 定案`
       :(row.status==='EXPIRED'?'到期未回应':(row.status==='REJECTED'?'对方当面回绝':(row.status==='BROKEN'?'已终止或战争作废':'——'))));
-  return `<div class="receipt-row ${good?'ok':'bad'}"><span class="rd">日 ${row.created_day}</span>
+  return `<div class="receipt-row ${good?'ok':'bad'}"><span class="rd">月 ${row.created_day}</span>
     <div><b>${dir} · ${what}</b>
       <small>${esc(countryMeta(row.counterparty)?.name||row.counterparty)} · ${esc(row.proposal_id)}</small>
       <small class="mut">${tail}${row.offer_food?` · 出价 ${fmtNum(row.offer_food,1)} 粮`:''}${row.request_treasury?` · 索要 ${fmtNum(row.request_treasury,1)} 财政`:''}</small></div>
@@ -2699,9 +2700,9 @@ function tileStrikeCard(tile,price){
   const ring=strikes.filter(row=>row.can_attack).length;
   const rows=strikes.map(row=>{
     const where=row.can_attack
-      ?(center?`已在封锁圈内：下令当日开围城账，不打会战`:'已在这一格的周围六格：下令当日直接会战')
+      ?(center?`已在封锁圈内：下令当月开围城账，不打会战`:'已在这一格的周围六格：下令当月直接会战')
       :(row.reachable
-        ?`行军 ${row.days} 天 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当日${center?'开围城账':'开战'}`
+        ?`行军 ${row.days} 个月 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当月${center?'开围城账':'开战'}`
         :(center?`走不进这座城的封锁圈：先从边缘把圈里的一格夺下来`:'没有一条命令能走到这一格旁：先把军队分段调上前线'));
     return `<div class="build-option row"><div><b>${esc(row.army_id)}</b><small>${where}</small>
       <small class="mut">到场 ${row.mass} 支 · 战力系数 ${fmtNum(row.mass_share,2)}</small>${routStrikeLine(row.rout)}</div>
@@ -2732,8 +2733,8 @@ const MARCH_REFUSALS={
 };
 function marchRowLine(row,cap){
   if(row.reason==='ALREADY_THERE')return MARCH_REFUSALS.ALREADY_THERE;
-  if(row.reachable)return `出发 (${row.from.col},${row.from.row}) · ${row.days} 天 · ${fmtNum(row.cost,2)} 成本`;
-  if(row.reason==='ORDER_LIMIT')return `一条命令走不到：这一格要 ${fmtNum(row.cost_needed,1)} 点 / ${row.days_needed} 天，上限 ${fmtNum(cap,0)} 点——先在中途驻一脚，再下第二段令`;
+  if(row.reachable)return `出发 (${row.from.col},${row.from.row}) · ${row.days} 个月 · ${fmtNum(row.cost,2)} 成本`;
+  if(row.reason==='ORDER_LIMIT')return `一条命令走不到：这一格要 ${fmtNum(row.cost_needed,1)} 点 / ${row.days_needed} 个月，上限 ${fmtNum(cap,0)} 点——先在中途驻一脚，再下第二段令`;
   return MARCH_REFUSALS[row.reason]||'走不到这一格';
 }
 function marchRowButton(row){
@@ -2748,7 +2749,7 @@ function tileMarchCard(tile,price){
   const where=frame&&frame.owner?esc(countryMeta(frame.owner)?.name||frame.owner):'无主地';
   const waiting=rows.filter(row=>row.reachable&&row.reason!=='ALREADY_THERE').length;
   const head=`<div class="sect"><span>行军至此</span><span>${frame?`${waiting} 支可落脚 · ${where}`:`${tile.col},${tile.row}`}</span></div>`;
-  if(!price||!frame)return `${head}<div class="hint">正在按结算引擎核算每一支待命军队走到这一格的天数与成本……</div>`;
+  if(!price||!frame)return `${head}<div class="hint">正在按结算引擎核算每一支待命军队走到这一格的月数与成本……</div>`;
   const cap=Number(frame.cap)||0;
   const body=rows.map(row=>{
     const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
@@ -2758,13 +2759,13 @@ function tileMarchCard(tile,price){
       ${marchRowButton(row)}</div>`;
   }).join('');
   const note=`<div class="build-option solo"><span class="hint">${esc(STRIKE_NOTES[frame.reason]||'本国暂时没有能开到这格的待命军队。')}</span></div>`;
-  const pace=rows.length?`<div class="hint">行军是下单，不是瞬移：单日推进 ${fmtNum(frame.daily_budget,1)} 点成本，${[hostilePaceText(),`单条命令上限 ${fmtNum(cap,0)} 点：超了就分两段下令`].filter(Boolean).join('，')}。穿得过去不等于驻得下——落点须为己方、无主或获准军事通行的陆地。和平时未获准越境会损害关系。</div>`:'';
+  const pace=rows.length?`<div class="hint">行军是下单，不是瞬移：单月推进 ${fmtNum(frame.daily_budget,1)} 点成本，${[hostilePaceText(),`单条命令上限 ${fmtNum(cap,0)} 点：超了就分两段下令`].filter(Boolean).join('，')}。穿得过去不等于驻得下——落点须为己方、无主或获准军事通行的陆地。和平时未获准越境会损害关系。</div>`:'';
   return `${head}<div class="build-card">${body||note}</div>${pace}`;
 }
 function fieldStrikeRow(frame,row,tile){
-  const where=row.can_attack?'军队已在这顶营帐旁边：下令当日直接会战'
+  const where=row.can_attack?'军队已在这顶营帐旁边：下令当月直接会战'
     :(row.reachable
-      ?`行军 ${row.days} 天 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当日开战`
+      ?`行军 ${row.days} 个月 · ${fmtNum(row.cost,2)} 成本${row.expedition?' · 远征过境':''} → 落脚 (${row.march_target.col},${row.march_target.row})，抵达当月开战`
       :'没有一条命令能走到这顶营帐旁：先把军队分段调上前线');
   const key=row.army_id===selectedArmy?'<span class="key-state ok">下令对象</span>':'';
   const guard=row.unopposed?'对方营里没有军队接战':`对方到场 ${Number(row.guards)||0} 支`;
@@ -2795,7 +2796,7 @@ function tileFieldCard(tile,price){
   if(!STATE.player_country||!frames.length)return '';
   return `<div class="sect"><span>就地打击 · 敌营在此格</span><span>${frames.length} 顶营帐</span></div>`
     +frames.map(frame=>fieldFrameCard(frame,tile)).join('')
-    +`<div class="hint">营地扎在哪一格就打在哪一格：这一格不属对方时结算的是野战，歼其军而边界不动，对方在途的军队也照旧走它的路。天数、成本、到场兵力与战损都出自结算引擎的同一本账。</div>`;
+    +`<div class="hint">营地扎在哪一格就打在哪一格：这一格不属对方时结算的是野战，歼其军而边界不动，对方在途的军队也照旧走它的路。月数、成本、到场兵力与战损都出自结算引擎的同一本账。</div>`;
 }
 function routHexText(cell){return cell?`(${cell.col},${cell.row})`:''}
 function routSideText(side,label,barracksLost,settled){
@@ -2844,7 +2845,7 @@ function tributeLedger(id){
   if(!t||!(t.paid?.length||t.collected?.length))return '';
   const row=(peer,verb,line,sign)=>`<div class="garrison-row"><i style="background:${countryColor(peer)}"></i>
     <div><b style="color:${countryColor(peer)}">${esc(countryMeta(peer)?.name||peer)}</b>
-    <small>${verb} ${(line.share*100).toFixed(0)}% 日收入 ≈ ${fmtNum(line.daily,3)}/日 · 剩 ${line.days_left} 天 · `
+    <small>${verb} ${(line.share*100).toFixed(0)}% 月收入 ≈ ${fmtNum(line.daily,3)}/月 · 剩 ${line.days_left} 个月 · `
     +`${esc((line.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'——')}</small></div>
     <span class="mut">${sign}</span></div>`;
   const body=[
@@ -2852,20 +2853,20 @@ function tributeLedger(id){
     ...(t.paid||[]).map(line=>row(line.to,'缴给',line,`−${fmtNum(line.daily,3)}`)),
   ].join('');
   const net=(t.daily_collected||0)-(t.daily_paid||0);
-  return `<div class="sect"><span>贡金账目</span><span>净 ${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/日</span></div>
+  return `<div class="sect"><span>贡金账目</span><span>净 ${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/月</span></div>
     <div class="garrison-card">${body}</div>
-    <div class="hint">贡金按缴付方当日总收入（税+矿）折算，同一对手合计不超过 ${tributeCap()}%；到期后自动停收，道路等不分归属的设施不产生贡金。</div>`;
+    <div class="hint">贡金按缴付方当月总收入（税+矿）折算，同一对手合计不超过 ${tributeCap()}%；到期后自动停收，道路等不分归属的设施不产生贡金。</div>`;
 }
 function tributeNetNote(id){
   const t=STATE?.countries?.[id]?.tribute;
   if(!t||!(t.paid?.length||t.collected?.length))return '';
   const net=(t.daily_collected||0)-(t.daily_paid||0);
-  return `<div class="split"><span>占领贡金</span><b>${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/日 · 收 ${fmtNum(t.daily_collected,3)} / 付 ${fmtNum(t.daily_paid,3)}</b></div>`;
+  return `<div class="split"><span>占领贡金</span><b>${net>=0?'+':'−'}${fmtNum(Math.abs(net),3)}/月 · 收 ${fmtNum(t.daily_collected,3)} / 付 ${fmtNum(t.daily_paid,3)}</b></div>`;
 }
 async function loadTileStrikes(col,row,key){
   try{
     const r=await fetch(`/api/tile_strikes?col=${col}&row=${row}`,{cache:'no-store'});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(tileStrikeKey!==key)return;
     tileStrikes=data&&data.ok?data.tile:null;
   }catch(_e){
@@ -2901,20 +2902,20 @@ function renderRight(){
     </div>`).join('')}
     <div class="split"><span>存粮 / 仓容</span><b>${fmtNum(c.food)} / ${fmtNum(c.food_capacity,0)}</b></div>
     <div class="bar"><i style="width:${Math.min(100,c.food/Math.max(c.food_capacity,1)*100)}%"></i></div>
-    <div class="split"><span>日产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
+    <div class="split"><span>月产粮</span><b>${fmtNum(c.last_economy?.food_production)} · 维护 ${fmtNum(c.last_economy?.upkeep,3)}</b></div>
     ${tributeNetNote(selectedCountry)}
     <div class="split"><span>人口 / 住房容量</span><b>${fmtInt(c.population)} / ${fmtNum(c.housing,0)}k</b></div>
     <div class="split"><span>城市 / 军队 / 战争疲劳</span><b>${c.cities?.length||0} · ${c.army_strength} · ${fmtNum(c.war_exhaustion,1)}${c.at_war_with?.length?' · 交战中':''}</b></div>
     <div class="split"><span>可开拓边疆</span><b>${frontierTiles(selectedCountry).length} 格 · 前哨 ${(c.outposts||[]).length}/${STATE.expansion?.max_outposts??4}</b></div>
-    <div class="hint">${STATE.player_country===selectedCountry?'点击己方领土相邻的无主地块，可建立前哨和新城。':'AI 国家会按财政、人口和 120 日冷却自动开拓边疆。'}</div>
+    <div class="hint">${STATE.player_country===selectedCountry?'点击己方领土相邻的无主地块，可建立前哨和新城。':'AI 国家会按财政、人口和 4 个月冷却自动开拓边疆。'}</div>
     ${c.cities?.length?`<div class="split"><span>城市服务（均）</span><b>治安 ${fmtNum(c.cities.reduce((a,x)=>a+(x.security||0),0)/c.cities.length,0)} · 卫生 ${fmtNum(c.cities.reduce((a,x)=>a+(x.health||0),0)/c.cities.length,0)}</b></div>`:''}
     <div class="bar"><i style="width:${Math.min(100,c.population/1000/Math.max(c.housing,1)*100)}%;background:${c.population/1000>=c.housing-1?'var(--warn)':'var(--good)'}"></i></div>
     <div class="split"><span>稳定度 · 产出系数 ${fmtNum(c.stability_factor,2)}</span><b>${c.stability<35?'动荡':(c.stability>65?'安定':'平稳')}</b></div>
     <div class="split"><span>劳动力 · 农业 ${Math.round((c.workers?.agriculture||0)*100)}%</span><b>矿业 ${Math.round((c.workers?.mining||0)*100)}%</b></div>
-    ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>日 ${STATE.latest_llm_decision.day}</small></div>
+    ${decision?`<div class="advisor"><div class="advisor-head"><span>最新模型决议</span><small>月 ${STATE.latest_llm_decision.day}</small></div>
       <p>${esc(decision.reason||'无说明')}</p><div class="chips">${(decision.actions||[]).map(a=>`<span class="chip">${esc(fmtAction(a))}</span>`).join('')}</div></div>`:''}
     <div class="split"><span>建设队列</span><b>${c.projects} 项</b></div>
-    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option row"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}% · ${esc(p[7]||'施工中')}</small></div><span>${p[4]} 日</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
+    <div class="build-card">${c.projects?STATE.projects.filter(p=>p[3]===selectedCountry).map(p=>`<div class="build-option row"><div><b>${esc(BUILD_NAMES[p[2]]||p[2])}</b><small>地块 ${p[0]},${p[1]} · ${(p[5]*100).toFixed(0)}% · ${esc(p[7]||'施工中')}</small></div><span>${p[4]} 月</span></div>`).join(''):'<div class="build-option solo"><span class="hint">暂无在建工程</span></div>'}</div>
     ${STATE.player_country===selectedCountry?`
       <div class="sect"><span>国策命令</span><span>即时生效</span></div>
       <div class="manage">
@@ -3000,7 +3001,7 @@ function renderRight(){
       const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[key];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[key]||key).slice(0,1))}</span>`;
-      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${cost} 财政 · ${days} 日 · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[key]||key)}</b><small>${cost} 财政 · ${buildMonthLabel(key,spec,permit)} · ${why||'条件满足'}</small></div><button data-build="${key}" ${blocked?'disabled':''}>建造</button></div>`;
     }).join(''):'';
     $('panel-tile').innerHTML=`
       <div class="heading"><div><h2>${esc(BIOME_NAMES[tile.biome]||tile.biome)}</h2><small>坐标 ${tile.col},${tile.row} · ${tile.owner?esc(countryMeta(tile.owner)?.name||tile.owner):'无国家控制'}</small></div>
@@ -3012,7 +3013,7 @@ function renderRight(){
       ${tile.river?`<div class="kv"><span>河道</span><b>${tile.riverKind==='endorheic'?'内流河':'外流河'}${tile.riverKind==='endorheic'&&tile.riverTerminal?` · 注入 ${esc(tile.riverTerminal)}`:''}${tile.riverDepth!=null?` · 水深 ${fmtNum(tile.riverDepth,1)} m · 覆盖 ${Math.round((tile.riverCoverage||0)*100)}%`:''}${tile.riverDrainage?` · 流域 ${fmtInt(tile.riverDrainage)} km²`:''}</b></div>`:''}
       ${tile.roadKind||roadCellAt(tile.col,tile.row)?`<div class="kv"><span>道路</span><b>${tile.river?'桥梁':'道路'} · 可与生产设施共存</b></div>`:''}
       <div class="kv"><span>设施</span><b>${b?esc(BUILD_NAMES[b.building]||b.building):'无'}</b></div>
-      ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · 剩 ${b.remaining} 日</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
+      ${b?.project?`<div class="split"><span>施工进度</span><b>${(b.progress*100).toFixed(0)}% · ${b.remaining==null?'工期暂停':'剩 '+b.remaining+' 月'}</b></div><div class="bar"><i style="width:${b.progress*100}%"></i></div>`:''}
       ${cityAtTile(tile.owner,tile.col,tile.row)?cityStockCard(cityAtTile(tile.owner,tile.col,tile.row)):""}
       </div><div data-inspect-section="orders">${tileIncomingCard(tile)}
       ${tileGarrison(tile,tilePrice(tile))}
@@ -3039,7 +3040,7 @@ function renderRight(){
       btn.onclick=()=>submitPlayerAction({
         type:'MILITARY',operation:'ATTACK',target:tile.owner,army_id:btn.dataset.strike,
         tile:{col:tile.col,row:tile.row},
-      },tileIsCenter(tile)?'围城令已下达：每天啃一口墙，账满整座易主':'对这一格的进攻令已下达').then(repriceTile);
+      },tileIsCenter(tile)?'围城令已下达：每月啃一口墙，账满整座易主':'对这一格的进攻令已下达').then(repriceTile);
     }
     const declareTile=document.querySelector('[data-declare-war-tile]');
     if(declareTile)declareTile.onclick=()=>submitPlayerAction({type:'DIPLOMACY',operation:'DECLARE_WAR',target:tile.owner},'战争状态已建立').then(repriceTile);
@@ -3065,7 +3066,7 @@ function renderRight(){
 
   const events=STATE.recent_events.map(formatEvent).filter(Boolean).slice(-70).reverse();
   $('panel-activity').innerHTML=`<div class="sect"><span>按时间倒序 · AI 动作 / 施工 / 外交</span><span>${events.length} 条</span></div>
-    <div class="event-list">${events.map(e=>`<div class="event ${e[2]}"><span class="ed">日 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">尚未产生事件</div>'}</div>`;
+    <div class="event-list">${events.map(e=>`<div class="event ${e[2]}"><span class="ed">月 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">尚未产生事件</div>'}</div>`;
   const ranking=STATE.ranking||[];
   $('panel-ranking').innerHTML=`<div class="heading"><div><h2>世界排名</h2><small>繁荣、知识、疆域与安定的综合竞争</small></div><span class="pill">${esc(STATE.leader||'')} 领先</span></div>
     <div class="rank-list">${ranking.map((entry,index)=>{
@@ -3075,7 +3076,7 @@ function renderRight(){
         <div class="rank-path">繁荣 ${fmtNum(entry.breakdown.prosperity,0)} · 知识 ${fmtNum(entry.breakdown.knowledge,0)}<br>疆域 ${fmtNum(entry.breakdown.dominion,0)} · 安定 ${fmtNum(entry.breakdown.harmony,0)}</div>
         <span class="rank-score">${fmtNum(entry.total,1)}</span></div>`;
     }).join('')}</div>
-    <div class="hint">评分每 90 日规划阶段后更新，四条路线分别奖励人口与仓容、科技与书库、领土与前哨、稳定度与住房。没有任何单一资源可以独占排名。</div>`;
+    <div class="hint">评分每 月度结算后更新，四条路线分别奖励人口与仓容、科技与书库、领土与前哨、稳定度与住房。没有任何单一资源可以独占排名。</div>`;
   const tick=events.slice(0,2).map(e=>`<b>${e[0]}</b> ${e[1]}`).join('　·　');
   $('ticker').innerHTML=tick||'等待世界动态';
   refreshInspector();
@@ -3112,24 +3113,24 @@ function formatEvent(e){
     case 'city_founded':return[d,`<b>${esc(e.country_id)}</b> 建立新城 ${esc(e.name)}，迁入 ${e.population} 人`,'build'];
     case 'city_focus_changed':return[d,`<b>${esc(e.country_id)}</b> 将 ${esc(e.city_id)} 调整为 ${esc(e.focus)} 方针`,'research'];
     case 'army_recruited':return[d,`<b>${esc(e.country_id)}</b> 招募 ${e.amount} 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
-    case 'march_ordered':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.purpose==='ATTACK'?`向 <b>${esc(e.target)}</b> 的 (${e.objective?.col},${e.objective?.row}) 进攻`:`行军至 (${e.tile.col},${e.tile.row})`} · ${e.tiles} 段 / 成本 ${fmtNum(e.cost,1)} / ${e.days} 天${e.expedition?' · 远征过境':''}`,'action'];
-    case 'army_arrived':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 抵达 (${e.tile.col},${e.tile.row})${e.fought?'，当日开战':e.reason?` · ${esc(e.reason)}`:''}`,'action'];
+    case 'march_ordered':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.purpose==='ATTACK'?`向 <b>${esc(e.target)}</b> 的 (${e.objective?.col},${e.objective?.row}) 进攻`:`行军至 (${e.tile.col},${e.tile.row})`} · ${e.tiles} 段 / 成本 ${fmtNum(e.cost,1)} / ${e.days} 个月${e.expedition?' · 远征过境':''}`,'action'];
+    case 'army_arrived':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 抵达 (${e.tile.col},${e.tile.row})${e.fought?'，当月开战':e.reason?` · ${esc(e.reason)}`:''}`,'action'];
     case 'march_cancelled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 中止行军：${esc(e.reason)}`,'hazard'];
     case 'barracks_recruit':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 兵营 (${e.tile.col},${e.tile.row}) 练出 1 支「${esc(unitName(e.unit))}」，军势 ${e.strength}`,'action'];
-    case 'barracks_stalled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id||'兵营')}</b> 兵营 (${e.tile.col},${e.tile.row}) 练不出「${esc(unitName(e.unit))}」：${esc(e.reason)}（进度 ${fmtNum(e.progress,1)} · 日饷 ${fmtNum(e.wage,2)}）`,'hazard'];
+    case 'barracks_stalled':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id||'兵营')}</b> 兵营 (${e.tile.col},${e.tile.row}) 练不出「${esc(unitName(e.unit))}」：${esc(e.reason)}（进度 ${fmtNum(e.progress,1)} · 月饷 ${fmtNum(e.wage,2)}）`,'hazard'];
     case 'recruiting_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> ${e.recruiting?'开启':'暂停'}兵营募兵`,'action'];
     case 'recruit_unit_changed':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 练兵目标改为「${esc(unitName(e.unit))}」`,'action'];
     case 'army_desertion':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 军饷不足，遣散「${esc(unitName(e.unit))}」，军势降至 ${e.strength}`,'hazard'];
     case 'war_declared':return[d,`<b>${esc(e.attacker)}</b> 向 <b>${esc(e.defender)}</b> 宣战`,'hazard'];
     case 'battle':{
       const ground=BIOME_NAMES[e.biome]||'边境';
-      const levy=e.tribute?` · 夺其${esc(e.tribute.label)}，此后 ${e.tribute.days} 日抽其收入 ${(e.tribute.share*100).toFixed(0)}%`:'';
+      const levy=e.tribute?` · 夺其${esc(e.tribute.label)}，此后 ${e.tribute.days} 月抽其收入 ${(e.tribute.share*100).toFixed(0)}%`:'';
       return[d,`<b>${esc(e.attacker)} · ${esc(e.attacker_army||'')}</b> 攻 ${esc(fmtNum(e.attacker_power,1))} vs <b>${esc(e.defender)}</b> 守 ${esc(fmtNum(e.defender_power,1))}（${esc(ground)}${e.expedition?' · 远征':''}）${e.captured?`，夺下城池地块 (${e.tile.col},${e.tile.row})`:e.field?'，野战：这一格不属对方，未易主':''}${levy} · 攻方 ${esc(unitLossText(e.attacker_units))}｜守方 ${esc(unitLossText(e.defender_units))}${routEventLine(e.rout)}`,'hazard'];
     }
-    case 'siege_started':case 'siege_joined':return[d,`<b>${esc(e.attacker)} · ${esc(e.army_id)}</b> ${e.type==='siege_joined'?'加入':'围住'} <b>${esc(e.city)}</b>（${esc(e.defender)}）：圈中 ${e.armies.length} 支 · ${e.walls?'城墙加厚守方':'中心格尚无城墙'} · ${e.days_left==null?'暂无兵力推进':(e.days_left<=0?'即日城破':`约 ${e.days_left} 日城破`)}`,'hazard'];
+    case 'siege_started':case 'siege_joined':return[d,`<b>${esc(e.attacker)} · ${esc(e.army_id)}</b> ${e.type==='siege_joined'?'加入':'围住'} <b>${esc(e.city)}</b>（${esc(e.defender)}）：圈中 ${e.armies.length} 支 · ${e.walls?'城墙加厚守方':'中心格尚无城墙'} · ${e.days_left==null?'暂无兵力推进':(e.days_left<=0?'当月城破':`约 ${e.days_left} 月城破`)}`,'hazard'];
     case 'siege_refused':return[d,`<b>${esc(e.country_id)} · ${esc(e.army_id)}</b> 的围城令被拒：${esc(e.city_id)} 同时只能被一方围住（现为 <b>${esc(e.attacker)}</b>）`,'action'];
     case 'siege_lifted':return[d,`<b>${esc(e.city)}</b> 围城解除：${({'peace':'停战生效','ring_empty':'封锁圈已空','captured':'城破易主'})[e.reason]||esc(e.reason)} · 进度停在 ${fmtNum(e.progress,2)}`,'trade'];
-    case 'city_fallen':return[d,`<b>${esc(e.city)}</b> 城破易主：<b>${esc(e.defender)}</b> → <b>${esc(e.attacker)}</b> · ${e.tiles} 格城域 / ${fmtInt(e.population)} 人 / ${esc((e.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无设施')}${(e.tribute||[]).length?` · 此后抽其 ${(e.tribute[0].share*100).toFixed(0)}% 日收入`:''} · ${esc(e.defender)} 稳定降至 ${fmtNum(e.stability,0)}`,'hazard'];
+    case 'city_fallen':return[d,`<b>${esc(e.city)}</b> 城破易主：<b>${esc(e.defender)}</b> → <b>${esc(e.attacker)}</b> · ${e.tiles} 格城域 / ${fmtInt(e.population)} 人 / ${esc((e.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无设施')}${(e.tribute||[]).length?` · 此后抽其 ${(e.tribute[0].share*100).toFixed(0)}% 月收入`:''} · ${esc(e.defender)} 稳定降至 ${fmtNum(e.stability,0)}`,'hazard'];
     case 'realm_annexed':return[d,`<b>${esc(e.attacker)}</b> 吞并 <b>${esc(e.name)}</b>：都城一破整国散架，${e.tiles} 格领土 / ${(e.cities||[]).length} 座城 / ${fmtInt(e.population)} 人 / ${esc((e.buildings||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无设施')}整建制易主，抄走财政 ${fmtNum(e.treasury,1)} · 粮草 ${fmtNum(e.food,1)}，其 ${e.armies} 支军队随国消散 · <b>${esc(e.name)}</b> 已不在这张地图上`,'hazard'];
     case 'peace_proposed':return[d,`<b>${esc(e.sender)}</b> 向 ${esc(e.target)} 提议和平`,'trade'];
     case 'peace_accepted':return[d,`<b>${esc(e.sender)} ↔ ${esc(e.target)}</b> 停战`,'trade'];
@@ -3173,22 +3174,27 @@ function selectCountry(cid){
   if(STATE?.mode==='player'&&STATE.player_country!==cid)showToast(`当前治理 ${STATE.player_country}；切换到 ${cid} 需要重新介入。`);
   renderTop();renderCountries();renderRight();render(true);
 }
+let monthStepBusy=false;
 async function control(action,value){
+  const stepping=action==='step_month'||action==='step';
+  if(stepping&&monthStepBusy)return;
+  if(stepping){monthStepBusy=true;$('stepBtn').disabled=true;$('stepBtn').setAttribute('aria-busy','true');$('stepBtn').textContent='结算中';}
   try{
     const r=await fetch('/api/control',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,value})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)showToast(data.error||'操作失败',true);
     await poll(true);
     if(action==='take_control'){selectTab('country');showToast(`已接管 ${value}，AI 已停止替该国决策`);}
     if(action==='observe'){selectTab('country');showToast('已返回观战模式');}
   }catch(err){showToast('本地模拟服务连接中断',true);}
+  finally{if(stepping){monthStepBusy=false;$('stepBtn').disabled=false;$('stepBtn').setAttribute('aria-busy','false');$('stepBtn').textContent='+1 月';}}
 }
 async function submitPlayerAction(action,successText){
   if(!STATE?.player_country)return;
   try{
     const r=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({actor:STATE.player_country,action})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(data.ok)showToast(successText);
     else showToast(`命令被拒绝：${data.result?.reason_text||data.error||'未知原因'}`,true);
     await poll(true);
@@ -3205,7 +3211,7 @@ function setOffline(flag){if(flag)showToast('观察台连接中断',true);}
 async function poll(force=false){
   try{
     const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw new Error('state');
-    STATE=await r.json();
+    STATE=monthlyView(await r.json());
     if(typeof refreshSituations==='function')refreshSituations();
     syncDiaryBubbles();syncNoticeBubbles();
     if(!$('notifyModal').hidden)renderNotifyProjects();
@@ -3238,10 +3244,10 @@ function showEndScreen(){
   const winnerMeta=STATE.victory?.winner?countryMeta(STATE.victory.winner):null;
   if(winner){
     $('endTitle').textContent=`${winnerMeta?.name||STATE.victory.winner} 达成${STATE.victory.label}`;
-    $('endSubtitle').textContent=`${STATE.date} · 游戏日 ${STATE.day} · 综合评分 ${fmtNum(winner.total,1)} · ${STATE.victory.condition}`;
+    $('endSubtitle').textContent=`${STATE.date} · 游戏月 ${STATE.day} · 综合评分 ${fmtNum(winner.total,1)} · ${STATE.victory.condition}`;
   }else{
     $('endTitle').textContent=`${leaderMeta?.name||STATE.leader} 暂时领先`;
-    $('endSubtitle').textContent=`${STATE.date} · 游戏日 ${STATE.day} · 当前综合评分 ${fmtNum(leader?.total,1)}`;
+    $('endSubtitle').textContent=`${STATE.date} · 游戏月 ${STATE.day} · 当前综合评分 ${fmtNum(leader?.total,1)}`;
   }
   $('endRanking').innerHTML=(STATE.ranking||[]).map((entry,i)=>{
     const c=STATE.countries[entry.country_id],meta=countryMeta(entry.country_id);
@@ -3330,7 +3336,7 @@ for(const b of document.querySelectorAll('.map-tools [data-layer]'))b.onclick=()
 };
 $('fitWorldBtn').onclick=()=>{showWholeMap();$('mapLayerMenu').open=false;};
 $('pauseBtn').onclick=()=>control(STATE?.paused?'resume':'pause');
-$('stepBtn').onclick=()=>control('step');
+$('stepBtn').onclick=()=>control('step_month');
 for(const b of document.querySelectorAll('.speed'))b.onclick=()=>control('speed',Number(b.dataset.speed));
 $('observeBtn').onclick=()=>{if(STATE?.mode==='player')control('observe');};
 $('interveneBtn').onclick=()=>{if(STATE)control(STATE.player_country===selectedCountry?'observe':'take_control',selectedCountry);};
@@ -3339,7 +3345,7 @@ $('applyBudget').onclick=async()=>{
   try{
     const r=await fetch('/api/agents/budget',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({max_calls:Number($('budgetCalls').value),max_cost_usd:Number($('budgetCost').value)})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)throw new Error(data.error||'预算保存失败');
     showToast('调用预算已更新');
     await openAgents();await poll(true);
@@ -3360,7 +3366,7 @@ async function loadDiary(){
   try{
     const r=await fetch(`/api/diary?country=${encodeURIComponent(diaryCountry)}&limit=80`,{cache:'no-store'});
     if(!r.ok)throw new Error('diary');
-    renderDiary(await r.json());
+    renderDiary(monthlyView(await r.json()));
   }catch(err){
     $('diaryStatus').textContent='读取失败';
     $('diaryList').innerHTML='<div class="mini-empty">无法读取 AI 日记</div>';
@@ -3380,14 +3386,14 @@ function renderDiary(data){
     :'当前由规则 AI 控制，不生成日记';
   if(!entries.length){
     $('diaryList').innerHTML=`<div class="mini-empty">${meta.mode==='openai_compatible'
-      ?'等待下一次 90 日规划。新的日记会先以地图气泡高亮出现，淡出或关闭后归档在这里。'
+      ?'等待下个月议事。新的日记会先以地图气泡高亮出现，淡出或关闭后归档在这里。'
       :'规则 AI 不写日记；可在 AI 席位把该国切换为 OpenAI 兼容模型，从下一次规划开始记录。'}</div>`;
     return;
   }
   $('diaryList').innerHTML=entries.map(e=>{
     const actions=(e.actions||[]).map(a=>`<span class="diary-action">${esc(fmtAction(a))}</span>`).join('');
     return `<article class="diary-entry">
-      <div class="diary-entry-head"><div><small>日 ${e.day} · ${esc(e.date||'')}</small><h4>《${esc(e.title||'决策记录')}》</h4></div><span class="diary-mood">${esc(e.mood||'未说明')}</span></div>
+      <div class="diary-entry-head"><div><small>月 ${e.day} · ${esc(e.date||'')}</small><h4>《${esc(e.title||'决策记录')}》</h4></div><span class="diary-mood">${esc(e.mood||'未说明')}</span></div>
       <div class="diary-text">${esc(e.text||'')}</div>
       ${actions?`<div class="diary-actions">${actions}</div>`:''}
       <div class="diary-meta">${esc(e.provider||'')}${e.model?' · '+esc(e.model):''}${e.synthetic?' · 模型未提供日记，显示决策理由':''}</div>
@@ -3430,7 +3436,7 @@ function createDiaryBubble(event){
   el.innerHTML=`<button class="db-close" aria-label="关闭">×</button>
     <div class="db-head"><span class="db-mood">${mood}</span><b>《${title}》</b></div>
     <p class="db-quote">${quote}</p>
-    <div class="db-hint">日 ${event.day} · 点击展开</div>
+    <div class="db-hint">月 ${event.day} · 点击展开</div>
     <div class="db-full"><div class="db-full-text">${esc(event.text||'')}</div>
       ${actions?`<div class="db-actions">${actions}</div>`:''}
       <div class="diary-meta">${esc(event.provider||'')}${event.model?' · '+esc(event.model):''}${event.synthetic?' · 模型未提供日记，显示决策理由':''}</div>
@@ -3645,7 +3651,7 @@ function renderNationRanking(){
       <div class="rank-name"><b style="color:${countryColor(entry.country_id)}">${esc(countryMeta(entry.country_id)?.name||entry.country_id)}</b><small>${esc(entry.victory_label)}路线</small></div>
       <div class="rank-path">繁荣 ${fmtNum(entry.breakdown.prosperity,0)} · 知识 ${fmtNum(entry.breakdown.knowledge,0)}<br>疆域 ${fmtNum(entry.breakdown.dominion,0)} · 安定 ${fmtNum(entry.breakdown.harmony,0)}</div>
       <span class="rank-score">${fmtNum(entry.total,1)}</span></div>`).join('')}</div>
-    <div class="hint">排名每 90 日规划阶段更新。四条胜利路线分别奖励人口仓容、科技书库、领土新城、稳定宜居。</div>`;
+    <div class="hint">排名每月结算更新。四条胜利路线分别奖励人口仓容、科技书库、领土新城、稳定宜居。</div>`;
 }
 
 let unreadNotices=0,lastNoticeSeq=null;
@@ -3670,7 +3676,7 @@ function renderNotifyProjects(){
     ${rows.length?rows.map(([col,row,building,cid,remaining,progress,total,queueStatus])=>{
       const pct=Math.max(0,Math.min(100,progress*100));
       return `<div class="job" style="--c:${countryColor(cid)}">
-        <div class="job-head"><b>${esc(countryMeta(cid)?.name||cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining} 日</span></div>
+        <div class="job-head"><b>${esc(countryMeta(cid)?.name||cid)} · ${esc(BUILD_NAMES[building]||building)}</b><span>${remaining==null?'工期暂停':remaining+' 月'}</span></div>
         <div class="job-bar"><i style="width:${pct}%"></i></div>
         <div class="job-sub"><span>地块 ${col},${row} · ${esc(queueStatus||'施工中')}</span><span>${pct.toFixed(0)}%</span></div></div>`;
     }).join(''):'<div class="mini-empty">当前没有在建工程</div>'}`;
@@ -3684,7 +3690,7 @@ function showNoticeBubble(event){
   const el=document.createElement('div');
   el.className=`notice-bubble ${row[2]||''}`;
   el.style.setProperty('--nc',event.type==='war_declared'||event.type==='battle'||event.type==='hazard_impact'?'#db867c':event.type.includes('construction')||event.type.includes('city')?'#d6aa5d':'#6bacc1');
-  el.innerHTML=`<b><span class="nd">日 ${row[0]}</span> ${row[1]}</b><span>点击查看通知中心</span>`;
+  el.innerHTML=`<b><span class="nd">月 ${row[0]}</span> ${row[1]}</b><span>点击查看通知中心</span>`;
   el.onclick=openNotifications;
   $('noticeStack').appendChild(el);
   if($('noticeStack').children.length>3)$('noticeStack').firstElementChild.remove();
@@ -3825,7 +3831,7 @@ function renderSetupCountries(countries){
 }
 async function openNewWorld(){
   try{
-    const r=await fetch('/api/setup');const data=await r.json();
+    const r=await fetch('/api/setup');const data=monthlyView(await r.json());
     setupArchetypes=data.archetypes||{};setupDefaults=data.countries||[];setupCoreTiles=data.core_tiles||16;
     setupMapSizes=data.map_sizes||[];
     if(setupMapSizes.length)$('worldMapSize').innerHTML=setupMapSizes.map(size=>`<option value="${esc(size.id)}" ${size.id===(data.default_map_size||'small')?'selected':''}>${esc(size.label)} · ${size.width} × ${size.height}${size.id===(data.default_map_size||'small')?'（默认）':''}</option>`).join('');
@@ -3865,7 +3871,7 @@ $('generateWorldBtn').onclick=async()=>{
   try{
     const r=await fetch('/api/new_game',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({countries,seed:seed||null,save_name:saveName||null,start_year:startYear,map_size:mapSize})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)throw new Error(data.error||'生成失败');
     $('newWorldModal').hidden=true;
     await startSession();
@@ -4042,7 +4048,7 @@ async function refreshPainterReport(){
   try{
     const r=await fetch('/api/map_preview',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({draft:painterDraft()})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     PAINTER.report=data.report||null;
     PAINTER.reportError=data.error||null;
   }catch(err){PAINTER.report=null;PAINTER.reportError='无法连接本地服务';}
@@ -4061,7 +4067,7 @@ async function refreshPainterMarch(target){
   try{
     const r=await fetch('/api/march_preview',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({draft:painterDraft(),from:start,to:target})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(seq!==PAINTER.marchSeq)return;
     PAINTER.preview=Object.assign({from:start.slice(),to:target.slice()},data);
   }catch(err){
@@ -4198,8 +4204,8 @@ function renderPainterTools(){
 function painterMarchCard(){
   const preview=PAINTER.preview,specs=PAINTER.specs;
   if(!preview)return `<div class="painter-card"><h3>行军耗时</h3>
-    <div class="painter-note">悬停地图即可看到从都城出发的行军天数；选「测距」工具点两格能量任意两点。</div></div>`;
-  const days=preview.days==null?'—':`${preview.days} 天`;
+    <div class="painter-note">悬停地图即可看到从都城出发的行军月数；选「测距」工具点两格能量任意两点。</div></div>`;
+  const days=preview.days==null?'—':`${preview.days} 个月`;
   const cost=preview.cost==null?'—':`${fmtNum(preview.cost,1)} 成本`;
   const mix=preview.terrain_mix?Object.entries(preview.terrain_mix).map(([k,v])=>`${k}×${v}`).join(' '):'';
   const crossings=(preview.crossings||[]).map(item=>`${item.name} ${item.tiles} 格`).join('、')||'无国家领土';
@@ -4220,7 +4226,7 @@ function painterMarchCard(){
     <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
       <button data-painter-pin-a>起点设为此格</button><button data-painter-pin-b>终点设为此格</button>
       <button data-painter-clearpins>清除标记</button></div>
-    <div class="painter-note" style="margin-top:5px">数字来自引擎同一份成本表：每天 ${fmtNum(specs.daily_budget,1)} 点移动力，道路 ${fmtNum(specs.road_cost,2)}，最慢地形 ${fmtNum(Math.max(...Object.values(specs.biome_cost||{a:1})),1)}。${specs.hostile_cost==null?'绘制预览只按地形与道路定价，这一份成本表还没有敌土减速可读；开局后穿过别国领土才另加价。':`绘制预览只按地形与道路定价，开局后穿过别国领土的那一格还会再加 ${fmtNum(specs.hostile_cost,2)} 点。`}</div></div>`;
+    <div class="painter-note" style="margin-top:5px">数字来自引擎同一份成本表：每月 ${fmtNum(specs.daily_budget,1)} 点移动力，道路 ${fmtNum(specs.road_cost,2)}，最慢地形 ${fmtNum(Math.max(...Object.values(specs.biome_cost||{a:1})),1)}。${specs.hostile_cost==null?'绘制预览只按地形与道路定价，这一份成本表还没有敌土减速可读；开局后穿过别国领土才另加价。':`绘制预览只按地形与道路定价，开局后穿过别国领土的那一格还会再加 ${fmtNum(specs.hostile_cost,2)} 点。`}</div></div>`;
 }
 function painterReportCard(){
   const report=PAINTER.report;
@@ -4392,7 +4398,7 @@ $('painterStartBtn').onclick=async()=>{
     const r=await fetch('/api/new_game',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({draft:painterDraft(),start_year:bce?(1-year):year,
         save_name:$('painterSaveName').value.trim()||null})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)throw new Error(data.error||'开局失败');
     await startSession();
     showToast(`手绘世界已开局 · 公平度 ${(data.fairness.score*100).toFixed(1)}%`);
@@ -4404,7 +4410,7 @@ $('painterStartBtn').onclick=async()=>{
 async function openPainter(){
   try{
     const r=await fetch('/api/setup',{cache:'no-store'});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     setupArchetypes=data.archetypes||{};
     setupDefaults=data.countries||[];
     setupCoreTiles=data.core_tiles||16;
@@ -4442,10 +4448,10 @@ async function openAgents(){
   setRail('ai');$('diaryModal').hidden=true;$('agentsModal').hidden=false;
   for(const b of document.querySelectorAll('#aiTabs [data-ai-tab]'))b.classList.toggle('on',b.dataset.aiTab==='seats');
   try{
-    const r=await fetch('/api/agents',{cache:'no-store'});const data=await r.json();
+    const r=await fetch('/api/agents',{cache:'no-store'});const data=monthlyView(await r.json());
     $('budgetCalls').value=data.budget.max_calls??40;
     $('budgetCost').value=data.budget.max_cost_usd??1;
-    $('agentsBudget').innerHTML=`模型只在每 90 日规划节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，上限 $${fmtNum(data.budget.max_cost_usd??0,2)}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。${data.budget.max_calls==null?'<br><b style="color:#d9b56b">当前没有调用预算：正式规划会被拒绝。保存 LLM 席位会自动启用 40 次 / $1.00 的本次运行预算。</b>':''}`;
+    $('agentsBudget').innerHTML=`模型只在每月议事节点调用。共享预算：调用 ${data.budget.http_attempts}/${data.budget.max_calls??'未配置'}，上限 $${fmtNum(data.budget.max_cost_usd??0,2)}，已记录 Token ${data.budget.input_tokens_known_total} 入 / ${data.budget.output_tokens_known_total} 出。${data.budget.max_calls==null?'<br><b style="color:#d9b56b">当前没有调用预算：正式规划会被拒绝。保存 LLM 席位会自动启用 40 次 / $1.00 的本次运行预算。</b>':''}`;
     const providers=data.providers||[];
     $('agentsList').innerHTML=Object.entries(data.countries).map(([cid,a])=>{
       const mode=a.mode||'mock';
@@ -4474,7 +4480,7 @@ async function openAgents(){
             <label>模型<select data-simple-model>${customOption}${modelOptions}</select></label>
             <label class="wide">API Key<input type="password" data-simple-key autocomplete="off" placeholder="${a.key_configured?'留空沿用当前进程密钥':'粘贴 API Key'}"></label>
           </div>
-          <div class="ai-simple-note" data-simple-note>模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。</div>
+          <div class="ai-simple-note" data-simple-note>模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/月志，重启后需重新填写。测试连接会发起一次最小 API 请求。</div>
           <div class="ai-simple-note" data-test-status style="color:${statusColor}">${esc(statusText)}</div>
           <div class="ai-actions-row">
             <button class="primary" data-save-simple>保存并启用</button>
@@ -4511,7 +4517,7 @@ async function setCountryPersonality(cid,personality){
   try{
     const r=await fetch('/api/agents/personality',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({country_id:cid,personality})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)throw new Error(data.error||'切换失败');
     showToast(`${cid} 已切换为「${PERSONALITY_LABELS[personality]||personality}」性格`);
     await openAgents();await poll(true);
@@ -4523,13 +4529,13 @@ function updateSimpleProviderHint(row,providers){
   const modelSelect=row.querySelector('[data-simple-model]');
   const models=provider?.models||[{id:provider?.model||'',label:provider?.model||''}];
   if(modelSelect)modelSelect.innerHTML=models.map(m=>`<option value="${esc(m.id)}" ${m.id===provider.model?'selected':''}>${esc(m.label||m.id)}</option>`).join('');
-  if(note&&provider)note.innerHTML=`模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/日志，重启后需重新填写。测试连接会发起一次最小 API 请求。`;
+  if(note&&provider)note.innerHTML=`模型来自厂商主流列表；高级模式可填自定义模型。 <a href="${esc(provider.docs_url)}" target="_blank" rel="noreferrer">官方文档</a><br>密钥只保存在本机服务进程内存，不进入存档/月志，重启后需重新填写。测试连接会发起一次最小 API 请求。`;
 }
 async function postAgentSettings(cid,settings,successText){
   try{
     const r=await fetch('/api/agents',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({country_id:cid,settings})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok)throw new Error(data.error||'配置失败');
     showToast(successText);
     await openAgents();await poll(true);
@@ -4550,7 +4556,7 @@ async function testAgent(row){
   try{
     const r=await fetch('/api/agents/test',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({country_id:cid})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(data.ok)showToast(`连接成功 · ${data.latency_ms}ms · ${data.model}`);
     else showToast(`连接失败：${data.error||'未知错误'}`,true);
     await openAgents();await poll(true);
@@ -4592,7 +4598,7 @@ function showOnlyScreen(name){
   $('app').hidden=name!=='game';
 }
 async function refreshSaves(){
-  const r=await fetch('/api/saves',{cache:'no-store'});const data=await r.json();
+  const r=await fetch('/api/saves',{cache:'no-store'});const data=monthlyView(await r.json());
   latestSaves=data.saves||[];
   $('saveCount').textContent=`${latestSaves.length} 个存档`;
   $('continueBtn').disabled=latestSaves.length===0;
@@ -4600,7 +4606,7 @@ async function refreshSaves(){
     ?`${latestSaves[0].name} · ${latestSaves[0].date}`:'没有可继续的存档';
   $('menuAgentsBtn').disabled=!gameLoaded;
   $('saveList').innerHTML=latestSaves.length?latestSaves.map(save=>`<div class="save-card">
-    <div><b>${esc(save.name)}</b><small>${esc(save.date)} · 日 ${save.day} · 种子 ${save.seed}${save.grid_width&&save.grid_height?` · ${save.grid_width} × ${save.grid_height}`:''}</small>
+    <div><b>${esc(save.name)}</b><small>${esc(save.date)} · 月 ${save.day} · 种子 ${save.seed}${save.grid_width&&save.grid_height?` · ${save.grid_width} × ${save.grid_height}`:''}</small>
     <small>${esc(Object.values(save.countries||{}).join(' / '))}</small></div>
     <div class="save-actions"><button data-load="${save.id}">载入</button><button data-delete="${save.id}">删除</button></div>
   </div>`).join(''):'<div class="observer-note">还没有存档。新建一个世界后会自动建立第一个存档。</div>';
@@ -4617,7 +4623,7 @@ function centralCountryId(){
   },null)?.id||WORLD.polities[0].id;
 }
 async function startSession(){
-  const r=await fetch('/api/world');WORLD=await r.json();
+  const r=await fetch('/api/world');WORLD=monthlyView(await r.json());
   WORLD.tileMap={};for(const t of WORLD.tiles)WORLD.tileMap[t[0]+','+t[1]]=t;
   loadTerrainTexture(WORLD.metadata?.terrain_texture_url||null);
   roadPathCache={};roadNetworkCache={key:'',segments:[]};
@@ -4651,7 +4657,7 @@ async function startSession(){
 async function loadSave(id){
   const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({operation:'load',id})});
-  const data=await r.json();
+  const data=monthlyView(await r.json());
   if(!data.ok){showToast(data.error||'载入失败',true);return;}
   pauseOpen=false;$('pauseMenu').hidden=true;
   await startSession();showOnlyScreen('game');
@@ -4664,13 +4670,13 @@ async function deleteSave(id){
   if(!confirm('删除这个存档？此操作不可撤销。'))return;
   const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({operation:'delete',id})});
-  const data=await r.json();if(!data.ok){showToast(data.error||'删除失败',true);return;}
+  const data=monthlyView(await r.json());if(!data.ok){showToast(data.error||'删除失败',true);return;}
   await refreshSaves();$('loadScreen').hidden=false;
 }
 async function saveNow(){
   const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({operation:'save'})});
-  const data=await r.json();
+  const data=monthlyView(await r.json());
   if(data.ok){showToast('游戏已保存');await refreshSaves();}
   else showToast(data.error||'保存失败',true);
 }
@@ -4679,7 +4685,7 @@ async function openPauseMenu(){
   setRail('system');
   pauseOpen=true;resumeAfterPause=!STATE?.paused;
   if(resumeAfterPause)await control('pause');
-  $('pauseStatus').textContent=`${STATE?.current_save_name||'当前时间线'} · ${STATE?.date||''} · 游戏日 ${STATE?.day??''}`;
+  $('pauseStatus').textContent=`${STATE?.current_save_name||'当前时间线'} · ${STATE?.date||''} · 游戏月 ${STATE?.day??''}`;
   $('pauseMenu').hidden=false;
 }
 async function closePauseMenu(){
@@ -4694,7 +4700,7 @@ async function returnToMenu(){
     if(STATE&&!STATE.paused)await control('pause');
     const r=await fetch('/api/saves',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({operation:'save'})});
-    const data=await r.json();
+    const data=monthlyView(await r.json());
     if(!data.ok){showToast(data.error||'保存失败，未返回主菜单',true);return;}
   }
   pauseOpen=false;$('pauseMenu').hidden=true;
@@ -4806,11 +4812,11 @@ function renderCityDetail(){
   const siege=$('citySiegeNote'),ledger=city.siege;
   siege.hidden=!ledger;
   siege.innerHTML=ledger?`<div class="siege-strip">${siegeBadge(city)}${siegeBar(ledger)}${siegeArmies(ledger)}
-    <div class="hint">围城不打会战：<b>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)}</b> 的 ${(ledger.armies||[]).length} 支军队站在中心格周围 ${siegeRing()} 格里，每天啃掉 ${fmtNum(ledger.daily,3)}，账满整座城连地带人换手。解围要么打掉圈里的军队、夺走那一格，要么签停战。</div></div>`:'';
+    <div class="hint">围城不打会战：<b>${esc(countryMeta(ledger.attacker)?.name||ledger.attacker)}</b> 的 ${(ledger.armies||[]).length} 支军队站在中心格周围 ${siegeRing()} 格里，每月啃掉 ${fmtNum(ledger.daily,3)}，账满整座城连地带人换手。解围要么打掉圈里的军队、夺走那一格，要么签停战。</div></div>`:'';
   $('cityGovernanceSelect').hidden=!isPlayer;
   $('cityGovernanceSelect').value=city.managed_by;
   $('cityFoodInfo').innerHTML=city.food_need>0
-    ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食按真实陆路和通行权逐日调配，实际未满足需求的城市承受饥荒。`
+    ?`产出 <b>${fmtNum(city.food_output,2)}</b> / 需求 <b>${fmtNum(city.food_need,2)}</b> · ${city.food_balance>=0?'盈余':'缺口'} <b style="color:${city.food_balance>=0?'#9fc873':'#e18a7c'}">${city.food_balance>=0?'+':''}${fmtNum(city.food_balance,2)}</b> · 调配损耗 ${fmtNum(city.food_loss,2)}<br>自给率 <b>${fmtSelfSuff(city.food_self_sufficiency)}</b> · 粮食按真实陆路和通行权逐月调配，实际未满足需求的城市承受饥荒。`
     :'等待首个结算日。';
   $('cityFoodInfo').innerHTML+=cityStockCard(city);
   $('cityGovNote').textContent=city.governance_note||(city.managed_by==='llm'?'LLM 托管：模型会在规划周期读取城市粮食、预算与分区，并直接下发规划动作。':city.managed_by==='ai'?'AI市长将在每个规划周期评估粮食与分区。':'手动城市：粮食缺口时请扩建农业区或调整方针。');
@@ -4925,7 +4931,7 @@ function renderCityDetail(){
       const why=roadTileBlocked?'道路地块':(!allowed?'地形不符':(!techOk?`需要 ${techLine} ${req.level} 级`:(!riverOk?'需要河道':(!roadOk?roadWhy:(!limitOk?'已达全国上限':(!moneyOk?'财政不足':''))))));
       const icon=BUILD_ICON[kind];
       const thumb=icon?`<img class="build-thumb" src="/assets/icons/${icon}.png" alt="">`:`<span class="build-thumb">${esc((BUILD_NAMES[kind]||kind).slice(0,1))}</span>`;
-      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${cost} 财政 · ${days} 日 · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
+      return `<div class="build-option">${thumb}<div><b>${esc(BUILD_NAMES[kind]||kind)}</b><small>${cost} 财政 · ${buildMonthLabel(kind,spec,permit)} · ${why||'条件满足'}</small></div><button data-city-build="${kind}" ${blocked?'disabled':''}>建造</button></div>`;
     });
     $('cityBuildPalette').innerHTML=rows.join('');
     $('cityBuildHint').textContent=building?`该地块已有：${BUILD_NAMES[building]||building}`:project?`该地块正在建设：${BUILD_NAMES[project[2]]||project[2]}`:'城市内建造与大地图使用同一套规则和全国上限。';
@@ -4974,7 +4980,7 @@ function renderMilitary(){
   const unlocked=id=>{const need=specs[id]?.required_technology;return !need||(tech[need.field]||0)>=need.level;};
   const cityName=t=>{const city=(c.cities||[]).find(item=>item.center&&item.center[0]===t[0]&&item.center[1]===t[1]);return city?city.name:'';};
   const marchable=!!(mover&&!mover.march&&mover.strength>0&&mover.tile);
-  $('militarySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${armies.length} 支军队 · 军队维护费每天 ${fmtNum(c.military_upkeep,3)} 财政`;
+  $('militarySubtitle').textContent=`${countryMeta(selectedCountry)?.name||selectedCountry} · ${armies.length} 支军队 · ${c.last_economy?.estimated?'本月维护费估算':'上期实际维护费'} ${fmtNum(c.military_upkeep,3)} 财政`;
   const quotes=STATE.campaign_quotes||{};
   const camps=Object.values(c.buildings||{}).filter(b=>b==='BARRACKS').length;
   const armyCap=c.army_cap||milRules.maximum_strength||0;
@@ -4984,7 +4990,7 @@ function renderMilitary(){
       const waiting=armies.filter(a=>!a.march&&a.strength>0&&a.tile).length;
       return `<div class="hint">${waiting
         ?`本国没有一支待命军队能在 ${fmtNum(mv.maximum_order_cost,0)} 点的单条命令上限内抵达 <b>${esc(countryMeta(id)?.name||id)}</b> 的边境：先把军队调上前线分段推进，或把路修过去。`
-        :`本国没有可下令的待命军队：都在途或未编成，等抵达当日再下令。`}</div>`;
+        :`本国没有可下令的待命军队：都在途或未编成，等抵达当月再下令。`}</div>`;
     }
     const rows=options.map(o=>{
       const sameGate=o.objective&&quote.objective&&o.objective.col===quote.objective.col&&o.objective.row===quote.objective.row;
@@ -4993,7 +4999,7 @@ function renderMilitary(){
         &&`${a.tile[0]},${a.tile[1]}`!==gate).length;
       return `<tr>
         <td><b>${esc(o.army_id)}</b>${sameGate?'':'<small class="mut">另一路：打不同缺口</small>'}</td>
-        <td><b>${o.days} 天</b><small>${fmtNum(o.cost,2)} 成本${o.expedition?' · 远征过境':''}</small></td>
+        <td><b>${o.days} 个月</b><small>${fmtNum(o.cost,2)} 成本${o.expedition?' · 远征过境':''}</small></td>
         <td><small>集结 (${o.march_target?.col},${o.march_target?.row}) → 攻城 (${o.objective?.col},${o.objective?.row})</small>
           <small class="mut">到场 ${o.mass||1} 支 · 战力系数 ${fmtNum(o.mass_share||1,2)}</small></td>
         <td>${isPlayer?`<button data-attack-army="${id}" data-army="${esc(o.army_id)}">这一路进攻</button>`+
@@ -5012,7 +5018,7 @@ function renderMilitary(){
         <td>${(r.armies||[]).map(a=>esc(a)).join('、')||'——'}<small class="mut">${(r.armies||[]).length} 支在圈里</small></td>
         <td><div class="bar"><i style="width:${pct}%"></i></div><small>${fmtNum(r.progress,2)} / ${fmtNum(threshold,2)}</small></td>
         <td>${held?`<span class="key-state missing">被 ${esc(countryMeta(r.taken_by)?.name||r.taken_by)} 抢先围住</span>`
-          :`<b>${r.days_left==null?'圈内暂无兵力':(r.days_left<=0?'即日城破':`${r.days_left} 日城破`)}</b>`}</td>
+          :`<b>${r.days_left==null?'圈内暂无兵力':(r.days_left<=0?'当月城破':`${r.days_left} 月城破`)}</b>`}</td>
         <td>${isPlayer&&!held?(r.armies||[]).map(a=>`<button data-siege-city="${id}" data-army="${esc(a)}" data-center="${r.center.col},${r.center.row}">令 ${esc(a)} 开围</button>`).join(''):''}</td></tr>`;
     }).join('');
     const marchBody=marches.map(r=>{
@@ -5021,18 +5027,18 @@ function renderMilitary(){
         <td><b>${esc(r.name||r.city_id)}</b><small>中心 (${r.center.col},${r.center.row}) · ${r.walls?'有城墙':'无城墙'}</small>
           <small class="mut">尚未开账：我方成数 ${((Number(r.share)||0)*100).toFixed(0)}%</small></td>
         <td><b>${esc(r.army_id)}</b><small>落脚 (${r.camp?.col},${r.camp?.row})</small></td>
-        <td><b>${r.days} 天</b><small>${fmtNum(r.cost,2)} 成本${r.expedition?' · 远征过境（沿途经过别国领土）':''}</small></td>
+        <td><b>${r.days} 个月</b><small>${fmtNum(r.cost,2)} 成本${r.expedition?' · 远征过境（沿途经过别国领土）':''}</small></td>
         <td>${stuck?`<span class="key-state missing">这一支单独啃不动</span>`
-          :`<small>抵达后围 ${r.days_left} 日 · 全程约 ${Number(r.days)+Number(r.days_left)} 日城破</small>`}</td>
+          :`<small>抵达后围 ${r.days_left} 月 · 全程约 ${Number(r.days)+Number(r.days_left)} 月城破</small>`}</td>
         <td>${isPlayer?`<button data-siege-march="${id}" data-army="${esc(r.army_id)}" data-center="${r.center.col},${r.center.row}">开赴并开围</button>`:''}</td></tr>`;
     }).join('');
     if(!rows.length&&!marches.length)return `<div class="hint">本国既没有军队站在 <b>${esc(countryMeta(id)?.name||id)}</b> 任何城池中心的封锁圈里，也没有一支待命军队能在一条命令内走到某面墙的落脚格：中心格不打会战，先把军队（或道路）开到中心格周围 ${Number(table.blockade_radius)||1} 格里——行军令只落在己方或无主的格子上，别国领土的那一格得用进攻令开进去。</div>`;
     const ledger=rows.length?`<div class="sect"><span>围城战线 · ${esc(countryMeta(id)?.name||id)}</span><span>${rows.length} 面墙</span></div>
       <table class="unit-table"><thead><tr><th>被围城池</th><th>封锁圈军队</th><th>围城进度</th><th>预计城破</th><th>下令</th></tr></thead><tbody>${body}</tbody></table>
-      <div class="hint">数字来自每日结算的同一本账：进度每天走 ${fmtNum(table.daily_progress,2)} × 我方成数（圈内兵力 ÷（圈内兵力 + 圈内守军 + 城墙 ${fmtNum(table.wall_bonus,2)} 分量）），账满 ${fmtNum(threshold,2)} 整座易主。一座城同时只有一方围得，被抢开的墙只能先去打圈里的格。</div>`:'';
+      <div class="hint">数字来自每月结算的同一本账：进度每月走 ${fmtNum(table.daily_progress,2)} × 我方成数（圈内兵力 ÷（圈内兵力 + 圈内守军 + 城墙 ${fmtNum(table.wall_bonus,2)} 分量）），账满 ${fmtNum(threshold,2)} 整座易主。一座城同时只有一方围得，被抢开的墙只能先去打圈里的格。</div>`:'';
     const march=marches.length?`<div class="sect"><span>可开赴的城墙 · ${esc(countryMeta(id)?.name||id)}</span><span>${marches.length} 路</span></div>
       <table class="unit-table"><thead><tr><th>城墙</th><th>开赴的军队</th><th>行军报价</th><th>抵达之后</th><th>下令</th></tr></thead><tbody>${marchBody}</tbody></table>
-      <div class="hint">这些墙还没有本国军队围着：<b>下令后军队按这条路线开进封锁圈，抵达当日自动开围</b>，天数与成数用的是同一本围城账——只是「抵达后 N 日」从进城那天才算。道路能穿过任何陆地格，敌土只是每格另加 ${fmtNum(mv.hostile_cost,2)} 点减速；这一路走的是进攻令，落脚格只要不在对方领土里就行——对面若把城墙格围得严严实实，得先用会战夺下一格城缘。<code>strike_columns</code> 之内的每一路各带一支军队，两路可以分打两面墙。</div>`:'';
+      <div class="hint">这些墙还没有本国军队围着：<b>下令后军队按这条路线开进封锁圈，抵达当月自动开围</b>，月数与成数用的是同一本围城账——只是「抵达后 N 个月」从进城当月才算。道路能穿过任何陆地格，敌土只是每格另加 ${fmtNum(mv.hostile_cost,2)} 点减速；这一路走的是进攻令，落脚格只要不在对方领土里就行——对面若把城墙格围得严严实实，得先用会战夺下一格城缘。<code>strike_columns</code> 之内的每一路各带一支军队，两路可以分打两面墙。</div>`:'';
     return ledger+march;
   };
   const warRows=wars.length?wars.map(id=>`<div class="war-row"><span>与 <b>${esc(countryMeta(id)?.name||id)}</b> 交战中</span>
@@ -5067,7 +5073,7 @@ function renderMilitary(){
         `<small class="mut">进度 ${fmtNum(a.progress,2)} / ${price||'—'}</small><div class="bar"><i style="width:${price?Math.min(100,a.progress/price*100):0}%"></i></div>`
       :'<span class="mut">不在兵营，开关无效</span>';
     const march=m?`<b>${m.purpose==='ATTACK'?'进攻':'行军'} → (${m.destination[0]},${m.destination[1]})</b>
-      <small>剩 ${m.days_left} 天 · 余程 ${fmtNum(m.remaining,2)}/${fmtNum(m.cost,2)} · 已走 ${Math.round(walked*100)}%</small>
+      <small>剩 ${m.days_left} 个月 · 余程 ${fmtNum(m.remaining,2)}/${fmtNum(m.cost,2)} · 已走 ${Math.round(walked*100)}%</small>
       <small class="mut">${m.target?`${esc(countryMeta(m.target)?.name||m.target)} · `:''}${m.expedition?'远征过境':'己方或中立通道'} · 道路 ${info.roadShare}%</small>
       ${info.text?`<small class="mut">路线 ${esc(info.text)}</small>`:''}
       <div class="bar"><i style="width:${walked*100}%"></i></div>`:'<span class="mut">待命，可下令</span>';
@@ -5090,14 +5096,14 @@ function renderMilitary(){
     <div class="mil-card" data-mil-sect="army"><h3>王国军势</h3>
       <div class="mil-stat"><span>军队规模 / 战力</span><b>${c.army_strength} · ${fmtNum(c.army_power,2)}</b></div>
       <div class="mil-stat"><span>兵营 / 全国编制上限</span><b>${camps} 座 · ${armyCap} 支</b></div>
-      <div class="mil-stat"><span>每日维护</span><b>${fmtNum(c.military_upkeep,3)}</b></div>
+      <div class="mil-stat"><span>${c.last_economy?.estimated?'本月维护估算':'上期实际维护'}</span><b>${fmtNum(c.military_upkeep,3)}</b></div>
       <div class="mil-stat"><span>战争疲劳</span><b>${fmtNum(c.war_exhaustion,1)}</b></div>
       <div class="mil-stat"><span>下令军队</span><b>${mover?esc(mover.army_id):'无'}</b></div>
       <div class="mil-stat"><span>已选地块</span><b>${selected}</b></div>
       <table class="unit-table"><thead><tr><th>军队</th><th>驻地</th><th>兵力 / 战力</th><th>兵营募兵</th><th>行军</th></tr></thead>
       <tbody>${armyRows}</tbody></table>
       ${isPlayer?`<div class="mil-buttons"><button data-march="1" ${marchable&&selectedTile?'':'disabled'}>行军至已选地块</button></div>`:''}
-      <table class="unit-table"><thead><tr><th>兵种</th><th>编制</th><th>攻/防</th><th>日维护</th><th>费/粮</th><th>状态</th></tr></thead>
+      <table class="unit-table"><thead><tr><th>兵种</th><th>编制</th><th>攻/防</th><th>月维护</th><th>费/粮</th><th>状态</th></tr></thead>
       <tbody>${unitRows}</tbody></table>
       <div class="hint">战力按兵种逐个结算：编制数量 × 兵种战力 × 对敌军构成的克制修正 × 交战地块地形修正，再乘装备水平与稳定度；防守方另有驻守加成。军饷断供时最先遣散最贵的兵种。<b>兵营每营只练 ${bar.garrison_capacity} 支的固定定额，能练几支取决于本国修了几座</b>：上限 ${armyCap} 支就是常备额与在营运兵营的定额之和。</div>
     </div>
@@ -5105,44 +5111,44 @@ function renderMilitary(){
       <div class="mil-stat"><span>最近命令 / 被拒</span><b>${milReceipts.length} 条 · ${milRejected.length} 条被拒</b></div>
       ${receiptCard(milReceipts,'还没有下过军令：募兵、行军、进攻都会在这里留下成与败。')}
       <div class="mil-stat" style="margin-top:8px"><span>兵营练成 / 停摆</span><b>${campEventRows.length} 条</b></div>
-      <div class="event-list">${campEventRows.map(e=>`<div class="event ${e[2]}"><span class="ed">日 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">兵营还没有动静</div>'}</div>
-      <div class="hint">每条命令都由结算引擎当场审核，成与败、被拒的原因都写在这里；被拒的命令不会改状态，也不会扣钱。兵营每天练不练得出兵，看「兵营」页那一格的停摆原因。</div>
+      <div class="event-list">${campEventRows.map(e=>`<div class="event ${e[2]}"><span class="ed">月 ${e[0]}</span><span>${e[1]}</span></div>`).join('')||'<div class="mini-empty">兵营还没有动静</div>'}</div>
+      <div class="hint">每条命令都由结算引擎当场审核，成与败、被拒的原因都写在这里；被拒的命令不会改状态，也不会扣钱。兵营每月练不练得出兵，看「兵营」页那一格的停摆原因。</div>
     </div>
     <div class="mil-card" data-mil-sect="barracks"><h3>兵营募兵</h3>
       <div class="mil-stat"><span>兵营 / 每营定额</span><b>${camps} 座 · ${bar.garrison_capacity} 支</b></div>
-      <div class="mil-stat"><span>每日军饷 / 停摆兵营</span><b>${fmtNum(bar.daily_cost,2)} 财政每营 · ${campStalled} 座停摆</b></div>
-      ${campRows||`<div class="hint">本国还没有兵营：修一座兵营，把待命军队行军进去，再开募就会每天扣饷练兵。</div>`}
+      <div class="mil-stat"><span>每月军饷 / 停摆兵营</span><b>${fmtNum(bar.daily_cost,2)} 财政每营 · ${campStalled} 座停摆</b></div>
+      ${campRows||`<div class="hint">本国还没有兵营：修一座兵营，把待命军队行军进去，再开募就会每月扣饷练兵。</div>`}
       <div class="hint">一座兵营同时只给<b>一支</b>驻军领饷练兵，每营定额 ${bar.garrison_capacity} 支；想同时练更多就再修兵营，或把军队分驻到不同兵营。练兵进度条走的是你在下表里选的兵种：点兵种右侧「设为练兵目标」即可换。停摆原因由结算引擎给出，面板只照搬，不猜。</div>
     </div>
     <div class="mil-card" data-mil-sect="war"><h3>边警 · 敌军正开向我国</h3>
       ${alerts.length?`
-      <div class="mil-stat"><span>在途敌军 / 最快一支</span><b>${alerts.length} 路 · 还剩 ${alerts[0].days_left} 天行军</b></div>
+      <div class="mil-stat"><span>在途敌军 / 最快一支</span><b>${alerts.length} 路 · 还剩 ${alerts[0].days_left} 个月行军</b></div>
       <div class="mil-stat"><span>打都城 / 落在无守军缺口</span><b>${alerts.filter(row=>row.capital).length} 路 · ${alerts.filter(row=>!row.defenders).length} 处</b></div>
       ${alerts.map(threatCard).join('')}`:'<div class="mini-empty">当前没有敌军开向我国领土。</div>'}
-      <div class="hint">天数与抵达日期直接读结算引擎的行军账本：对方每天按地形与道路成本推进，路线中途被切断当场就从这张表上消失，所以这里写的日子就是它真会打到的日子。<b>「我方到场 N 支」只算缺口 ${milRules.mass_radius||1} 格内的待命军队</b>：那一格站着人，对方抵达当日就要打会战；一格都没有，对方几乎不折兵就踏过去。想回防就点这一格选中它，再在「王国军势」里点「行军至已选地块」。<b>都城中心格被围下，整座城连同该国全部领土、国库与粮仓一并易主</b>，该国当场灭国。</div>
+      <div class="hint">月数与抵达月份直接读结算引擎的行军账本：对方每月按地形与道路成本推进，路线中途被切断当场就从这张表上消失，所以这里写的日子就是它真会打到的日子。<b>「我方到场 N 支」只算缺口 ${milRules.mass_radius||1} 格内的待命军队</b>：那一格站着人，对方抵达当月就要打会战；一格都没有，对方几乎不折兵就踏过去。想回防就点这一格选中它，再在「王国军势」里点「行军至已选地块」。<b>都城中心格被围下，整座城连同该国全部领土、国库与粮仓一并易主</b>，该国当场灭国。</div>
     </div>
     <div class="mil-card" data-mil-sect="war"><h3>战争状态</h3>${warRows}
       ${isPlayer&&warTargets.length?`<div class="mil-buttons"><select id="warTarget">${warTargets.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('')}</select><button data-declare-war>宣战</button></div>`:''}
-      <div class="hint">宣战之后，「下令进攻」会把所选军队的行军单排到敌国边缘城池：军队每天按地形与道路成本推进，抵达当日才结算会战，打赢只夺下那一格、把它并入最近的己方城池。已经在目标旁边的军队当场就开打。<b>城池中心格不打会战：下令打中心就是开围</b>，军队站在封锁圈里每天啃一口墙，账满整座易主，那一本账列在下面「围城战线」里；还没有军队围着时也有一张「可开赴的城墙」表，点它就是把这一支开进封锁圈、抵达当日自动开围。每场战争最多同时报价 ${milRules.strike_columns||1} 路，下表按军队逐条列出各自最快的一条，点「另一路」那一行就能分兵合击。<b>会战只算缺口 ${milRules.mass_radius||1} 格内到场的军队</b>：单独一支只打 ${fmtNum(milRules.minimum_mass_share||0.5,2)} 的力，几座兵营的兵汇到同一格才打满——点「其余向此集结」就把别的待命军队开进这一格。</div>
+      <div class="hint">宣战之后，「下令进攻」会把所选军队的行军单排到敌国边缘城池：军队每月按地形与道路成本推进，抵达当月才结算会战，打赢只夺下那一格、把它并入最近的己方城池。已经在目标旁边的军队当场就开打。<b>城池中心格不打会战：下令打中心就是开围</b>，军队站在封锁圈里每月啃一口墙，账满整座易主，那一本账列在下面「围城战线」里；还没有军队围着时也有一张「可开赴的城墙」表，点它就是把这一支开进封锁圈、抵达当月自动开围。每场战争最多同时报价 ${milRules.strike_columns||1} 路，下表按军队逐条列出各自最快的一条，点「另一路」那一行就能分兵合击。<b>会战只算缺口 ${milRules.mass_radius||1} 格内到场的军队</b>：单独一支只打 ${fmtNum(milRules.minimum_mass_share||0.5,2)} 的力，几座兵营的兵汇到同一格才打满——点「其余向此集结」就把别的待命军队开进这一格。</div>
     </div>
     ${tributeLedger(selectedCountry)?`<div class="mil-card" data-mil-sect="war"><h3>占领贡金</h3>${tributeLedger(selectedCountry)}
-      <div class="hint">攻占敌国带建筑的格子才会立账：每栋按 ${fmtNum((milRules.capture_tribute_share||0)*100,0)}% 的缴付方日收入抽取，持续 ${milRules.capture_tribute_days||0} 天，对同一对手合计封顶 ${tributeCap()}%。围城账满、整座易主时，城域里换主的建筑按同一条规则立账；道路等不分归属的设施不产生贡金。</div>
+      <div class="hint">攻占敌国带建筑的格子才会立账：每栋按 ${fmtNum((milRules.capture_tribute_share||0)*100,0)}% 的缴付方月收入抽取，持续 ${milRules.capture_tribute_days||0} 个月，对同一对手合计封顶 ${tributeCap()}%。围城账满、整座易主时，城域里换主的建筑按同一条规则立账；道路等不分归属的设施不产生贡金。</div>
     </div>`:''}
   </div>
-  <div class="hint"><b>行军：</b>先在地图选中一格陆地——本国领土、无主地、乃至别国领土都算，地块卡上的「行军至此」会逐支军队报出天数与成本；选中一支军队后再点「行军至已选地块」，下的就是那一支的令。行军是下单，不是瞬移：单日推进 ${fmtNum(mv.daily_budget,1)} 点成本，道路每格 ${fmtNum(mv.road_cost,2)}（不分归属都算），${Object.entries(mv.biome_cost||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${fmtNum(v,1)}`).join('、')}，${hostilePaceText()}——别国领土只是减速，不是墙。单条命令上限 ${fmtNum(mv.maximum_order_cost,0)} 点：超了就分两段下令。在途军队不能再下令；行军令只能落在己方或无主的格子上，要进别国领土就打进攻令，撞上没有主人的营地就用「就地打击」。</div>`;
+  <div class="hint"><b>行军：</b>先在地图选中一格陆地——本国领土、无主地、乃至别国领土都算，地块卡上的「行军至此」会逐支军队报出月数与成本；选中一支军队后再点「行军至已选地块」，下的就是那一支的令。行军是下单，不是瞬移：单月推进 ${fmtNum(mv.daily_budget,1)} 点成本，道路每格 ${fmtNum(mv.road_cost,2)}（不分归属都算），${Object.entries(mv.biome_cost||{}).map(([b,v])=>`${BIOME_NAMES[b]||b}${fmtNum(v,1)}`).join('、')}，${hostilePaceText()}——别国领土只是减速，不是墙。单条命令上限 ${fmtNum(mv.maximum_order_cost,0)} 点：超了就分两段下令。在途军队不能再下令；行军令只能落在己方或无主的格子上，要进别国领土就打进攻令，撞上没有主人的营地就用「就地打击」。</div>`;
   bindThreats($('militaryBody'));
   for(const b of document.querySelectorAll('[data-recruit]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'RECRUIT',unit:b.dataset.recruit,strength:Number(b.dataset.size),army_id:selectedArmy},'招募完成').then(renderMilitary);
-  for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy},'行军令已下达，抵达当日结算战果').then(renderMilitary);
+  for(const b of document.querySelectorAll('[data-attack]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attack,army_id:selectedArmy},'行军令已下达，抵达当月结算战果').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-attack-army]'))b.onclick=()=>submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.attackArmy,army_id:b.dataset.army},'这一路的行军令已下达').then(renderMilitary);
   for(const b of document.querySelectorAll('[data-siege-city]'))b.onclick=()=>{
     const [col,row]=b.dataset.center.split(',').map(Number);
     submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.siegeCity,army_id:b.dataset.army,
-      tile:{col,row}},'围城令已下达：每天啃一口墙，账满整座易主').then(renderMilitary);
+      tile:{col,row}},'围城令已下达：每月啃一口墙，账满整座易主').then(renderMilitary);
   };
   for(const b of document.querySelectorAll('[data-siege-march]'))b.onclick=()=>{
     const [col,row]=b.dataset.center.split(',').map(Number);
     submitPlayerAction({type:'MILITARY',operation:'ATTACK',target:b.dataset.siegeMarch,army_id:b.dataset.army,
-      tile:{col,row}},'开赴令已下达：军队按这条路线进城池封锁圈，抵达当日自动开围').then(renderMilitary);
+      tile:{col,row}},'开赴令已下达：军队按这条路线进城池封锁圈，抵达当月自动开围').then(renderMilitary);
   };
   for(const b of document.querySelectorAll('[data-mass]'))b.onclick=async()=>{
     const [col,row]=b.dataset.mass.split(',').map(Number);
@@ -5292,15 +5298,15 @@ function renderTechIndex(){
       <td><i class="unit-chip" style="--uc:${spec.color}"></i><b>${esc(spec.label)}</b><small>${esc(unitRelationText(spec))}</small>${terrain?`<small class="mut">地形 ${esc(terrain)}</small>`:''}</td>
       <td>${esc(gate(requirement))}<span class="key-state ${ready?'ok':'missing'}">${ready?'已解锁':'未解锁'}</span></td>
       <td>${spec.power.toFixed(2)} / ${spec.defense.toFixed(2)}<small>编制上限 ${spec.max_count} 支</small></td>
-      <td>${fmtNum(spec.cost.treasury,0)} 财 · ${fmtNum(spec.cost.food,1)} 粮<small>日维护 ${fmtNum(spec.upkeep_per_day,3)}</small></td>
-      <td>${days?`${days} 日/支`:'—'}<small>${esc(camp)}</small></td></tr>`;
+      <td>${fmtNum(spec.cost.treasury,0)} 财 · ${fmtNum(spec.cost.food,1)} 粮<small>月维护 ${fmtNum(spec.upkeep_per_day,3)}</small></td>
+      <td>${days?`${days} 月/支`:'—'}<small>${esc(camp)}</small></td></tr>`;
   }).join('');
   const buildingRows=Object.entries(buildings).map(([id,spec])=>{
     const requirement=spec.required_technology,ready=reached(requirement);
     return `<tr${ready?'':' class="gated"'}>
       <td><b>${esc(spec.label)}</b><small>${esc(id)}</small></td>
       <td>${esc(gate(requirement))}</td>
-      <td>${fmtNum(spec.cost,0)} 财 · ${fmtNum(spec.days,0)} 日</td>
+      <td>${fmtNum(spec.cost,0)} 财 · ${fmtNum(spec.days,0)} 月</td>
       <td>${spec.max_per_country?`全国 ${spec.max_per_country} 座`:'不设全国上限'}${spec.requires_river?'<small class="mut">需临河</small>':''}<small>${(spec.allowed_biomes||[]).length} 类群系可建</small></td>
       <td><span class="key-state ${ready?'ok':'missing'}">${ready?'可建':'未解锁'}</span></td></tr>`;
   }).join('');
@@ -5314,9 +5320,9 @@ function renderTechIndex(){
   }).join('');
   const barracksStats=[
     ['建造门槛',gate(barracks.required_technology)],
-    ['造价 / 工期',`${fmtNum(barracks.cost,0)} 财 · ${fmtNum(barracks.days,0)} 日`],
+    ['造价 / 工期',`${fmtNum(barracks.cost,0)} 财 · ${fmtNum(barracks.days,0)} 月`],
     ['全国兵营数','不设上限 · 数量由本国修建决定'],
-    ['每日军饷',`${fmtNum(wage,2)} 财政 / 在营兵营`],
+    ['每月军饷',`${fmtNum(wage,2)} 财政 / 在营兵营`],
     ['营内编制上限',`${bar.garrison_capacity} 支 / 座`],
     ['默认兵种',`${unitName(bar.default_unit)}（无科技前置）`],
     ['缺料时进度封顶',`单价的 ${fmtNum((bar.progress_cap_ratio||1)*100,0)}%`]
@@ -5330,7 +5336,7 @@ function renderTechIndex(){
     ['远征系数',fmtNum(rules.expedition_factor,2)],
     ['装备战力加成',`科技线每级 +${fmtNum((rules.metallurgy_power_per_level||0)*100,0)}%`],
     ['占领后稳定损失',fmtNum(rules.capture_stability_loss,1)],
-    ['占领贡金',`每栋建筑 ${fmtNum((rules.capture_tribute_share||0)*100,0)}% 缴付方日收入，为期 ${rules.capture_tribute_days||0} 天，同一对手封顶 ${fmtNum((rules.capture_tribute_cap||0)*100,0)}%`],
+    ['占领贡金',`每栋建筑 ${fmtNum((rules.capture_tribute_share||0)*100,0)}% 缴付方月收入，为期 ${rules.capture_tribute_days||0} 个月，同一对手封顶 ${fmtNum((rules.capture_tribute_cap||0)*100,0)}%`],
     ['免贡设施',(rules.capture_tribute_exempt||[]).map(b=>BUILD_NAMES[b]||b).join('、')||'无'],
     ['贡金对战意',`净贡金每占本方收入 1%，议和闸门移动 ${fmtNum(rules.capture_tribute_resolve||0,1)} 点疲劳`],
     ['月度战争疲劳',fmtNum(rules.war_exhaustion_per_month,1)],
@@ -5340,12 +5346,12 @@ function renderTechIndex(){
   const sg=rules.siege||{},wall=buildings.WALL||{};
   const siegeStats=[
     ['封锁圈',`中心格周围 ${Number(sg.blockade_radius)||1} 格内的军队才算在场`],
-    ['每日进度',`${fmtNum(sg.daily_progress,2)} × 我方成数，账满 ${fmtNum(sg.fall_threshold,2)} 即城破`],
-    ['城墙分量',`中心格立了城墙时守方加 ${fmtNum(sg.wall_bonus,2)}，成数被压低、城破日推迟`],
-    ['围城疲劳',`围方与被围方每日各 +${fmtNum(sg.exhaustion_per_day,3)}`],
+    ['每月进度',`${fmtNum(sg.daily_progress,2)} × 我方成数，账满 ${fmtNum(sg.fall_threshold,2)} 即城破`],
+    ['城墙分量',`中心格立了城墙时守方加 ${fmtNum(sg.wall_bonus,2)}，成数被压低、城破月推迟`],
+    ['围城疲劳',`围方与被围方每月各 +${fmtNum(sg.exhaustion_per_day,3)}`],
     ['城破代价',`败方稳定度 −${fmtNum(sg.stability_loss,1)}，整座城连地带人换手，缴到的建筑逐栋立占领贡金`],
     ['议和位移',`自己的城被啃满时议和闸门减 ${fmtNum(sg.peace_pressure,1)} 点疲劳，城破之前就倾向求和；被啃的是都城则再减 ${fmtNum((rules.annexation||{}).peace_pressure||0,1)} 点，那一格破了国家就不在了`],
-    ['城墙造价 / 工期',`${fmtNum(wall.cost,0)} 财 · ${fmtNum(wall.days,0)} 日 · ${gate(wall.required_technology)}`],
+    ['城墙造价 / 工期',`${fmtNum(wall.cost,0)} 财 · ${fmtNum(wall.days,0)} 月 · ${gate(wall.required_technology)}`],
     ['立墙位置','只能立在城池中心格（on_city_center），落错位置直接回绝'],
     ['一城一围','同一座城同时只有一方围得；本国第二支军队进圈是加入同一本账，不清零进度']
   ].map(([label,value])=>stat(label,value)).join('');
@@ -5358,12 +5364,12 @@ function renderTechIndex(){
   const roadCost=Math.max(Number(mv.road_cost)||0,1e-9);
   const hostile=Number(mv.hostile_cost)||0;
   const marchStats=[
-    ['单日推进',`${fmtNum(mv.daily_budget,1)} 点成本`],
+    ['单月推进',`${fmtNum(mv.daily_budget,1)} 点成本`],
     ['道路每格',`${fmtNum(mv.road_cost,2)} 点 · 不分归属`],
     ['敌土减速',hostile?`别国领土每格再加 ${fmtNum(hostile,2)} 点 · 穿得过去，不是墙`:'不额外计：领土不减速行军'],
     ['可走与可停','任何陆地格都走得过去；MARCH 的落点仍只能是己方或无主的格子，别国领土用进攻令'],
-    ['单条命令上限',orderCap?`${fmtNum(orderCap,0)} 点：超了就分两段下令（≈ ${fmtNum(orderCap/budget,1)} 天）`:'不设上限'],
-    ['下单与开战','MARCH / ATTACK 只排队，抵达当日才结算'],
+    ['单条命令上限',orderCap?`${fmtNum(orderCap,0)} 点：超了就分两段下令（约 ${Math.max(1,Math.ceil(orderCap/budget))} 个月）`:'不设上限'],
+    ['下单与开战','MARCH / ATTACK 只排队，抵达当月才结算'],
     ['在途军队','不能再下令；沿途易主则就地停下']
   ].map(([label,value])=>stat(label,value)).join('');
   const marchRows=Object.entries(mv.biome_cost||{}).sort((a,b)=>a[1]-b[1]).map(([biome,value])=>{
@@ -5376,7 +5382,7 @@ function renderTechIndex(){
   $('techIndex').innerHTML=`<div class="mil-card"><h3>兵种解锁阶梯</h3>
     <table class="unit-table"><thead><tr><th>兵种</th><th>解锁门槛</th><th>攻 / 防</th><th>募兵费</th><th>兵营节奏</th></tr></thead>
     <tbody>${unitRows}</tbody></table>
-    <div class="unlock-note"><i>兵营按日扣饷攒进度，攒够单价出 1 支并扣粮</i><i>国库不足当日不扣饷、不涨进度</i><i>已解锁兵种可用 SET_RECRUIT_UNIT 指定为该营目标</i><i>营内编制上限之上需随军出征</i></div>
+    <div class="unlock-note"><i>兵营按月扣饷攒进度，攒够单价出 1 支并扣粮</i><i>国库不足当月不扣饷、不涨进度</i><i>已解锁兵种可用 SET_RECRUIT_UNIT 指定为该营目标</i><i>营内编制上限之上需随军出征</i></div>
     <div class="hint">战力＝编制数量 × 兵种战力 × 对敌军构成的克制修正 × 交战地块地形修正，再乘装备水平与稳定度；未解锁兵种既不能手动招募，也不能设为兵营练兵目标。</div>
   </div>
   <div class="mil-card"><h3>设施解锁门槛</h3>
@@ -5391,13 +5397,13 @@ function renderTechIndex(){
     <div class="hint">军饷断供时最先遣散该军中最贵的兵种；议和达成后双方关系直接回到表中的数值，而不是在当前关系上加减。</div>
   </div>
   <div class="mil-card"><h3>围城与整城易主常量</h3>${siegeStats}
-    <div class="hint">点城池中心格开的不是会战而是这本账：这里的数字与军事页「围城战线」「可开赴的城墙」、地块卡、城市卡上的城破日同源，都出自服务端那一本围城账。开赴路线能穿过敌土——每格再加 ${fmtNum(mv.hostile_cost,2)} 点减速——但落脚格不会落在对方领土里，城缘六格全是敌土时得先用会战夺下一格。</div>
+    <div class="hint">点城池中心格开的不是会战而是这本账：这里的数字与军事页「围城战线」「可开赴的城墙」、地块卡、城市卡上的城破月同源，都出自服务端那一本围城账。开赴路线能穿过敌土——每格再加 ${fmtNum(mv.hostile_cost,2)} 点减速——但落脚格不会落在对方领土里，城缘六格全是敌土时得先用会战夺下一格。</div>
   </div>
   <div class="mil-card"><h3>城域溃退与全歼常量</h3>${routStats}
     <div class="hint">会战打在对方城域内才走这本账：旷野与无守军的门栅仍是原来的等比例消耗。这里的三个数与地块卡的溃退账、边警的全歼警告、战报里的退路格同源，都读自军事结算那一本溃退账。</div>
   </div>
   <div class="mil-card"><h3>行军与道路常量</h3>${marchStats}
-    <table class="unit-table"><thead><tr><th>群系</th><th>每格成本</th><th>单日可走</th><th>单条命令最远</th></tr></thead><tbody>${marchRows}</tbody></table>
+    <table class="unit-table"><thead><tr><th>群系</th><th>每格成本</th><th>单月可走</th><th>单条命令最远</th></tr></thead><tbody>${marchRows}</tbody></table>
     <div class="hint">最短路按这张表的每格成本加权，道路格一律取 road_cost，${hostile?`走进别国领土的那一格再叠上 hostile_cost ${fmtNum(hostile,2)} 点`:'领土不额外加价'}，所以同一距离走法不同、耗时不同；命令只按当下路网与当下边界定价，路上新建的道路、途中易主的格子都要等下一条命令才生效。想在本格逐支军队看报价，就去地块卡上的「行军至此」。</div>
   </div>
   <div class="mil-card"><h3>时代推进</h3>
@@ -5412,7 +5418,7 @@ function roadPlannerCard(tile,owned){
   if(!owned&&!roadPlan)return '';
   if(!roadPlan)return `<div class="road-planner"><h3>规划道路</h3><p>选起点，再点地图上的终点。自动绕开无法修筑的地形，整段报价后依次施工。</p><button id="roadStartBtn">从此规划道路</button><small>道路与农田、矿场等设施可共存。雪山、冻原和沙漠需要现代工程许可。</small></div>`;
   const q=owned&&roadPlan.end?.[0]===tile.col&&roadPlan.end?.[1]===tile.row?roadPlan.quote:null;
-  return `<div class="road-planner"><h3>道路规划 · 起点 ${roadPlan.start.join(',')}</h3><p>${!owned?'请选择本国陆地作为终点':roadPlan.start[0]===tile.col&&roadPlan.start[1]===tile.row?'点击地图上的另一格作为终点':roadPlan.loading?'正在核对修筑许可…':roadPlan.error?esc(roadPlan.error):q?`${q.path.length} 格路线 · 新建 ${q.segments.length} 格<br><b>${fmtNum(q.cost,1)} 财政</b> · ${q.estimated_days===null?'建筑劳力为零，施工暂停':`约 ${fmtInt(q.estimated_days)} 日，逐段施工`}${q.pending_tiles.length?'<br>路线含已有工程，实际完工需等待前段':''}${q.affordable?'':'<br>财政不足，请缩短路线或积累资金'}`:'选择终点后查看报价'}</p><div class="actions"><button id="roadConfirmBtn" class="primary" ${!q||!q.affordable||!q.segments.length||roadPlan.loading||roadPlan.error?'disabled':''}>整段开工</button><button id="roadCancelBtn">取消规划</button></div><small>古代桥梁最多跨 2 格河道；需石拱桥梁技术。桥梁按实际两岸横断面检查。</small></div>`;
+  return `<div class="road-planner"><h3>道路规划 · 起点 ${roadPlan.start.join(',')}</h3><p>${!owned?'请选择本国陆地作为终点':roadPlan.start[0]===tile.col&&roadPlan.start[1]===tile.row?'点击地图上的另一格作为终点':roadPlan.loading?'正在核对修筑许可…':roadPlan.error?esc(roadPlan.error):q?`${q.path.length} 格路线 · 新建 ${q.segments.length} 格<br><b>${fmtNum(q.cost,1)} 财政</b> · ${q.estimated_days===null?'建筑劳力为零，施工暂停':`约 ${fmtInt(q.estimated_days)} 月，逐段施工`}${q.pending_tiles.length?'<br>路线含已有工程，实际完工需等待前段':''}${q.affordable?'':'<br>财政不足，请缩短路线或积累资金'}`:'选择终点后查看报价'}</p><div class="actions"><button id="roadConfirmBtn" class="primary" ${!q||!q.affordable||!q.segments.length||roadPlan.loading||roadPlan.error?'disabled':''}>整段开工</button><button id="roadCancelBtn">取消规划</button></div><small>古代桥梁最多跨 2 格河道；需石拱桥梁技术。桥梁按实际两岸横断面检查。</small></div>`;
 }
 function bindRoadPlanner(tile){
   const start=$('roadStartBtn'),cancel=$('roadCancelBtn'),confirm=$('roadConfirmBtn');
@@ -5423,7 +5429,7 @@ function bindRoadPlanner(tile){
     confirm.disabled=true;draft.loading=true;
     try{
       const response=await fetch('/api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:draft.actor,action:{type:'BUILD_ROAD_ROUTE',from:{col:draft.start[0],row:draft.start[1]},to:{col:draft.end[0],row:draft.end[1]}}})});
-      const data=await response.json();
+      const data=monthlyView(await response.json());
       if(roadPlan!==draft)return;
       if(data.ok){roadPlan=null;showToast('整段道路已入队，前一段完工后继续下一段');}
       else{draft.loading=false;draft.key=null;draft.quote=null;showToast(data.result?.reason_text||data.error||'规划未能提交',true);}
@@ -5435,7 +5441,7 @@ function bindRoadPlanner(tile){
   if(roadPlan.key===key)return;
   const draft=roadPlan;draft.key=key;draft.end=[tile.col,tile.row];draft.loading=true;draft.error=null;draft.quote=null;
   fetch('/api/road_preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({actor:draft.actor,from:{col:draft.start[0],row:draft.start[1]},to:{col:tile.col,row:tile.row}})})
-    .then(r=>r.json()).then(data=>{if(roadPlan!==draft||draft.key!==key)return;draft.loading=false;draft.quote=data.ok?data.quote:null;draft.error=data.ok?null:data.error;renderRight();render(true);})
+    .then(r=>r.json()).then(raw=>{const data=monthlyView(raw);if(roadPlan!==draft||draft.key!==key)return;draft.loading=false;draft.quote=data.ok?data.quote:null;draft.error=data.ok?null:data.error;renderRight();render(true);})
     .catch(()=>{if(roadPlan!==draft||draft.key!==key)return;draft.loading=false;draft.error='路线预览连接失败';renderRight();});
 }
 function drawPlannedRoad(scale){

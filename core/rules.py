@@ -447,18 +447,20 @@ class RuleEngine:
         self.diplomacy.expire_due()
         self.diplomacy.expire_proposals()
         interval = self.state.config["planning_interval_days"]
-        if self.state.day_index % interval == 0:
+        monthly_batch=getattr(self,'_monthly_batch',False)
+        monthly_first=getattr(self,'_monthly_first',False)
+        if monthly_first or (not monthly_batch and self.state.day_index % interval == 0):
             if self.planner is not None:
                 self.planner.plan(self)
             if self.enable_city_manager:
                 self.city_manager.plan(self)
-        elif self.planner is not None:
+        elif self.planner is not None and not monthly_batch:
             # A council held every 90 days cannot answer a 17-day blockade, so the realms the
             # alert is about sit down today; everyone else keeps the ordinary rhythm.
             alarmed = self.military.alarm_watch() | situation_replans
             if alarmed:
                 self.planner.plan(self, only=alarmed)
-        if self.enable_frontier_ai:
+        if self.enable_frontier_ai and (not monthly_batch or monthly_first):
             self._expand_frontiers()
         current_weather = self.state.weather.sample(self.state.day_index)
         self.state.weather.observe_day(
@@ -488,6 +490,38 @@ class RuleEngine:
             reconcile_stocks(country, self.state.config)
         self.state.day_index += 1
         situations.finish_day(self.state)
+        return True
+
+    def step_month(self, force: bool = False) -> bool:
+        if self.clock.paused and not force:return False
+        from core import monthly
+        monthly.enable(self.state)
+        period=monthly.begin_period(self.state)
+        state=self.state
+        listeners=state._listeners
+        logs={key:(getattr(state,key),len(getattr(state,key))) for key in ('event_log','action_log')}
+        memo={id(state.world):state.world,id(state.config):state.config}
+        checkpoint={key:deepcopy(value,memo) for key,value in state.__dict__.items()
+                    if key not in {'world','config','_listeners','event_log','action_log'}}
+        buffered=[];state._listeners=[buffered.append]
+        self._monthly_batch=True
+        try:
+            self.state.record('monthly_period_started',end_day=period['end_day'])
+            while self.state.day_index<period['end_day']:
+                self._monthly_first=self.state.day_index==period['start_day']
+                self.step_day(force=True)
+                monthly.collect(self.state,period)
+            monthly.finish_period(self.state,period)
+        except BaseException:
+            for key,value in checkpoint.items():setattr(state,key,value)
+            for key,(entries,length) in logs.items():
+                del entries[length:];setattr(state,key,entries)
+            raise
+        finally:
+            self._monthly_batch=False;self._monthly_first=False
+            state._listeners=listeners
+        for event in buffered:
+            for listener in listeners:listener(event)
         return True
 
     def _expand_frontiers(self) -> None:

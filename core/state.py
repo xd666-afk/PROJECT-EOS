@@ -978,6 +978,8 @@ class GameState:
             self.config, self.start_astronomical_year
         )["index"]
         self.day_index = 0
+        self.time_unit = 'day'
+        self.monthly_ledger: dict[str, Any] = {}
         self.countries: dict[str, CountryState] = {}
         # {country_id: day_index} — a realm taken at its capital leaves the board, and the
         # tombstone is the only record that survives the purge.
@@ -1442,6 +1444,8 @@ class GameState:
     def fingerprint(self) -> str:
         dynamic = {
             "day_index": self.day_index,
+            "time_unit": self.time_unit,
+            "monthly_ledger": self.monthly_ledger,
             "countries": {key: value.to_dict() for key, value in self.countries.items()},
             "eliminated": self.eliminated,
             "trades": self.trades,
@@ -1476,6 +1480,8 @@ class GameState:
             "seed": self.seed,
             "day_index": self.day_index,
             "start_astronomical_year": self.start_astronomical_year,
+            "time_unit": self.time_unit,
+            "monthly_ledger": self.monthly_ledger,
             "start_era_index": self.start_era_index,
             "rules": self.config,
             "countries": {key: value.to_dict() for key, value in self.countries.items()},
@@ -1549,6 +1555,8 @@ class GameState:
             )
         )
         state.day_index = data["day_index"]
+        state.time_unit = data.get('time_unit','day')
+        state.monthly_ledger = deepcopy(data.get('monthly_ledger',{}))
         state.countries = {
             key: CountryState.from_dict(value, state.config)
             for key, value in data["countries"].items()

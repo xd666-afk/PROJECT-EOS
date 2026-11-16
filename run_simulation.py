@@ -1,4 +1,4 @@
-"""Project Eos v0.2 CLI: fixed-day simulation with optional real-time pacing."""
+"""Monthly game CLI, with an explicit legacy daily mode for analysis tools."""
 from __future__ import annotations
 
 import argparse
@@ -11,6 +11,7 @@ from agents.llm_adapter import CallBudget, load_agents
 from agents.scheduler import AgentScheduler
 from core.simulation import Simulation
 from core.state import DEFAULT_RULES, DEFAULT_WORLD
+from core import monthly
 
 
 def configure_models(simulation: Simulation, args: argparse.Namespace) -> CallBudget:
@@ -24,8 +25,9 @@ def configure_models(simulation: Simulation, args: argparse.Namespace) -> CallBu
 
 def print_status(simulation: Simulation) -> None:
     summary = simulation.state.summary()
-    print(f"\n游戏日 {summary['day']} · {summary['date']}")
-    print("国家       人口      粮食      财政      政策          研究             建筑/在建  缺粮日")
+    is_monthly=simulation.state.time_unit=='month'
+    print(f"\n游戏月 {monthly.month_index(simulation.state.day_index)+1} · {monthly.month_label(simulation.state.day_index,simulation.state.start_astronomical_year)}" if is_monthly else f"\n游戏日 {summary['day']} · {summary['date']}")
+    print("国家       人口      粮食      财政      政策          研究             建筑/在建  缺粮月" if is_monthly else "国家       人口      粮食      财政      政策          研究             建筑/在建  缺粮日")
     print("-" * 92)
     for country_id, country in summary["countries"].items():
         print(
@@ -33,7 +35,7 @@ def print_status(simulation: Simulation) -> None:
             f"{country['food']:>9.2f} {country['treasury']:>9.2f} "
             f"{country['policy']:<13} {country['research_field']:<16} "
             f"{len(country['buildings'])}/{country['projects']:<5} "
-            f"{country['shortage_days_total']:>6}"
+            f"{len({monthly.month_index(e['day']) for e in simulation.state.event_log if e['type']=='food_shortage' and e.get('country_id')==country_id}) if is_monthly else country['shortage_days_total']:>6}"
         )
     accepted = sum(entry["result"]["accepted"] for entry in simulation.state.action_log)
     rejected = len(simulation.state.action_log) - accepted
@@ -46,11 +48,13 @@ def run_command(args: argparse.Namespace) -> int:
         simulation = Simulation.load(args.load, args.world, use_mock_agents=not args.no_agents)
     else:
         simulation = Simulation.new(
-            args.world, args.rules, args.seed, use_mock_agents=not args.no_agents
+            args.world or DEFAULT_WORLD, args.rules, args.seed, use_mock_agents=not args.no_agents
         )
     simulation.set_speed(args.speed)
     api_budget = configure_models(simulation, args)
     simulation.attach_jsonl(args.log, append=bool(args.load and Path(args.log).exists()))
+    if args.days is None:
+        return run_month_command(simulation,args,api_budget)
     start_day = simulation.state.day_index
     final_day = start_day + args.days
     snapshot_days = set(range(start_day, final_day + 1, 30))
@@ -99,6 +103,29 @@ def run_command(args: argparse.Namespace) -> int:
     return 0 if completed == args.days else 2
 
 
+def run_month_command(simulation,args,budget):
+    if args.months<0:raise ValueError('月份不能为负数')
+    monthly.enable(simulation.state)
+    snapshots=[{'month_number':monthly.calendar(simulation.state)['month_number'],'state':monthly.decorate(simulation.state.summary(),simulation.state)}]
+    completed=0
+    try:
+        for _ in range(args.months):
+            count=simulation.run_months(1,force=args.force,real_time=args.real_time,autosave_path=args.save)
+            completed+=count
+            if not count:break
+            snapshots.append({'month_number':monthly.calendar(simulation.state)['month_number'],'state':monthly.decorate(simulation.state.summary(),simulation.state)})
+        simulation.state.save(args.save)
+        Path(args.snapshots).parent.mkdir(parents=True,exist_ok=True)
+        Path(args.snapshots).write_text(json.dumps({'time_unit':'month','requested_months':args.months,'completed_months':completed,
+            'final_fingerprint':simulation.state.fingerprint(),'snapshots':snapshots},ensure_ascii=False,indent=2),encoding='utf-8')
+        Path(args.api_usage).parent.mkdir(parents=True,exist_ok=True)
+        Path(args.api_usage).write_text(json.dumps(budget.summary(),ensure_ascii=False,indent=2),encoding='utf-8')
+        print_status(simulation)
+        print(f'已推进 {completed} 个月；存档：{Path(args.save).resolve()}')
+    finally:simulation.close()
+    return 0 if completed==args.months else 2
+
+
 def status_command(args: argparse.Namespace) -> int:
     simulation = Simulation.load(args.save, args.world, use_mock_agents=False)
     print_status(simulation)
@@ -109,8 +136,9 @@ def interactive_command(args: argparse.Namespace) -> int:
     if args.load:
         simulation = Simulation.load(args.load, args.world)
     else:
-        simulation = Simulation.new(args.world, args.rules, args.seed)
-    print("命令：pause | resume | step [日] | ff 日 | run 日 | speed 每日秒数 | status | save [路径] | quit")
+        simulation = Simulation.new(args.world or DEFAULT_WORLD, args.rules, args.seed)
+    monthly.enable(simulation.state)
+    print("命令：pause | resume | step [月] | ff 月 | run 月 | speed 每秒月数 | status | save [路径] | quit")
     print_status(simulation)
     try:
         while True:
@@ -133,18 +161,18 @@ def interactive_command(args: argparse.Namespace) -> int:
                     print("已继续。")
                 elif command == "step":
                     count = int(arguments[0]) if arguments else 1
-                    print(f"已推进 {simulation.step(count)} 个游戏日。")
+                    print(f"已推进 {simulation.step_months(count)} 个游戏月。")
                     print_status(simulation)
                 elif command == "ff":
-                    print(f"已快进 {simulation.fast_forward(int(arguments[0]))} 个游戏日。")
+                    print(f"已快进 {simulation.step_months(int(arguments[0]))} 个游戏月。")
                     print_status(simulation)
                 elif command == "run":
                     count = int(arguments[0])
-                    print(f"已实时推进 {simulation.run(count, real_time=True)} 个游戏日。")
+                    print(f"已实时推进 {simulation.run_months(count, real_time=True)} 个游戏月。")
                     print_status(simulation)
                 elif command == "speed":
                     simulation.set_speed(float(arguments[0]))
-                    print(f"速度：{simulation.clock.ticks_per_second} 游戏日/现实秒。")
+                    print(f"速度：{simulation.clock.ticks_per_second} 游戏月/现实秒。")
                 elif command == "status":
                     print_status(simulation)
                 elif command == "save":
@@ -166,12 +194,14 @@ def build_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     run = subparsers.add_parser("run", help="推进模拟并写出存档、日志和快照")
-    run.add_argument("--world", type=Path, default=DEFAULT_WORLD)
+    run.add_argument("--world", type=Path, default=None)
     run.add_argument("--rules", type=Path, default=DEFAULT_RULES)
     run.add_argument("--load", type=Path)
-    run.add_argument("--days", type=int, default=365)
+    period=run.add_mutually_exclusive_group()
+    period.add_argument("--months", type=int, default=12)
+    period.add_argument("--days", type=int, default=None, help='旧制分析工具兼容参数；游戏使用 --months')
     run.add_argument("--seed", type=int, default=2000)
-    run.add_argument("--speed", type=float, default=5.0, help="现实每秒推进的游戏日数")
+    run.add_argument("--speed", type=float, default=1.0, help="现实每秒推进的游戏月数")
     run.add_argument("--real-time", action="store_true", help="按 speed 实时 pacing；默认无等待快进")
     run.add_argument("--force", action="store_true", help="即使暂停也强制快进")
     run.add_argument("--no-agents", action="store_true")
@@ -190,7 +220,7 @@ def build_parser() -> argparse.ArgumentParser:
     status.set_defaults(handler=status_command)
 
     interactive = subparsers.add_parser("interactive", help="交互式暂停、继续、单步和倍速")
-    interactive.add_argument("--world", type=Path, default=DEFAULT_WORLD)
+    interactive.add_argument("--world", type=Path, default=None)
     interactive.add_argument("--rules", type=Path, default=DEFAULT_RULES)
     interactive.add_argument("--load", type=Path)
     interactive.add_argument("--seed", type=int, default=2000)

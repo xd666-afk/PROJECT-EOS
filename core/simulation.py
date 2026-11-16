@@ -96,3 +96,20 @@ class Simulation:
 
     def fast_forward(self, days: int) -> int:
         return self.run(days, real_time=False, force=True)
+
+    def run_months(self, months: int, *, force: bool = False, real_time: bool = False,
+                   autosave_path: str | Path | None = None) -> int:
+        if type(months) is not int or months<0:raise ValueError('months must be a non-negative integer')
+        completed=0
+        for _ in range(months):
+            started=time.perf_counter()
+            if not self.engine.step_month(force=force):break
+            completed+=1
+            if autosave_path is not None:self.state.save(autosave_path)
+            if real_time:
+                remaining=self.clock.seconds_per_tick-(time.perf_counter()-started)
+                if remaining>0:time.sleep(remaining)
+        return completed
+
+    def step_months(self, months: int = 1) -> int:
+        return self.run_months(months,force=True)

@@ -163,6 +163,7 @@ class OpenAICompatibleAgent(CountryAgent):
             (observation.get("country") or {}).get("personality")
         )
         system = (
+            ("当前以自然月为最小游戏步长，每月只能议事一次。叙事日期使用 calendar.label，工期优先参考 months/months_left 等月度字段，收支优先使用 country.monthly_economy。后文的日数字段仅解释兼容内核，请使用其月度对应字段进行本月决策。world_day 只是兼容内核的身份索引，必须原样复制，不要把它写成玩家的日进度。" if observation.get('rules',{}).get('game_time_unit')=='month' else '')+
             f"当前国家性格：{personality['label']}（{personality['tagline']}）。"
             f"{personality['llm']}"
             "性格只影响取舍和风险偏好，不改变 JSON 结构或动作协议。"

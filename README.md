@@ -1,7 +1,9 @@
-# Project Eos — v0.52 卫星控制区与国界
+# Project Eos — v0.53 月度演进
 
-状态：**可运行的本地文明模拟垂直切片。已实现公平随机世界与玩家手绘世界、多国 AI（默认四国，支持 2–12 国）、v3 六边形先铺的 大中小三档地图（默认 72×54 小图）、河流与内湖、道路外交门槛、逐日经济、科技与时代、建设、外交、兵营规模与募兵、多支军队的真行军与集结加成（行军穿得过去别国领土，只是每格减速，落脚点可为己方、无主或获准军事通行的领土）、按地块查看驻军与按地块下令攻打（点哪一格就打哪一格，行军天数与集结系数预先报价）、夺下敌国建筑后按对方收入的 2% 抽 180 天占领贡金、点城池中心格开围并逐日推进围城账（封锁圈成数 → 账满整座连地带人易主，没围着的墙还能一键开赴封锁圈）、入侵边警（在途敌军在地图上画红警、左栏印对方抵达日期、军事页右上角标红点数）、抵达无守军缺口只折极少数士兵、攻下对方都城即整国并入并抄走其财政与粮草、被围的国家在非议事日也会被警报叫醒议事、点击本国兵营即可为该营选兵募兵并读回今日停摆原因、军事页与外交页直接列出命令回执（成没成、为什么没成）与外交提案终局、正式胜利条件、城市实体与双视角、城市分区/邻接/宜居度/粮食物流/地方预算、AI/手动/LLM 三种城市治理、激进/中立/保守三种 AI 性格、一级/二级指挥台导航、地图通知气泡、存档槽与动作回放。本地实时指挥台支持观战/介入。422 项 pytest 全绿；长期平衡实验使用 Mock，DeepSeek 已完成小规模真实动作闭环。**
+状态：**可运行的本地文明模拟垂直切片。保留实时演进、暂停与倍速，最小推进单位为自然月。六边形大中小地图（默认小图）、多国 AI、国家经济、城市治理、道路与物流、分支科技、外交、军队行军与围城、观众事件与互动编年均已接入。紧凑地图界面支持观战与介入，卫星图显示实时国界和控制面积。443 项 pytest 全部通过；全 Mock 可零 API 费用运行。**
 
+> 最新时间制：[`MONTHLY_TIME_2026-11-16.md`](MONTHLY_TIME_2026-11-16.md)。按自然月结算、AI 每月议事、实际月账、月度工期与事态期限、旧档余期兼容。
+>
 > 最新地图：[`SATELLITE_CONTROL_2026-11-16.md`](SATELLITE_CONTROL_2026-11-16.md)。卫星图叠加国家控制区、连续外轮廓与当前控制格数，跟随扩张、易主和国家消失实时更新。
 >
 > 紧凑界面：[`COMPACT_UI_2026-11-16.md`](COMPACT_UI_2026-11-16.md)。顶部 70px、浮动时间控件、按对象出现的小命令区、事态列表与详情共用单侧面板、图层折叠菜单；1366×768 下默认地图可直接操作面积约 90%。
@@ -24,6 +26,8 @@
 >
 > GitHub 仓库：<https://github.com/xd666-afk/PROJECT-EOS>（默认分支 `main`）
 
+后文军事实验与历史版本记录中的日数保留原始测试含义；当前玩家时间制以 v0.53 交接说明为准。
+
 ## 项目目标
 
 为“《文明 VI》式六边形地块 + 《群星》式可暂停实时运行 + AI 管理多个国家”的项目创建独立于大模型的世界状态底座。
@@ -38,37 +42,37 @@
 python -m venv .venv
 .venv/Scripts/python -m pip install -r requirements-dev.txt
 .venv/Scripts/python -m pytest -q
-.venv/Scripts/python live_server.py --load examples/civil_networks/save.json --days 365 --paused --open
+.venv/Scripts/python live_server.py --load examples/civil_networks/save.json --months 12 --paused --open
 ```
 
 打开 `http://127.0.0.1:8765/`，选择“继续游戏”。随仓库附带的 seed 50002 试玩存档会另建本机存档槽。选择国家 A 并介入，点击“物流”即可查看两城供应；原始单城开局在 `examples/hexfirst/save.json`。玩家原存档与示例文件都不会被启动命令覆盖。macOS/Linux 将解释器路径替换为 `.venv/bin/python`。
 
-已有本机存档可直接启动 `live_server.py --days 365 --paused --open` 后在菜单载入。新建随机世界使用 v3；手绘世界使用独立的 72×54 画布。直接调用生成器时请显式传入 `generation_version="v3"`，其省略参数仍保留 v1 兼容行为。
+已有本机存档可直接启动 `live_server.py --months 12 --paused --open` 后在菜单载入。新建随机世界使用 v3；手绘世界使用独立的 72×54 画布。直接调用生成器时请显式传入 `generation_version="v3"`，其省略参数仍保留 v1 兼容行为。
 
 整合范围、验收结果和遗留限制见 [整合报告](INTEGRATION_REPORT_2026-11-14.md)。保留原有六边形地形、内湖/内流河、弯曲道路和透明图标，同时合入同事 [PR #1](https://github.com/xd666-afk/PROJECT-EOS/pull/1) 的多军队、兵种、行军、野战、溃退、围城、都城吞并与手绘地图。未调整远征、停战、围城和吞并的玩法数值。
 
 `output/world_2000BCE.json` 是不可覆盖的历史静态基线；`runs/` 是本机运行数据，不随 Git 上传。可共享的试玩文件放在 `examples/hexfirst/` 与 `examples/civil_networks/`。
 
-## v0.2 策略模拟器快速启动
+## 月度策略模拟器快速启动
 
 在本目录运行：
 
 ```bash
-# 四国 Mock 自动决策，快进 365 日，写出存档、JSONL 日志和快照
-.venv/Scripts/python run_simulation.py run --days 365
+# 四国 Mock 自动决策，快进 12 个月，写出存档、JSONL 日志和月快照
+.venv/Scripts/python run_simulation.py run --months 12
 
 # 从已有存档继续推进
-.venv/Scripts/python run_simulation.py run --load runs/eos_365.json --days 365 --save runs/eos_730.json
+.venv/Scripts/python run_simulation.py run --load runs/eos_latest.json --months 12 --save runs/eos_month24.json
 
 # 交互式暂停、继续、单步和倍速
-.venv/Scripts/python run_simulation.py interactive --load runs/eos_365.json
+.venv/Scripts/python run_simulation.py interactive --load runs/eos_latest.json
 
 # 查看存档并运行全部测试
-.venv/Scripts/python run_simulation.py status --save runs/eos_365.json
+.venv/Scripts/python run_simulation.py status --save runs/eos_latest.json
 .venv/Scripts/python -m pytest -q
 ```
 
-交互命令为 `pause`、`resume`、`step [日]`、`ff 日`、`run 日`、`speed 每日秒数`、`status`、`save [路径]`、`quit`。默认快进不等待现实时间；`run --real-time --speed 5` 按每现实秒 5 个游戏日推进。
+交互命令为 `pause`、`resume`、`step [月]`、`ff 月`、`run 月`、`speed 每秒月数`、`status`、`save [路径]`、`quit`。默认快进不等待现实时间；`run --real-time --speed 5` 按每现实秒最多 5 个游戏月推进（计算耗时另计）。
 
 ### 随机世界与自定义国家
 
@@ -100,7 +104,7 @@ HTTP 接口：
 进入页面先显示主菜单，不再直接进入游戏：
 
 - **继续游戏**：读取最近保存的存档。
-- **载入存档**：独立列表页面，显示存档名、日期、游戏日、种子和四国名称，可载入或删除。
+- **载入存档**：独立列表页面，显示存档名、月份、游戏月、种子和四国名称，可载入或删除。
 - **新建世界**：独立开局页面，自动填入默认四国，可修改名称、颜色、文明类型、人口和地图种子。
 - **AI 席位**：进入世界后可逐国切换控制器。
 - 游戏内按 `Esc` 或点击顶部“菜单”打开暂停菜单，提供继续、保存、载入、AI 席位和返回主菜单。
@@ -117,7 +121,7 @@ HTTP 接口：
 ### 实时观察台
 
 ```bash
-.venv/Scripts/python live_server.py --days 365 --speed 2 --open
+.venv/Scripts/python live_server.py --months 12 --speed 2 --open
 ```
 
 观察台仅绑定 `127.0.0.1`，默认地址为 `http://127.0.0.1:8765/`。页面读取同一个 Python 规则引擎的实时状态，不是预录动画；可拖动/缩放地图、暂停、单步和切换速度。到达目标日后自动暂停并写入 `runs/live_dashboard.json`。该本地服务没有登录验证，不应绑定到公网地址。

@@ -1,0 +1,21 @@
+{
+  "javascript_errors": [],
+  "calendar_steps": [
+    {
+      "month": 1,
+      "engine_day": 2
+    },
+    {
+      "month": 2,
+      "engine_day": 31
+    },
+    {
+      "month": 3,
+      "engine_day": 59
+    }
+  ],
+  "monthly_finance": true,
+  "monthly_event_expiry": true,
+  "monthly_march": true,
+  "visible_daily_units": false
+}

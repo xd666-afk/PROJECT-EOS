@@ -108,7 +108,7 @@ def create(state, payload):
             raise ValueError("外交事态须选择另一个仍存在的国家")
     elif partner not in (None, ""):
         raise ValueError("此事件不需要第二个国家")
-    duration = integer(payload.get("duration", 30), "持续时间", 1, 180)
+    duration = integer(payload.get("duration", 30), "持续时间", 1, 731 if state.time_unit=='month' else 180)
     intensity = integer(payload.get("intensity", 2), "强度", 1, 3)
     if len(active(state)) >= 12:
         raise ValueError("最多同时推进 12 个事态，请先结束一个事态")
@@ -128,7 +128,9 @@ def create(state, payload):
                 initial=None, final=None, chronicle=None, ended_day=None)
     item["initial"] = metrics(state, item)
     state.situations[situation_id] = item
-    add_log(state, item, "intervention", f"观众施加「{spec['name']}」，持续 {duration} 日，强度{INTENSITIES[intensity][0]}。")
+    from core.monthly import months_for_days
+    span=f'{months_for_days(state.day_index,duration)} 个月' if state.time_unit=='month' else f'{duration} 日'
+    add_log(state, item, "intervention", f"观众施加「{spec['name']}」，持续 {span}，强度{INTENSITIES[intensity][0]}。")
     state.record("situation_created", situation_id=situation_id, country_id=target, preset_id=key,
                  event={"preset_id": key, "country_id": target, "partner_id": partner or None,
                         "duration": duration, "intensity": intensity})
@@ -149,11 +151,13 @@ def update(state, situation_id, changes):
     if not isinstance(changes, dict) or not changes or set(changes) - {"intensity", "remaining_days"}:
         raise ValueError("只可调整强度和剩余时间")
     intensity = integer(changes.get("intensity", item["intensity"]), "强度", 1, 3)
-    remaining = integer(changes.get("remaining_days", item["end_day"] - state.day_index), "剩余时间", 1, 180)
+    remaining = integer(changes.get("remaining_days", item["end_day"] - state.day_index), "剩余时间", 1, 731 if state.time_unit=='month' else 180)
     capture(state)
     item["intensity"] = intensity
     item["end_day"] = state.day_index + remaining
-    add_log(state, item, "adjustment", f"观众调整为{INTENSITIES[intensity][0]}，剩余 {remaining} 日；既有结果保留。")
+    from core.monthly import months_for_days
+    span=f'{months_for_days(state.day_index,remaining)} 个月' if state.time_unit=='month' else f'{remaining} 日'
+    add_log(state, item, "adjustment", f"观众调整为{INTENSITIES[intensity][0]}，剩余 {span}；既有结果保留。")
     state.record("situation_adjusted", situation_id=situation_id, intensity=intensity, remaining_days=remaining,
                  changes={"intensity": intensity, "remaining_days": remaining})
     return deepcopy(item)
@@ -294,13 +298,14 @@ def capture(state):
 
 
 def finish_day(state):
+    from core.monthly import month_index
     capture(state)
     for item in list(active(state)):
         if any(cid not in state.countries for cid in item["participants"]):
             end(state, item["id"], "参与国家已退出世界")
         elif state.day_index >= item["end_day"]:
             end(state, item["id"], "持续时间届满")
-        elif (state.day_index - item["start_day"]) % 5 == 0 or state.day_index == item["start_day"] + 1:
+        elif (state.time_unit=='month' and month_index(state.day_index)>month_index(state.day_index-1)) or (state.time_unit!='month' and ((state.day_index - item["start_day"]) % 5 == 0 or state.day_index == item["start_day"] + 1)):
             data = metrics(state, item)
             add_log(state, item, "observation", f"粮仓 {data['food']:.1f} · 国库 {data['treasury']:.1f} · 人口 {data['population']} · 稳定 {data['stability']:.1f}", metrics=data)
 

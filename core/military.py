@@ -2033,12 +2033,14 @@ class Military:
 
     def upkeep_daily(self) -> None:
         for country in self.state.countries.values():
+            paid_total = 0.0
             for army in country.armies:
                 if army.strength <= 0:
                     continue
                 cost = army_upkeep(army.units, self.state.config)
                 paid = min(country.treasury, cost)
                 country.treasury -= paid
+                paid_total += paid
                 if paid + 1e-9 < cost:
                     unit_id = self._desert(army)
                     self._apply_army_losses([army], {unit_id: 1})
@@ -2046,6 +2048,8 @@ class Military:
                         "army_desertion", country_id=country.country_id, army_id=army.army_id,
                         unit=unit_id, strength=country.army_strength,
                     )
+            if self.state.time_unit == 'month':
+                country.last_economy['military_upkeep'] = paid_total
 
     def tribute_daily(self) -> None:
         """Collect one day of occupation tribute: the payer's own treasury is the ceiling."""

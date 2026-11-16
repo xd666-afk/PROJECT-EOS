@@ -1,4 +1,4 @@
-"""Ninety-day synchronous planning boundary with isolated per-country observations."""
+"""Synchronous planning with isolated per-country observations."""
 from __future__ import annotations
 
 import asyncio
@@ -6,6 +6,7 @@ from copy import deepcopy
 from typing import Any
 
 from agents.heuristic import HeuristicAgent
+from core.monthly import calendar as monthly_calendar, economy_view as monthly_economy_view
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
 from core.content import field_cap
@@ -130,6 +131,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         "date": state.date,
         "country": {
             "population": country.population,
+            "calendar": monthly_calendar(state),
+            **({'monthly_economy':monthly_economy_view(state,country)} if state.time_unit=='month' else {}),
             "food": country.food,
             "treasury": country.treasury,
             "tax_rate": country.tax_rate,
@@ -216,6 +219,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         "recent_events": recent_events,
         "rules": {
             "allowed_actions": sorted(PUBLIC_ACTIONS),
+            "game_time_unit": state.time_unit,
+            "planning_interval_months": 1,
             "max_actions_per_decision": state.config["max_actions_per_decision"],
             "buildings": state.config["buildings"],
             "units": state.config["units"],
@@ -276,6 +281,9 @@ class AgentScheduler:
         }
         if not observations:
             return {}
+        if engine.state.time_unit=='month':
+            from core.monthly import decorate
+            observations={cid:decorate(value,engine.state) for cid,value in observations.items()}
         async def gather_decisions():
             return await asyncio.gather(*[
                 self._decide_safe(country_id, observation)

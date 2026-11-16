@@ -1,6 +1,6 @@
 # Project Eos 开发说明书
 
-> 面向共同开发者的工程手册。最后更新：2026-11-16，v0.52。当前验证结果见版本交接说明。
+> 面向共同开发者的工程手册。最后更新：2026-11-16，v0.53。当前验证结果见版本交接说明。
 >
 > 最新整合说明见 `INTEGRATION_REPORT_2026-11-14.md`；直接试玩用 `live_server.py --load examples/hexfirst/save.json --paused --open`。
 >
@@ -8,13 +8,19 @@
 
 ---
 
+## v0.53 更新：自然月时间制
+
+详见 [`MONTHLY_TIME_2026-11-16.md`](MONTHLY_TIME_2026-11-16.md)。正式游戏入口使用 `RuleEngine.step_month()` / `Simulation.step_months()`，一次推进到下月月初。国家与城市 AI 每月规划一次；会话锁覆盖整个结算，异常回退动态状态与随机数，月内细分日志提交后才对外发送。`monthly_ledger` 累计实际经济流量，公开接口提供明确月度字段，由 `assets/ui/monthly.js` 适配视图。旧档保留月内进度，第一次只完成余期；原日内核和字段为天气积分、存档与分析保留。
+
+以下历史章节里的日字段和军事实验数据继续表示原始精度；当前游戏推进与界面单位以 v0.53 说明为准。
+
 ## v0.52 更新：卫星控制区
 
 详见 [`SATELLITE_CONTROL_2026-11-16.md`](SATELLITE_CONTROL_2026-11-16.md)。`assets/ui/territory.js` 从实时控制格构建国界与国家标注，边界仅在归属变化时重建；`dashboard.html` 在卫星底图与河流之后、道路设施之前绘制控制区，最后绘制标注。运行中不得用静态初始归属补全当前无主格。
 
 ## v0.51 更新：紧凑地图工作区
 
-详见 [`COMPACT_UI_2026-11-16.md`](COMPACT_UI_2026-11-16.md)。最后加载的 `assets/ui/compact.css` 管理当前地图布局：顶部 70px、底部无预留底座、世界侧栏默认收起、列表/详情共用一侧、图层菜单按需展开。底部只有对象/焦点命令和时间控制的小浮层；待确认道路与行军另外显示价格/天数。
+详见 [`COMPACT_UI_2026-11-16.md`](COMPACT_UI_2026-11-16.md)。最后加载的 `assets/ui/compact.css` 管理当前地图布局：顶部 70px、底部无预留底座、世界侧栏默认收起、列表/详情共用一侧、图层菜单按需展开。底部只有对象/焦点命令和时间控制的小浮层；待确认道路与行军另外显示价格/月数。
 
 `scripts/verify_compact_ui.py` 检查屏幕可直接操作的地图面积和菜单行为；原两套浏览器脚本继续验收实际操作。修改地图视图时使用真实面板几何与 `constrainMapView()`，不写死双侧栏宽度。
 
@@ -94,7 +100,7 @@
 
 Project Eos 是一个本地运行的文明模拟沙盘：
 
-- 新建随机世界为 144×108 pointy-top 六边形；历史基线和手绘世界为 72×54，默认四国（支持 2–12 国），逐日推进，可暂停/倍速。
+- 新建随机世界默认 72×54 pointy-top 六边形，另可选中图 108×81、大图 144×108；历史基线和手绘世界为 72×54，默认四国（支持 2–12 国），按月推进，可暂停/倍速。
 - 玩家可以观战，也可以随时接管任意一国；AI 与玩家使用同一套规则。
 - 世界地图 + 城市局部地图双层视角；城市有独立人口、分区、粮食、预算、宜居度和 AI 市长。
 - 所有动态状态由规则引擎写入，AI 只提交 JSON 动作，便于复盘、回放和调试。
@@ -163,7 +169,7 @@ macOS / Linux：
 全 Mock、零 API 费用：
 
 ```bash
-./.venv/Scripts/python live_server.py --days 365 --speed 2 --paused --open
+./.venv/Scripts/python live_server.py --months 12 --speed 2 --paused --open
 ```
 
 浏览器打开 `http://127.0.0.1:8765/`。
@@ -172,8 +178,8 @@ macOS / Linux：
 
 | 参数 | 含义 |
 | --- | --- |
-| `--days N` | 本轮目标日；达到后自动暂停 |
-| `--speed X` | 每现实秒推进 X 个游戏日 |
+| `--months N` | 本轮观察月数，默认 12；达到后自动暂停 |
+| `--speed X` | 每现实秒最多推进 X 个游戏月，计算耗时另计 |
 | `--paused` | 启动后暂停，适合先看界面 |
 | `--open` | 启动后自动打开浏览器 |
 | `--port N` | 换端口，默认 8765 |
@@ -185,7 +191,7 @@ macOS / Linux：
 接入真实模型（示例，不要把密钥写进仓库）：
 
 ```bash
-./.venv/Scripts/python live_server.py --days 180 --speed 2 --open \
+./.venv/Scripts/python live_server.py --months 6 --speed 2 --open \
   --models config/models.deepseek.json \
   --api-key-file "/path/to/local-key-file" \
   --max-calls 2 --max-cost-usd 0.10
@@ -196,28 +202,28 @@ macOS / Linux：
 ### 2.4 命令行模拟
 
 ```bash
-# 四国 Mock，快进 365 日
-./.venv/Scripts/python run_simulation.py run --days 365
+# 四国 Mock，快进 12 个月
+./.venv/Scripts/python run_simulation.py run --months 12
 
 # 从存档继续
-./.venv/Scripts/python run_simulation.py run --load runs/eos_365.json --days 365 \
+./.venv/Scripts/python run_simulation.py run --load runs/eos_latest.json --months 12 \
   --save runs/eos_730.json
 
 # 交互模式
-./.venv/Scripts/python run_simulation.py interactive --load runs/eos_365.json
+./.venv/Scripts/python run_simulation.py interactive --load runs/eos_latest.json
 
 # 查看存档摘要
-./.venv/Scripts/python run_simulation.py status --save runs/eos_365.json
+./.venv/Scripts/python run_simulation.py status --save runs/eos_latest.json
 ```
 
 输出：
 
 - `--save`：完整动态存档。
 - `--log`：JSONL 事件流。
-- `--snapshots`：每 30 日及关键节点的国家摘要。
+- `--snapshots`：每月结算后的国家摘要。
 - `--api-usage`：本次 API 调用/Token/估算费用。
 
-交互命令：`pause`、`resume`、`step [日]`、`ff 日`、`run 日`、`speed 每日秒数`、`status`、`save [路径]`、`quit`。
+交互命令：`pause`、`resume`、`step [月]`、`ff 月`、`run 月`、`speed 每秒月数`、`status`、`save [路径]`、`quit`。
 
 ### 2.5 老地图生成管线（可选）
 
@@ -237,10 +243,10 @@ macOS / Linux：
 ./.venv/Scripts/python -m pytest -q
 ```
 
-提交前建议再跑一轮 365 日 Mock：
+提交前建议再跑一轮 12 个月 Mock：
 
 ```bash
-./.venv/Scripts/python run_simulation.py run --days 365 \
+./.venv/Scripts/python run_simulation.py run --months 12 \
   --save runs/_check_365.json --log runs/_check_365.jsonl \
   --snapshots runs/_check_365_snapshots.json
 ```
@@ -288,13 +294,13 @@ AgentScheduler ── deepcopy(observation) ──> HeuristicAgent / OpenAICompa
 
 前端永远不直接改状态；它只提交动作，然后重新拉取 `/api/state`。
 
-### 3.2 一次日推进的完整顺序
+### 3.2 月内细分结算内核的完整顺序
 
-`RuleEngine.step_day()` 的顺序是硬约束：
+`RuleEngine.step_month()` 在事务内调用下面的细分内核；这不是玩家可中断的日推进。`RuleEngine.step_day()` 的顺序是硬约束：
 
 1. 过期外交关系与贸易/和平提案。
-2. 若到规划日（默认每 90 日）：国家 AI 规划 + 城市 AI 市长规划。
-3. AI 边疆开拓（`enable_frontier_ai`）。
+2. 月模式仅在月初：国家 AI 规划 + 城市 AI 市长规划；旧日分析模式沿用每 90 日及警报议事。
+3. AI 边疆开拓（`enable_frontier_ai`）；月模式仅月初。
 4. 采样并记录当日天气。
 5. 各国每日经济结算（粮食、地方物流、城市预算、财政、饥荒）——`country.last_economy` 在这里写定。
 6. **占领贡金划拨 `military.tribute_daily()`**：必须紧跟在经济结算之后，因为每笔贡金按缴付方当日毛收入定价，账本也在这里倒计时与到期。
@@ -511,7 +517,7 @@ siege: {"attacker", "armies", "progress", "started_day"} | None
 6. `agents/llm_adapter.py` 的 system prompt 加入动作说明。
 7. 在 `tests/test_actions.py` 增加成功、非法参数、越权/外部对象、原子性测试。
 8. 如前端需要入口，在 `dashboard.html` 增加 UI，并只通过 `/api/action` 提交。
-9. 跑完整测试 + 365 日 Mock，确认 AI 不会滥用。
+9. 跑完整测试 + 12 个月 Mock，确认 AI 不会滥用。
 
 ---
 
@@ -1691,18 +1697,18 @@ taskkill /PID <PID> /F
 ./.venv/Scripts/python -m pytest -q
 
 # 实时观察台（Mock）
-./.venv/Scripts/python live_server.py --days 365 --speed 2 --paused --open
+./.venv/Scripts/python live_server.py --months 12 --speed 2 --paused --open
 
 # 带 LLM（需本机密钥文件与预算）
-./.venv/Scripts/python live_server.py --days 180 --speed 2 --open \
+./.venv/Scripts/python live_server.py --months 6 --speed 2 --open \
   --models config/models.deepseek.json --api-key-file "/path/to/key" \
   --max-calls 2 --max-cost-usd 0.10
 
 # 批处理 365 日
-./.venv/Scripts/python run_simulation.py run --days 365
+./.venv/Scripts/python run_simulation.py run --months 12
 
 # 从存档继续
-./.venv/Scripts/python run_simulation.py run --load runs/eos_365.json --days 365 \
+./.venv/Scripts/python run_simulation.py run --load runs/eos_latest.json --months 12 \
   --save runs/eos_730.json
 
 # 地图重建（不要覆盖 output/）

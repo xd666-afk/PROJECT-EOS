@@ -53,7 +53,7 @@ def verify(output):
                 page.locator('[data-sit-category="自然与气候"]').click()
                 page.locator('[data-sit-preset="drought"]').click()
                 page.locator('#situationCreateForm [name="country_id"]').select_option('A')
-                page.locator('#situationCreateForm [name="duration"]').fill('12')
+                page.locator('#situationCreateForm [name="duration_months"]').fill('12')
                 page.locator('#situationCreateForm button[type="submit"]').click()
                 page.wait_for_selector('#situationList [data-sit-id]')
                 first = page.locator('#situationList [data-sit-id]').first.get_attribute('data-sit-id')
@@ -69,7 +69,7 @@ def verify(output):
                 page.locator('#situationSections [data-sit-section="library"]').click()
                 page.locator('[data-sit-preset="harvest"]').click()
                 page.locator('#situationCreateForm [name="country_id"]').select_option('B')
-                page.locator('#situationCreateForm [name="duration"]').fill('15')
+                page.locator('#situationCreateForm [name="duration_months"]').fill('15')
                 page.locator('#situationCreateForm button[type="submit"]').click()
                 page.wait_for_function('STATE.situations.length===2')
                 assert page.evaluate('situationUI.focus') == first
@@ -91,10 +91,10 @@ def verify(output):
                 assert page.locator('.situation-history [data-kind="observation"]').count() >= 1
                 page.screenshot(path=str(output/'development.png'))
                 page.locator('[data-sit-tab="adjust"]').click()
-                page.locator('#situationAdjustForm [name="remaining_days"]').fill('9')
+                page.locator('#situationAdjustForm [name="remaining_months"]').fill('9')
                 # A poll must not overwrite unsaved edits.
                 page.evaluate('poll(true)')
-                assert page.locator('#situationAdjustForm [name="remaining_days"]').input_value() == '9'
+                assert page.locator('#situationAdjustForm [name="remaining_months"]').input_value() == '9'
                 page.locator('#situationAdjustForm [name="intensity"]').select_option('3')
                 page.locator('#situationAdjustForm button[type="submit"]').click()
                 page.wait_for_function('STATE.situations.find(s=>s.preset_id==="harvest").remaining_days===9')
@@ -175,7 +175,7 @@ def verify(output):
                 page.locator(f'[data-sit-id="{first}"]').click()
                 page.wait_for_function('situationUI.detail?.preset_id==="drought"')
                 page.locator('[data-sit-tab="adjust"]').click()
-                assert page.request.post(base+'/api/situations',data={'operation':'update','id':first,'changes':{'remaining_days':1}}).json()['ok']
+                assert page.request.post(base+'/api/situations',data={'operation':'update','id':first,'changes':{'remaining_months':1}}).json()['ok']
                 assert page.request.post(base+'/api/control',data={'action':'step'}).json()['ok']
                 page.evaluate('poll(true)')
                 page.wait_for_selector('.situation-chronicle')

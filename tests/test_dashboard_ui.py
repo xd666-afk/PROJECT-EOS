@@ -182,7 +182,7 @@ def test_painter_asks_the_engine_for_every_march_number():
     # away from the settlement that will later run the same route.
     assert "fetch('/api/march_preview'" in DASHBOARD
     assert "body:JSON.stringify({draft:painterDraft(),from:start,to:target})" in DASHBOARD
-    assert "${preview.days} 天" in DASHBOARD
+    assert "${preview.days} 个月" in DASHBOARD
     assert "preview.hint" in DASHBOARD
     assert "preview.single_order?'一条命令可达':'需分段下令'" in DASHBOARD
     assert "from mapgen_custom import march_preview" in LIVE_SERVER
@@ -230,7 +230,7 @@ def test_border_alerts_paint_the_warning_the_settlement_already_priced():
     assert "if(STATE)drawThreatMarkers(scale);" in DASHBOARD
     assert 'id="worldThreats"' in DASHBOARD
     assert "function threatCard(row)" in DASHBOARD
-    assert "还剩 ${row.days_left} 天行军 · 抵达于 ${esc(row.arrival_date)}" in DASHBOARD
+    assert "还剩 ${row.days_left} 个月行军 · 抵达于 ${esc(row.arrival_date)}" in DASHBOARD
     assert "该处没有我方守军" in DASHBOARD
     assert 'class="tag threat"' in DASHBOARD
     assert "const alerts=threatRows()" in DASHBOARD

@@ -13,6 +13,7 @@ import time
 from datetime import datetime, timezone
 from urllib import error, request
 from urllib.parse import parse_qs, urlparse
+from core import monthly
 import webbrowser
 
 from agents.heuristic import HeuristicAgent
@@ -126,7 +127,7 @@ def project_world(world_data: dict) -> dict:
 class LiveSession:
     def __init__(
         self,
-        speed: float = 4.0,
+        speed: float = 1.0,
         maximum_day: int = 365,
         paused: bool = False,
         scheduler: AgentScheduler | None = None,
@@ -152,7 +153,8 @@ class LiveSession:
         self._message_cursor = len(self.simulation.state.event_log)
         self._last_message_days: dict[str, int] = {}
         self.speed = speed
-        self.maximum_day = self.simulation.state.day_index + maximum_day
+        from core import monthly
+        self.maximum_day = monthly.after_months(self.simulation.state.day_index,max(1,round(maximum_day*12/365)))
         self.paused = paused
         self.finished = False
         self._stop = threading.Event()
@@ -170,6 +172,8 @@ class LiveSession:
             simulation.scheduler = self.scheduler
             simulation.engine.planner = self.scheduler
         self.scheduler.set_player_country(self.player_country)
+        from core import monthly
+        monthly.enable(simulation.state)
         return simulation
 
     def _emit_ruler_messages(self) -> None:
@@ -191,7 +195,7 @@ class LiveSession:
             should_save = False
             with self.lock:
                 if not self.paused and self.simulation.state.day_index < self.maximum_day:
-                    self.simulation.run(1, force=True)
+                    self.simulation.step_months(1)
                     self._emit_ruler_messages()
                     day = self.simulation.state.day_index
                     if not self.simulation.state.victory_announced():
@@ -210,7 +214,7 @@ class LiveSession:
                         self.paused = True
                         self.finished = True
                         should_save = True
-                    elif day % 30 == 0:
+                    else:
                         should_save = True
                 speed = self.speed
             if should_save:
@@ -240,7 +244,9 @@ class LiveSession:
                 "id": self.current_save_id,
                 "name": self.current_save_name,
                 "day": self.simulation.state.day_index,
-                "date": self.simulation.state.date["label"],
+                "month_number": monthly.month_index(self.simulation.state.day_index)+1,
+                "time_unit": "month",
+                "date": monthly.month_label(self.simulation.state.day_index,self.simulation.state.start_astronomical_year),
                 "seed": self.simulation.state.seed,
                 "map_size": self.simulation.state.world.data["metadata"].get("map_size"),
                 "grid_width": self.simulation.state.world.data["metadata"]["grid_width"],
@@ -285,6 +291,8 @@ class LiveSession:
                 return {"ok": False, "error": f"存档加载失败：{type(exc).__name__}"}
             preserved_agents = dict(self.scheduler.agents) if self.scheduler else {}
             preserved_meta = dict(self.agent_meta)
+            from core import monthly
+            monthly.enable(simulation.state)
             self.simulation = simulation
             # Keep the configured LLM seats across loads; a save must not silently
             # downgrade a model-controlled country to the heuristic controller.
@@ -312,7 +320,9 @@ class LiveSession:
             self.scheduler.set_player_country(self.player_country)
             self.paused = True
             self.finished = False
-            self.maximum_day = max(simulation.state.day_index + 365, simulation.state.day_index + 1)
+            self.maximum_day = monthly.after_months(simulation.state.day_index,12)
+            self._message_cursor=len(simulation.state.event_log)
+            self._last_message_days={}
             self.current_save_id = slot_id
             self.current_save_name = meta.get("name")
             return {"ok": True, "save": meta}
@@ -338,9 +348,10 @@ class LiveSession:
                 if self.finished:
                     return {"ok": False, "error": "本轮已完成，请使用单步继续观察"}
                 self.paused = False
-            elif action == "step":
-                self.simulation.step(1)
+            elif action in {"step","step_month"}:
+                self.simulation.step_months(1)
                 self._emit_ruler_messages()
+                self.save_current()
                 if self.simulation.state.day_index >= self.maximum_day:
                     self.finished = True
                     self.paused = True
@@ -369,12 +380,14 @@ class LiveSession:
                 self.scheduler.set_player_country(None)
                 self.simulation.state.record("control_changed", country_id=None, mode="observer")
             elif action == "extend_round":
-                self.maximum_day += 365
+                from core.monthly import after_months
+                self.maximum_day = after_months(self.maximum_day,12)
                 self.finished = False
                 self.paused = True
             elif action == "reset":
                 paused = self.paused
                 self.simulation = self._new_simulation()
+                self.maximum_day=monthly.after_months(self.simulation.state.day_index,12)
                 self._message_cursor = len(self.simulation.state.event_log)
                 self._last_message_days = {}
                 self.paused = paused
@@ -413,6 +426,8 @@ class LiveSession:
                 )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
+            from core import monthly
+            monthly.enable(simulation.state)
             self.simulation = simulation
             self._message_cursor = len(simulation.state.event_log)
             self._last_message_days = {}
@@ -825,33 +840,50 @@ class LiveSession:
 
     def situation_payload(self, situation_id: str | None = None) -> dict:
         from core import situations
+        from core import monthly
         with self.lock:
             state = self.simulation.state
             situations.capture(state)
             if situation_id:
                 if situation_id not in state.situations:
                     raise ValueError("找不到这个事态")
-                return {"ok": True, "situation": situations.snapshot(state, state.situations[situation_id], detailed=True)}
-            return {"ok": True, "presets": situations.catalog(), "active_limit": 12,
-                    "situations": [situations.snapshot(state, item) for item in reversed(list(state.situations.values()))]}
+                return {"ok": True, "situation": monthly.situation_view(state, state.situations[situation_id], detailed=True)}
+            presets=situations.catalog()
+            for spec in presets:
+                spec['default_duration_months']=3
+                spec['description']=spec['description'].replace('每日','持续')
+            return {"ok": True, "presets": presets, "active_limit": 12,
+                    "situations": [monthly.situation_view(state, item) for item in reversed(list(state.situations.values()))]}
 
     def change_situation(self, payload: dict) -> dict:
         from core import situations
+        from core import monthly
         if not isinstance(payload, dict):
             raise ValueError("事态请求必须是对象")
         with self.lock:
             state = self.simulation.state
             operation = payload.get("operation")
             if operation == "create":
-                item = situations.create(state, payload.get("event"))
+                event=deepcopy(payload.get('event'))
+                if not isinstance(event,dict):raise ValueError('请选择事件参数')
+                if 'duration' in event:raise ValueError('现在按月运行，请使用 duration_months')
+                months=situations.integer(event.pop('duration_months',3),'持续月数',1,24)
+                event['duration']=monthly.after_months(state.day_index,months)-state.day_index
+                item = situations.create(state, event)
             elif operation == "update":
-                item = situations.update(state, payload.get("id"), payload.get("changes"))
+                changes=deepcopy(payload.get('changes'))
+                if not isinstance(changes,dict):raise ValueError('请选择调整参数')
+                if 'remaining_days' in changes:raise ValueError('现在按月运行，请使用 remaining_months')
+                if 'remaining_months' in changes:
+                    months=situations.integer(changes.pop('remaining_months'),'剩余月数',1,24)
+                    changes['remaining_days']=monthly.after_months(state.day_index,months)-state.day_index
+                item = situations.update(state, payload.get("id"), changes)
             elif operation == "end":
                 item = situations.end(state, payload.get("id"))
             else:
                 raise ValueError("未知事态操作")
             self.save_current()
-            return {"ok": True, "situation": situations.snapshot(state, item, detailed=True)}
+            return {"ok": True, "situation": monthly.situation_view(state,item,detailed=True)}
 
     def road_preview(self, actor, start, end):
         from core.actions import ActionRejected, validate_action
@@ -863,6 +895,7 @@ class LiveSession:
                 action = validate_action(actor, {"type": "BUILD_ROAD_ROUTE", "from": start, "to": end}, self.simulation.state.config)
                 quote = plan(self.simulation.state, self.simulation.state.countries[actor],
                              (action["from"]["col"], action["from"]["row"]), (action["to"]["col"], action["to"]["row"]))
+                quote['estimated_months']=monthly.road_months(self.simulation.state,self.simulation.state.countries[actor],quote)
                 return {"ok": True, "quote": quote}
             except ActionRejected as exc:
                 return {"ok": False, "code": exc.code, "error": exc.text}
@@ -922,6 +955,10 @@ class LiveSession:
     def snapshot(self) -> dict:
         with self.lock:
             summary = self.simulation.state.summary()
+            for cid,country in self.simulation.state.countries.items():
+                summary['countries'][cid]['monthly_economy']=monthly.economy_view(self.simulation.state,country)
+                summary['countries'][cid]['monthly_city_economy']=deepcopy(self.simulation.state.monthly_ledger.get('cities',{}))
+                summary['countries'][cid]['building_months']={key:monthly.construction_months(self.simulation.state,country,spec['days']) for key,spec in self.simulation.state.config['buildings'].items()}
             threats = Military(self.simulation.state).incoming_threats()
             from core.access import access_rights, PACT_SPECS
             state = self.simulation.state
@@ -959,6 +996,8 @@ class LiveSession:
             ]
             return {
                 "day": self.simulation.state.day_index,
+                "calendar": monthly.calendar(state),
+                "time_unit": "month",
                 "date": summary["date"],
                 "paused": self.paused,
                 "finished": self.finished,
@@ -1008,6 +1047,7 @@ class LiveSession:
                 "situations": self.situation_payload()["situations"],
                 "buildings": buildings,
                 "projects": projects,
+                "projects_months": [[*p[:4],monthly.construction_months(state,state.countries[p[3]],p[4]),*p[5:]] for p in projects],
                 "agents": self.agent_meta,
                 "latest_llm_decision": llm_decisions[-1] if llm_decisions else None,
                 "latest_llm_call": llm_calls[-1] if llm_calls else None,
@@ -1039,6 +1079,9 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _json(self, payload: dict, status: int = 200) -> None:
+        from core import monthly
+        with self.session.lock:
+            payload=monthly.decorate(payload,self.session.simulation.state)
         self._send(
             status,
             json.dumps(payload, ensure_ascii=False, separators=(",", ":")).encode("utf-8"),
@@ -1212,8 +1255,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Project Eos local real-time observer")
     parser.add_argument("--host", default="127.0.0.1")
     parser.add_argument("--port", type=int, default=8765)
-    parser.add_argument("--speed", type=float, default=4.0, help="game days per real second")
-    parser.add_argument("--days", type=int, default=365)
+    parser.add_argument("--speed", type=float, default=1.0, help="game months per real second")
+    parser.add_argument("--months", type=int, default=12)
+    parser.add_argument("--days", type=int, default=None, help="legacy horizon; use --months")
     parser.add_argument("--paused", action="store_true")
     parser.add_argument("--load", type=Path, help="load a JSON save without overwriting its source")
     parser.add_argument("--open", action="store_true", help="open the dashboard in a browser")
@@ -1222,6 +1266,8 @@ def main() -> int:
     parser.add_argument("--max-calls", type=int, default=None)
     parser.add_argument("--max-cost-usd", type=float, default=None)
     args = parser.parse_args()
+    if args.months<1 or (args.days is not None and args.days<1):
+        parser.error('模拟期限必须大于零；默认以月为单位')
     if args.host not in {"127.0.0.1", "localhost"}:
         raise SystemExit("Refusing non-loopback host: this dashboard has no authentication")
 
@@ -1243,7 +1289,7 @@ def main() -> int:
         scheduler = AgentScheduler(load_agents(args.models, budget))
 
     session = LiveSession(
-        args.speed, args.days, args.paused, scheduler, budget, agent_meta, args.load
+        args.speed, args.days if args.days is not None else round(args.months*365/12), args.paused, scheduler, budget, agent_meta, args.load
     )
     if args.load:
         # Import into a fresh local slot so the menu's Continue/Load controls
@@ -1254,7 +1300,7 @@ def main() -> int:
     server.daemon_threads = True
     url = f"http://{args.host}:{args.port}/"
     print(f"Project Eos live dashboard: {url}")
-    print(f"Real-time: {args.speed} game day(s) per second; stop at day {args.days}.")
+    print(f"Real-time: {args.speed} game month(s) per second; horizon {args.months} month(s).")
     if agent_meta:
         controllers = ", ".join(
             f"{country}={meta['provider'] or 'mock'}:{meta['model'] or 'rules'}"

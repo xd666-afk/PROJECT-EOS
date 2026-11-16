@@ -1,4 +1,4 @@
-"""Real-time pacing is separate from fixed, one-day logical ticks."""
+"""Real-time pacing for natural-month transactions; daily precision stays internal."""
 from __future__ import annotations
 
 
