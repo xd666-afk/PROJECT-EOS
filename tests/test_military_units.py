@@ -85,13 +85,13 @@ def test_validator_links_building_prerequisites_to_tech_unlocks(state):
 
 def test_roster_helpers_derive_size_power_and_upkeep(state):
     config = state.config
-    units = {"MILITIA": 4, "CAVALRY": 2}
+    units = {"MILITIA": 40, "CAVALRY": 20}
     assert roster_value(units, config, "power") == pytest.approx(
         4 * config["units"]["MILITIA"]["power"] + 2 * config["units"]["CAVALRY"]["power"]
     )
     assert army_upkeep(units, config) == pytest.approx(
-        4 * config["units"]["MILITIA"]["upkeep_per_day"]
-        + 2 * config["units"]["CAVALRY"]["upkeep_per_day"]
+        4 * config["units"]["MILITIA"]["upkeep_food"]
+        + 2 * config["units"]["CAVALRY"]["upkeep_food"]
     )
     assert normalize_roster({"CAVALRY": 2, "GHOST": 5, "MILITIA": 0}, config) == {"CAVALRY": 2}
 
@@ -120,6 +120,7 @@ def test_v1_scalar_save_migrates_into_the_default_unit(state, tmp_path):
 
 
 def test_recruit_is_gated_per_unit_type(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     country = state.countries["ELAR"]
     specs = state.config["units"]
@@ -152,10 +153,11 @@ def test_recruit_is_gated_per_unit_type(engine):
 
     set_roster(country, {default: military["maximum_strength"]})
     full = engine.apply_action("ELAR", recruit(default, 1))
-    assert not full.accepted and full.reason_code == "ARMY_LIMIT"
+    assert not full.accepted and full.reason_code == "UNIT_LIMIT"
 
 
 def test_recruit_charges_per_unit_costs_and_only_moves_its_own_army(engine):
+    engine.state.config["military"].pop("deployment_levels", None)
     state = engine.state
     country = state.countries["ELAR"]
     country.treasury = country.food = 10_000.0
@@ -238,7 +240,7 @@ def test_battle_reports_per_unit_losses_and_the_ground_fought_on(engine):
     assert state.world.tile(tile)["biome"] == effects["biome"]
     assert sum(effects["attacker_units"].values()) == effects["attacker_loss"]
     assert sum(effects["defender_units"].values()) == effects["defender_loss"]
-    assert 0 < effects["attacker_loss"] < 8 and 0 < effects["defender_loss"] < 5
+    assert min(effects["attacker_loss"], effects["defender_loss"]) == 0
     assert sum(country.army_units.values()) == 8 - effects["attacker_loss"]
 
 
@@ -269,10 +271,11 @@ def test_unpaid_army_sheds_its_costliest_unit_first(engine):
     state = engine.state
     country = state.countries["ELAR"]
     specs = state.config["units"]
-    dearest = max(specs, key=lambda unit_id: specs[unit_id]["upkeep_per_day"])
-    cheapest = min(specs, key=lambda unit_id: specs[unit_id]["upkeep_per_day"])
+    dearest = max(specs, key=lambda unit_id: specs[unit_id]["upkeep_food"])
+    cheapest = min(specs, key=lambda unit_id: specs[unit_id]["upkeep_food"])
     set_roster(country, {cheapest: 2, dearest: 1})
     country.treasury = 0.0
+    country.food = army_upkeep({cheapest: 2}, state.config)
     engine.military.upkeep_daily()
     assert country.army_units == {cheapest: 2}
     assert last_event(state, "army_desertion")["unit"] == dearest
@@ -288,7 +291,7 @@ def test_army_strength_property_and_summary_follow_the_roster(state):
     assert summary["army_power"] == pytest.approx(
         roster_value(country.army_units, state.config), abs=1e-3
     )
-    assert summary["military_upkeep"] == pytest.approx(
+    assert summary["military_upkeep_food"] == pytest.approx(
         army_upkeep(country.army_units, state.config), abs=1e-3
     )
 
@@ -301,7 +304,8 @@ def test_observation_and_llm_prompt_teach_the_unit_protocol(state):
     assert observation["country"]["army_units"] == {"MILITIA": 2}
     assert observation["country"]["armies"] == [{
         "army_id": "ELAR-A1", "tile": None, "units": {"MILITIA": 2}, "strength": 2,
-        "power": round(2 * state.config["units"]["MILITIA"]["power"], 3),
+        "power": round(0.2 * state.config["units"]["MILITIA"]["power"], 3),
+        "upkeep_food": round(0.2 * state.config["units"]["MILITIA"]["upkeep_food"], 4),
         "recruiting": False, "progress": 0.0, "preferred_unit": None, "barracks": False,
         "target_unit": None, "stall": "", "raised": 0, "march": None,
     }]

@@ -8,7 +8,7 @@ from typing import Any
 from agents.heuristic import HeuristicAgent
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
-from core.content import field_cap
+from core.content import soldiers_per_unit
 from core.access import PACT_SPECS
 from core.military import Military
 from core.road import road_permit
@@ -22,6 +22,7 @@ from core.society import (
 )
 from core.state import (
     army_payload,
+    tile_army_capacity,
     barracks_reports,
     diplomacy_ledger,
     recruit_options,
@@ -142,6 +143,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "policy": country.policy,
             "buildings": {f"{c[0]},{c[1]}": b for c, b in country.buildings.items()},
             "projects": Construction.describe(country),
+            "roadworks": Military(state).roadwork_options(country),
             "active_situations": [
                 {"id": item["id"], "name": item["name"], "preset_id": item["preset_id"], "target": item["country_id"],
                  "remaining_days": max(0, item["end_day"] - state.day_index), "intensity": item["intensity"]}
@@ -159,7 +161,10 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "specialization": specialty,
             "outposts": len(country.outposts),
             "army_strength": country.army_strength,
-            "army_cap": field_cap(country.buildings.values(), state.config),
+            "military_upkeep_food": country.military_food(state.config),
+            "deployment": country.deployment_status(state.config),
+            "reserve_strength": sum(sum(stock.values()) for stock in country.city_reserves.values()),
+            "reserve_campaigns": Military(state).reserve_campaigns(country, minimum=3 * soldiers_per_unit(state.config)),
             "army_units": dict(country.army_units),
             "army_position": list(country.army_position) if country.army_position else None,
             "armies": [army_payload(army, country, state.config) for army in country.armies],
@@ -175,12 +180,16 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
                     "siege": siege_ledger(state.countries, country, city, state.config),
                     # Which wall is the seat: its fall is the whole realm, not one more town.
                     "capital": state.is_capital(country, city),
+                    "reserve_units": dict(country.city_reserves.get(city.city_id, {})),
+                    "military_capacity": None if state.config["military"].get("deployment_levels") else tile_army_capacity(
+                        country, state.config, capital=state.is_capital(country, city)
+                    ),
                 }
                 for city in country.cities
             ],
         },
         "foreign_military": {
-            other_id: other.army_strength
+            other_id: other.army_strength + sum(sum(stock.values()) for stock in other.city_reserves.values())
             for other_id, other in state.countries.items() if other_id != country_id
         },
         "campaign_options": _campaign_options(state, country),

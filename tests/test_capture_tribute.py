@@ -16,7 +16,7 @@ import pytest
 from agents.heuristic import HeuristicAgent
 from agents.personality import PERSONALITIES, personality_definition
 from agents.scheduler import build_observation
-from core.content import ContentError, validate_content
+from core.content import ContentError, soldiers_per_unit, validate_content
 from core.messages import _messages_for_event
 from core.military import Military
 from core.rules import RuleEngine
@@ -57,9 +57,11 @@ def staged(engine, building=None):
         coord for coord in state.world.neighbors(*tile)
         if coord not in defender.tiles and state.world.tile(coord)["land"]
     )
-    if building is not None:
+    if building == "ROAD":
+        defender.roads.add(tile)
+    elif building is not None:
         defender.buildings[tile] = building
-    army = attacker.new_army(tile=staging, units={"MILITIA": 8})
+    army = attacker.new_army(tile=staging, units={"MILITIA": 8 * soldiers_per_unit(state.config)})
     engine.apply_action(ACTOR, {
         "type": "DIPLOMACY", "operation": "DECLARE_WAR", "target": RIVAL,
     })
@@ -118,7 +120,8 @@ def test_a_captured_road_earns_nothing_because_pavement_was_never_exclusive():
     """The exempt list is settlement data, so a road is free to hold and free to take."""
     engine = engine_of()
     assert "ROAD" in engine.state.config["military"]["capture_tribute_exempt"]
-    _attacker, defender, _tile, tribute = seize(engine, building="ROAD")
+    attacker, defender, tile, tribute = seize(engine, building="ROAD")
+    assert tile in attacker.roads and tile not in defender.roads
     assert tribute is None and defender.levies == []
 
 

@@ -39,13 +39,7 @@ class HeuristicAgent(CountryAgent):
         military = rules.get("military", {})
         country = observation["country"]
         technology = country.get("technology", {})
-        roster = country.get("army_units", {})
-        # The engine raises the ceiling one garrison per barracks; the agent reads the same
-        # number instead of the flat content-table floor, or it would stop recruiting early.
-        if country.get("army_strength", 0) + size > country.get(
-            "army_cap", military.get("maximum_strength", 0)
-        ):
-            return None
+        options = {o["unit"]: o for o in country.get("recruit_options", [])}
         order = [unit_id for unit_id in profile.get("units", []) if unit_id in units]
         default = military.get("default_unit")
         if default in units and default not in order:
@@ -55,7 +49,7 @@ class HeuristicAgent(CountryAgent):
             requirement = spec.get("required_technology")
             if requirement and technology.get(requirement["field"], 0) < requirement["level"]:
                 continue
-            if roster.get(unit_id, 0) + size > spec["max_count"]:
+            if unit_id in options and options[unit_id]["room"] < size:
                 continue
             if country["treasury"] < size * spec["cost"]["treasury"]:
                 continue
@@ -298,55 +292,52 @@ class HeuristicAgent(CountryAgent):
 
     def _barracks_orders(self, observation: dict[str, Any], profile: dict[str, Any],
                          rules: dict[str, Any], country: dict[str, Any]) -> list[dict[str, Any]]:
-        """Keep every barracks garrison aimed at a trainable type and on the wage book."""
-        barracks = rules["military"].get("barracks") or {}
-        wage = float(barracks.get("daily_cost", 0.0))
-        capacity = int(barracks.get("garrison_capacity", 0))
-        fallback = barracks.get("default_unit") or rules["military"].get("default_unit")
-        if wage <= 0 or not fallback:
+        if rules["military"].get("deployment_levels"):
+            rows = []
+            for camp in country.get("barracks", []):
+                if camp["army_id"] and not camp["recruiting"]:
+                    action = {"type": "MILITARY", "army_id": camp["army_id"]}
+                    if camp["preferred"] is None:
+                        rows.append({**action, "operation": "SET_RECRUIT_UNIT", "unit": camp["unit"]})
+                    rows.append({**action, "operation": "SET_RECRUITING", "recruiting": True})
+            return rows
+        eligible = [army for army in country.get("armies", [])
+                    if army["barracks"] and army["strength"] and not army.get("march")]
+        if not eligible:
+            # Staff an empty camp before waiting for the training pool.
+            standing = [a for a in country.get("armies", [])
+                        if a["strength"] and not a.get("march") and a.get("tile")]
+            empty = [camp for camp in country.get("barracks", []) if not camp["strength"]]
+            if standing and empty and country["food"] > 40 and not country.get("at_war_with"):
+                army, camp = min(((a, c) for a in standing for c in empty),
+                                 key=lambda pair: sum(abs(x-y) for x,y in zip(pair[0]["tile"], pair[1]["tile"])))
+                col, row = camp["tile"]
+                if army["tile"] != [col, row]:
+                    return [{"type": "MILITARY", "operation": "MARCH",
+                             "army_id": army["army_id"], "tile": {"col": col, "row": row}}]
             return []
+        army = next((a for a in eligible if a["recruiting"]), eligible[0])
+        camp = next((c for c in country.get("barracks", [])
+                     if c["army_id"] == army["army_id"]), {})
         units = rules["units"]
-        roster = country.get("army_units", {})
         technology = country.get("technology", {})
-        affordable = country["treasury"] >= wage * 30.0
-        # A camp that has filled its fixed garrison, or a realm already at its field ceiling,
-        # keeps paying the wage for nothing: the agent stops the book instead of stalling.
-        field_cap = country.get("army_cap") or rules["military"].get("maximum_strength", 0)
-        orders: list[dict[str, Any]] = []
-        for army in country.get("armies", []):
-            if not army.get("barracks"):
+        fallback = rules["military"]["barracks"]["default_unit"]
+        for unit in dict.fromkeys([*profile.get("units", []), fallback]):
+            if unit not in units or camp.get("unit_rooms", {}).get(unit, 0) <= 0:
                 continue
-            full = country.get("army_strength", 0) >= field_cap or (
-                capacity > 0 and int(army.get("strength", 0)) >= capacity
-            )
-            want = fallback
-            for unit_id in profile.get("units", []):
-                spec = units.get(unit_id)
-                if not spec:
-                    continue
-                requirement = spec.get("required_technology")
-                if requirement and technology.get(requirement["field"], 0) < requirement["level"]:
-                    continue
-                if roster.get(unit_id, 0) + 1 > spec["max_count"]:
-                    continue
-                want = unit_id
-                break
-            if army.get("preferred_unit") != want:
-                orders.append({
-                    "type": "MILITARY", "operation": "SET_RECRUIT_UNIT",
-                    "army_id": army["army_id"], "unit": want,
-                })
-            elif full and army.get("recruiting"):
-                orders.append({
-                    "type": "MILITARY", "operation": "SET_RECRUITING",
-                    "army_id": army["army_id"], "recruiting": False,
-                })
-            elif affordable and not full and not army.get("recruiting"):
-                orders.append({
-                    "type": "MILITARY", "operation": "SET_RECRUITING",
-                    "army_id": army["army_id"], "recruiting": True,
-                })
-        return orders
+            spec = units[unit]
+            need = spec.get("required_technology")
+            if need and technology.get(need["field"], 0) < need["level"]:
+                continue
+            if country["food"] < spec["cost"]["food"]:
+                continue
+            action = {"type": "MILITARY", "army_id": army["army_id"]}
+            if army["preferred_unit"] != unit:
+                return [{**action, "operation": "SET_RECRUIT_UNIT", "unit": unit}]
+            if not army["recruiting"]:
+                return [{**action, "operation": "SET_RECRUITING", "recruiting": True}]
+            return []
+        return []
 
     async def decide(self, observation: dict[str, Any]) -> dict[str, Any]:
         country = observation["country"]
@@ -370,6 +361,9 @@ class HeuristicAgent(CountryAgent):
 
         wars = country.get("at_war_with", [])
         campaigns = observation.get("campaign_options", {})
+        reserve_campaigns = country.get("reserve_campaigns", {})
+        scale = rules["military"].get("soldiers_per_unit", 1) if rules["military"].get("deployment_levels") else 1
+        total_force = (country.get("army_strength", 0) + country.get("reserve_strength", 0)) / scale
         if wars:
             if country.get("war_exhaustion", 0) >= self._peace_gate(profile, country, rules):
                 actions.append({
@@ -401,12 +395,16 @@ class HeuristicAgent(CountryAgent):
                 if strike["companion"] and len(actions) < limit:
                     actions.append(self._strike_action(
                         strike["target"], strike["companion"], strike["companion_objective"]))
+            if len(actions) < limit and reserve_campaigns:
+                route = min(reserve_campaigns.values(), key=lambda row: row["days"])
+                actions.append({"type": "MILITARY", "operation": "DEPLOY",
+                                **{key: route[key] for key in ("city_id", "target", "tile", "units")}})
         elif observation["world_day"] >= profile["recruit_day"]:
-            army = country.get("army_strength", 0)
+            army = total_force
             size = 0
-            if army == 0 and country["treasury"] > profile["recruit_first"] and country["food"] > 80:
+            if army == 0 and country["food"] > 30:
                 size = 2
-            elif army < profile["army_target"] and country["treasury"] > profile["recruit_extra"]:
+            elif army < profile["army_target"] and country["food"] > 40:
                 size = 1
             if size:
                 unit_id = self._recruit_choice(observation, profile, size)
@@ -493,6 +491,7 @@ class HeuristicAgent(CountryAgent):
             tile = self._choose_tile(
                 [tile for tile in observation["tiles"] if (tile["col"], tile["row"]) not in chosen_tiles],
                 building,
+                country.get("roadworks", []) if building == "ROAD" else (),
             )
             if tile is None:
                 break
@@ -531,18 +530,20 @@ class HeuristicAgent(CountryAgent):
                 })
 
         if (
-            not wars and country.get("army_strength", 0) >= profile["war_min_army"]
+            not wars and country["food"] >= 30 * country.get("military_upkeep_food", 0)
+            and total_force >= profile["war_min_army"]
             and observation["world_day"] >= profile["recruit_day"] and len(actions) < 4
         ):
             foreign = observation.get("foreign_military", {})
             rivals = [
                 partner for partner, relation in relations.items()
-                if relation <= profile["war_relation"] and foreign.get(partner, 0) < country["army_strength"]
-                and campaigns.get(partner, {}).get("reachable")
+                if relation <= profile["war_relation"] and foreign.get(partner, 0) / scale < total_force
+                and (campaigns.get(partner, {}).get("reachable") or partner in reserve_campaigns)
             ]
             if rivals and ((observation["world_day"] // 90 + len(self.country_id)) % profile["war_roll"] == 0):
                 # Strike the nearest quarrel: the march is paid for out of the campaign season.
-                rival = min(rivals, key=lambda partner: (campaigns[partner]["days"], partner))
+                rival = min(rivals, key=lambda partner: (
+                    (campaigns.get(partner) or reserve_campaigns[partner])["days"], partner))
                 actions.append({
                     "type": "DIPLOMACY", "operation": "DECLARE_WAR",
                     "target": rival,
@@ -668,25 +669,22 @@ class HeuristicAgent(CountryAgent):
             return "FARM"
         barracks = rules["buildings"].get("BARRACKS")
         profile = personality_definition(personality)["mock"]
-        # `mock.barracks` is what a realm wants for its home city; each extra city asks for a
-        # camp of its own, because one garrison holds a fixed number and camps are what a
-        # realm grows. Nothing in the content table caps the count any more.
-        want_barracks = profile.get("barracks", 0) + max(0, len(cities) - 1)
-        if barracks and counts.get("BARRACKS", 0) < want_barracks:
-            requirement = barracks.get("required_technology") or {}
-            ready = technology.get(requirement.get("field", ""), 0) >= requirement.get("level", 0)
-            wage = float((rules["military"].get("barracks") or {}).get("daily_cost", 0.0))
-            # A camp is a bill that outlives its bricks: `daily_cost` leaves the treasury every
-            # day one stands. The gate therefore asks whether this realm's daily balance feeds
-            # one more wall — wages kept under two fifths of what is left after the army is
-            # paid — and not whether the treasury happens to hold the price of the building
-            # today. Stock alone is what raised the ruins the 停摆 news feed was full of.
-            income = float((country.get("last_economy") or {}).get("treasury_income", 0.0))
-            headroom = income - float(country.get("military_upkeep", 0.0))
-            bills = (counts.get("BARRACKS", 0) + 1) * wage
-            if ready and country["treasury"] >= barracks["cost"] and headroom * 0.4 >= bills:
+        road_target = int(profile.get("roads", 0))
+        roadworks = country.get("roadworks") or []
+        if road_target and roadworks and roadworks[0]["days_saved"] >= 30 and not any(
+            project["building"] == "ROAD" for project in country["projects"]
+        ):
+            return "ROAD"
+        if barracks and profile.get("barracks", 0) > 0:
+            need = barracks.get("required_technology") or {}
+            ready = technology.get(need.get("field", ""), 0) >= need.get("level", 0)
+            economy = country.get("last_economy") or {}
+            reserve = country["food"] + 30 * (
+                economy.get("food_production", 0) - economy.get("food_consumption", 0)
+                - country.get("military_upkeep_food", 0)
+            )
+            if ready and country["treasury"] >= barracks["cost"] and reserve >= 120:
                 return "BARRACKS"
-        road_target = int(personality_definition(personality)["mock"].get("roads", 0))
         if road_target and counts.get("ROAD", 0) < road_target:
             # Paving is the one investment that changes what an army can reach, so a
             # road-hungry realm finishes it before it builds its industry.
@@ -723,7 +721,7 @@ class HeuristicAgent(CountryAgent):
         return preferred
 
     @staticmethod
-    def _choose_tile(tiles: list[dict[str, Any]], building: str) -> dict[str, Any] | None:
+    def _choose_tile(tiles: list[dict[str, Any]], building: str, roadworks=()) -> dict[str, Any] | None:
         candidates = [
             tile for tile in tiles
             if (building == "ROAD" or tile["building"] in (None, "ROAD")) and not tile["project"]
@@ -735,6 +733,12 @@ class HeuristicAgent(CountryAgent):
             ]
         if not candidates:
             return None
+        if roadworks:
+            by_coord = {(tile["col"], tile["row"]): tile for tile in candidates}
+            for row in roadworks:
+                coord = row["tile"]["col"], row["tile"]["row"]
+                if coord in by_coord:
+                    return by_coord[coord]
         def score(tile: dict[str, Any]) -> tuple[float, int, int]:
             if building == "FARM":
                 biome = {"grassland": 4.0, "wetland": 4.5, "savanna": 3.5,

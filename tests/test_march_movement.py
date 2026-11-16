@@ -1,5 +1,6 @@
 """Marching is settled by the world itself: weighted routes, daily budget, roads, arrival battles."""
 from copy import deepcopy
+from dataclasses import replace
 
 import pytest
 
@@ -128,6 +129,36 @@ def test_a_road_beats_the_terrain_under_it_whatever_the_biome():
     assert plan["days"] == 3
 
 
+def test_campaign_detours_around_an_unpaved_pass_and_ai_prices_the_shortcut(engine, monkeypatch):
+    state = engine.state
+    country = state.countries["ELAR"]
+    start = country.cities[0].center
+    mountain, end, low1, low2 = (0, 0), (1, 0), (2, 0), (3, 0)
+    graph = {
+        start: [mountain, low1], mountain: [start, end], end: [mountain, low2],
+        low1: [start, low2], low2: [low1, end],
+    }
+    cells = {point: {"land": True, "biome": "alpine" if point == mountain else "grassland"}
+             for point in graph}
+    state.world = replace(state.world, tiles=cells, data={**state.world.data, "road_cells": []})
+    monkeypatch.setattr(type(state.world), "neighbors", lambda world, col, row: graph[(col, row)])
+    state.countries = {"ELAR": country}
+    country.tiles = list(graph)
+    country.cities.append(replace(country.cities[0], city_id="ELAR-C2", center=end))
+    country.buildings.clear()
+    movement = engine.military.movement("ELAR")
+    assert movement.plan(start, end)["route"] == [start, low1, low2, end]
+    assert movement.days(movement.cost(mountain)) == 320
+    assert movement.days(movement.cost(low1)) == 20
+    options = engine.military.roadwork_options(country)
+    assert options[0] == {"tile": {"col": 0, "row": 0}, "destination": {"col": 1, "row": 0},
+                          "days_saved": 33}
+    country.buildings[mountain] = "ROAD"
+    opened = engine.military.movement("ELAR").plan(start, end)
+    assert opened["route"] == [start, mountain, end]
+    assert opened["days"] == 27
+
+
 def test_orders_are_refused_once_the_route_costs_more_than_the_cap():
     movement = strip_movement(["alpine"] * 12)
     assert movement.plan((0, 0), (9, 0))["cost"] == pytest.approx(9 * 2.4)
@@ -179,13 +210,13 @@ def test_march_order_queues_and_walks_the_route_one_budget_per_day():
     assert not refusal.accepted and refusal.reason_code == "MARCH_IN_PROGRESS"
 
     engine.step_day(force=True)
-    assert army.tile != seat and army.march.remaining > 0
+    assert army.march.spent == state.config["movement"]["daily_budget"] and army.march.remaining > 0
     half_way = army.tile
 
     for _ in range(days):
         engine.step_day(force=True)
     assert army.tile == target and army.march is None
-    assert half_way not in (seat, target)
+    assert half_way != target
     arrived = events_of(state, "army_arrived")[-1]
     assert arrived["tile"] == {"col": target[0], "row": target[1]}
     assert arrived["purpose"] == "MARCH" and arrived["fought"] is False
@@ -210,14 +241,14 @@ def test_a_march_survives_the_corridor_turning_hostile():
     for coord in ahead:
         if coord in country.tiles:
             country.tiles.remove(coord)
-    state.countries["MARIS"].tiles = list(ahead)
+    state.countries["MARIS"].tiles = [coord for coord in ahead if coord != destination]
 
-    engine.step_day(force=True)
-    assert army.march is not None and army.march.index > 0
+    engine.military.march_daily()
+    assert army.march is not None and army.march.spent > 0
     assert not events_of(state, "march_cancelled")
 
-    for _ in range(ordered.effects["days"]):
-        engine.step_day(force=True)
+    for _ in range(ordered.effects["days"] - 1):
+        engine.military.march_daily()
     assert army.march is None and army.tile == destination
     assert events_of(state, "army_arrived")[-1]["purpose"] == "MARCH"
 
@@ -377,7 +408,7 @@ def test_a_march_in_progress_survives_a_save_and_resumes_where_it_stopped(tmp_pa
     assert resumed.march.index == army.march.index
     assert resumed.tile == army.tile
 
-    for _ in range(20):
+    for _ in range(march_days(army.march.remaining, state.config["movement"]["daily_budget"]) + 1):
         if army.march is None:
             break
         engine.step_day(force=True)
@@ -405,7 +436,7 @@ def test_the_summary_publishes_what_the_march_panel_draws():
     assert march["expedition"] is False
     assert march["remaining"] == pytest.approx(army.march.remaining, abs=0.002)
     assert march["cost"] == pytest.approx(army.march.cost, abs=0.002)
-    assert march["days_left"] == march_days(army.march.remaining, 3.0)
+    assert march["days_left"] == march_days(army.march.remaining, state.config["movement"]["daily_budget"])
 
 
 def test_an_attack_order_shows_its_objective_and_expedition_flag_to_the_dashboard():

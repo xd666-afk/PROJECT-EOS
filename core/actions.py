@@ -90,7 +90,7 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
     _keys(raw, {"type", "tile", "building", "from", "to", "node", "agriculture", "mining", "construction",
                 "rate", "field", "priority", "operation", "target", "offer_food",
                 "request_treasury", "proposal_id", "amount", "pact", "strength", "unit",
-                "focus", "city_id", "zone", "managed_by", "budget", "army_id", "recruiting"})
+                "focus", "city_id", "zone", "managed_by", "budget", "army_id", "recruiting", "host_id", "units", "orders", "slot"})
 
     if action_type == "NO_OP":
         _keys(raw, {"type"})
@@ -171,11 +171,73 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
         return {"type": action_type, "city_id": city_id, "budget": budget}
     if action_type == "MILITARY":
         _keys(raw, {"type", "operation", "tile", "strength", "target", "unit",
-                    "army_id", "recruiting"})
+                    "army_id", "recruiting", "host_id", "units", "orders", "city_id", "slot"})
         operation = raw.get("operation")
         army_id = raw.get("army_id")
         if army_id is not None and (not isinstance(army_id, str) or not army_id):
             raise ActionRejected("INVALID_PARAMETER", "army_id 必须是非空字符串或省略")
+        if operation == "RETURN":
+            _keys(raw, {"type", "operation", "army_id"})
+            if not army_id:
+                raise ActionRejected("INVALID_PARAMETER", "请选择要撤回的军队")
+            return {"type": action_type, "operation": operation, "army_id": army_id}
+        if operation == "AUTO_ORDER":
+            _keys(raw, {"type", "operation", "army_id", "tile"})
+            tile = raw.get("tile")
+            if not army_id or not isinstance(tile, dict) or set(tile) != {"col", "row"}:
+                raise ActionRejected("INVALID_PARAMETER", "请选择军队和目标地块")
+            return {"type": action_type, "operation": operation, "army_id": army_id,
+                    "tile": {key: _integer(value, key) for key, value in tile.items()}}
+        if operation in ("DEPLOY", "RETASK"):
+            _keys(raw, {"type", "operation", "city_id", "tile", "target", "units", "slot", "host_id"})
+            city_id, tile, target, units = (raw.get(key) for key in ("city_id", "tile", "target", "units"))
+            if city_id is not None and (not isinstance(city_id, str) or not city_id):
+                raise ActionRejected("INVALID_PARAMETER", "请选择出兵城市")
+            if target is not None and (not isinstance(target, str) or not target):
+                raise ActionRejected("INVALID_PARAMETER", "进攻目标必须是国家 ID")
+            if not isinstance(tile, dict) or set(tile) != {"col", "row"}:
+                raise ActionRejected("INVALID_PARAMETER", "请选择地图上的目的地")
+            coords = {k: _integer(v, k) for k, v in tile.items()}
+            if operation == "RETASK":
+                _keys(raw, {"type", "operation", "tile", "target", "slot"})
+                return {"type": action_type, "operation": operation, "tile": coords,
+                        "target": target, "slot": _integer(raw.get("slot"), "slot")}
+            host_id = raw.get("host_id")
+            if host_id is not None and (not isinstance(host_id, str) or not host_id or target):
+                raise ActionRejected("INVALID_PARAMETER", "请选择己方驻军作为增援对象")
+            if not isinstance(units, dict) or set(units) - config["units"].keys():
+                raise ActionRejected("INVALID_PARAMETER", "派兵包含未知兵种")
+            return {"type": action_type, "operation": operation, "city_id": city_id,
+                    **({"slot": _integer(raw["slot"], "slot")} if "slot" in raw else {}),
+                    **({"host_id": host_id} if host_id else {}),
+                    "target": target, "tile": coords,
+                    "units": {k: _integer(v, k) for k, v in units.items()}}
+        if operation == "DISPATCH":
+            _keys(raw, {"type", "operation", "orders"})
+            orders = raw.get("orders")
+            if not isinstance(orders, list) or not 1 <= len(orders) <= 200:
+                raise ActionRejected("INVALID_PARAMETER", "请选择 1 至 200 支军队")
+            if any(not isinstance(o, dict) or o.get("type") != "MILITARY"
+                   or o.get("operation") not in ("MARCH", "ATTACK", "RENDEZVOUS")
+                   for o in orders):
+                raise ActionRejected("INVALID_PARAMETER", "派兵只接受驻扎、攻打或会师")
+            validated = [validate_action(actor, o, config) for o in orders]
+            ids = [o.get("army_id") for o in validated]
+            if None in ids or len(set(ids)) != len(ids):
+                raise ActionRejected("INVALID_PARAMETER", "每支军队只能选择一次")
+            return {"type": action_type, "operation": operation, "orders": validated}
+        if operation == "RENDEZVOUS":
+            if config["military"].get("deployment_levels"):
+                raise ActionRejected("RENDEZVOUS_REMOVED", "请从城市守军中直接选兵派出")
+            _keys(raw, {"type", "operation", "army_id", "host_id", "units"})
+            host = raw.get("host_id")
+            units = raw.get("units")
+            if not army_id or not isinstance(host, str) or not host or not isinstance(units, dict):
+                raise ActionRejected("INVALID_PARAMETER", "会师需要源军、宿主和兵种数量")
+            if set(units) - config["units"].keys():
+                raise ActionRejected("INVALID_PARAMETER", "会师包含未知兵种")
+            return {"type": action_type, "operation": operation, "army_id": army_id,
+                    "host_id": host, "units": {k: _integer(v, k) for k, v in units.items()}}
         if operation == "ATTACK":
             _keys(raw, {"type", "operation", "target", "army_id", "tile"})
             target = raw.get("target")

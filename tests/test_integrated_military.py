@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from core.content import soldiers_per_unit
 from core.rules import RuleEngine
 from core.simulation import Simulation
 from core.state import GameState, relation_key
@@ -37,12 +38,17 @@ def test_legacy_hexfirst_save_migrates_and_resumes_without_changing_source(integ
 
 def test_legacy_scalar_army_is_preserved_on_hexfirst_migration(tmp_path):
     payload = json.loads(DEMO.read_text(encoding="utf-8"))
-    payload["countries"]["A"]["army_strength"] = 5
+    legacy = payload["countries"]["A"]
+    legacy.pop("armies", None)
+    legacy.pop("army_units", None)
+    legacy["army_strength"] = 5
     path = tmp_path / "legacy-army.json"
     path.write_text(json.dumps(payload), encoding="utf-8")
     state = GameState.load(path)
-    assert state.countries["A"].army_strength == 5
-    assert state.countries["A"].army_units == {"MILITIA": 5}
+    expected = 5 * soldiers_per_unit(state.config)
+    country = state.countries["A"]
+    assert country.army_strength == 0
+    assert country.city_reserves[country.cities[0].city_id] == {"MILITIA": expected}
 
 
 def test_hexfirst_lakes_are_water_and_initial_roads_price_marches(integrated):

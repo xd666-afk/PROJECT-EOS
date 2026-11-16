@@ -55,7 +55,8 @@ class Movement:
 
     def search(self, start: Coord, allowed: Callable[[Coord], bool] | None = None,
                targets: set[Coord] | None = None,
-               cap: float | None = None) -> tuple[dict[Coord, float], dict[Coord, Coord]]:
+               cap: float | None = None, *, first_target: bool = False, reverse: bool = False
+               ) -> tuple[dict[Coord, float], dict[Coord, Coord]]:
         """Weighted distances from `start`; returns (costs, previous) for reached tiles.
 
         Ties break on (cost, row, col) so a march ordered from an action log replays
@@ -75,12 +76,14 @@ class Movement:
             if current in settled:
                 continue
             settled.add(current)
-            if wanted and wanted <= settled:
+            if wanted and (current in wanted if first_target else wanted <= settled):
                 break
+            reverse_step = self.cost(current) if reverse else None
             for neighbor in self._neighbors_of(current):
                 if neighbor in settled or not passable(neighbor):
                     continue
-                step = self.cost(neighbor)
+                entry = self.cost(neighbor)
+                step = reverse_step if reverse and entry is not None else entry
                 if step is None:
                     continue
                 candidate = total + step

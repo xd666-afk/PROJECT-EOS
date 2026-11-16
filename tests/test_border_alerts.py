@@ -104,7 +104,7 @@ def test_an_undefended_landing_costs_the_invader_a_fraction_of_a_battle():
     engine = engine_of()
     state = engine.state
     rate = state.config["military"]["unopposed_loss_rate"]
-    guard_rate = state.config["military"]["attacker_loss_rate"]
+    guard_rate = state.config["military"]["victor_loss_rate"]
     army = road_under_way(engine, units=60)
     undefended = alerts(engine)["VAYR"][0]
 
@@ -261,11 +261,13 @@ def test_the_snapshot_files_every_realm_s_alerts_for_the_panel():
         assert session.player_action("ELAR", {
             "type": "DIPLOMACY", "operation": "DECLARE_WAR", "target": "VAYR",
         })["ok"]
+        state = session.simulation.state
+        realm = state.countries["ELAR"]
+        realm.city_reserves[realm.cities[0].city_id] = {"MILITIA": 40}
+        route = Military(state).reserve_campaigns(state.countries["ELAR"], minimum=3)["VAYR"]
         assert session.player_action("ELAR", {
-            "type": "MILITARY", "operation": "RECRUIT", "unit": "MILITIA", "strength": 4,
-        })["ok"]
-        assert session.player_action("ELAR", {
-            "type": "MILITARY", "operation": "ATTACK", "target": "VAYR",
+            "type": "MILITARY", "operation": "DEPLOY",
+            **{key: route[key] for key in ("city_id", "target", "tile", "units")},
         })["ok"]
         rows = session.snapshot()["incoming_threats"]["VAYR"]
         assert len(rows) == 1 and rows[0]["attacker"] == "ELAR"

@@ -181,17 +181,17 @@ def test_walls_and_a_garrison_both_slow_the_fall_by_the_same_arithmetic():
         if wall:
             defender.buildings[city.center] = "WALL"
         if garrison:
-            only_army(defender, city.center, units=garrison)
-        army = only_army(state.countries["ELAR"], ring_of(engine, city, defender)[0])
+            only_army(defender, city.center, units=garrison * 10)
+        army = only_army(state.countries["ELAR"], ring_of(engine, city, defender)[0], units=80)
         quotes[label] = engine.apply_action(
             "ELAR", strike_tile("ELAR", "VAYR", army.army_id, city.center)
         ).effects["siege"]
 
     assert quotes["open"]["days_left"] == 17
-    assert quotes["walled"]["walls"] is True and quotes["walled"]["days_left"] == 20
-    assert quotes["walled"]["share"] == pytest.approx(8 / 9.6, abs=1e-4)
-    assert quotes["manned"]["garrison"] and quotes["manned"]["share"] == pytest.approx(0.5)
-    assert quotes["manned"]["days_left"] == 34
+    assert quotes["walled"]["walls"] is True and quotes["walled"]["days_left"] == 21
+    assert quotes["walled"]["share"] == pytest.approx(6.4 / 8, abs=1e-4)
+    assert quotes["manned"]["garrison"] and quotes["manned"]["share"] == pytest.approx(6.4 / 14.4, abs=1e-4)
+    assert quotes["manned"]["days_left"] == 38
 
 
 def test_the_panel_quotes_the_fall_date_before_any_order_exists():
@@ -779,7 +779,7 @@ def test_a_wall_nobody_lies_to_is_priced_with_the_march_that_would_reach_it():
     assert row["center"] == {"col": city.center[0], "row": city.center[1]}
     assert row["camp"] == {"col": camp[0], "row": camp[1]}
     assert row["army_id"] == army.army_id
-    assert row["days"] == 1 and row["cost"] == pytest.approx(
+    assert row["days"] == engine.military.movement().days(row["cost"]) and row["cost"] == pytest.approx(
         engine.military.movement().cost(camp)), "our own ground, one day's march"
     assert row["walls"] is False and row["share"] == 1.0 and row["days_left"] == 17
     assert tuple(army.tile) == stand and city.siege is None
@@ -849,7 +849,8 @@ def test_the_column_arrives_and_books_the_blockade_the_day_it_gets_there():
     assert army.march is not None and army.march.expedition is False
     assert army.march.route[-1] == camp and army.march.objective == city.center
 
-    engine.step_day()
+    for _ in range(row["days"]):
+        engine.step_day()
     assert tuple(army.tile) == camp and army.march is None
     assert city.siege["attacker"] == "ELAR" and city.siege["armies"] == [army.army_id]
     assert not events(state, "battle"), "walls are not taken by the afternoon a column walks into"

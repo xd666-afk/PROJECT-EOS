@@ -411,9 +411,41 @@ class RuleEngine:
             return self.diplomacy.respond_pact(actor, action)
         if action_type == "MILITARY":
             operation = action["operation"]
+            if operation == "DEPLOY":
+                return self.military.deploy(actor, action)
+            if operation == "RETASK":
+                tile = action["tile"]
+                return self.military.retask(actor, action["slot"], (tile["col"], tile["row"]), action["target"])
+            if operation == "AUTO_ORDER":
+                tile = action["tile"]
+                return self.military.auto_order(actor, action["army_id"], (tile["col"], tile["row"]))
+            if operation == "RETURN":
+                return self.military.return_army(actor, action["army_id"])
             if operation == "RECRUIT":
                 return self.military.recruit(
                     actor, action["unit"], action["strength"], action.get("army_id")
+                )
+            if operation == "DISPATCH":
+                if all(order["operation"] == "RENDEZVOUS" for order in action["orders"]):
+                    quote = self.military.rendezvous_batch_quote(actor, action["orders"])
+                    errors = [e for row in quote["rows"] for e in row["errors"]] + quote["errors"]
+                    if errors:
+                        raise ActionRejected(errors[0]["code"], errors[0]["text"])
+                rows = []
+                for order in action["orders"]:
+                    try:
+                        effects = self._execute(actor, order)
+                        rows.append({"army_id": order["army_id"], "accepted": True, "effects": effects})
+                    except ActionRejected as exc:
+                        rows.append({"army_id": order["army_id"], "accepted": False,
+                                     "code": exc.code, "reason": exc.text})
+                if not any(row["accepted"] for row in rows):
+                    raise ActionRejected(rows[0]["code"], "；".join(
+                        f"{row['army_id']}：{row['reason']}" for row in rows))
+                return {"orders": rows}
+            if operation == "RENDEZVOUS":
+                return self.military.rendezvous(
+                    actor, action["army_id"], action["host_id"], action["units"]
                 )
             if operation == "MARCH":
                 return self.military.march(

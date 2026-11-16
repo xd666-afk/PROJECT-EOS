@@ -183,7 +183,8 @@ def test_real_crossing_records_one_incident_and_persists_across_load(engine,tmp_
     s.countries["MARIS"].tiles.extend(road[1:])
     c.armies=[]
     army=c.new_army(tile=start,units={"MILITIA":4})
-    army.march=MarchOrder("MARCH",road,[0,3,6,9,12])
+    budget = s.config["movement"]["daily_budget"]
+    army.march = MarchOrder("MARCH", road, [i * budget for i in range(len(road))])
     assert not any(e["type"]=="border_trespass" for e in s.event_log)
     engine.military.march_daily()
     assert len([e for e in s.event_log if e["type"]=="border_trespass"])==1
