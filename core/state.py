@@ -125,6 +125,29 @@ class WorldStatic:
             self.data["metadata"]["grid_height"],
         )
 
+    def road_cells(self) -> list[dict[str, Any]]:
+        return self.data.get("road_cells", [])
+
+    def is_road_cell(self, coord: tuple[int, int]) -> bool:
+        return any(
+            cell["tile"]["col"] == coord[0] and cell["tile"]["row"] == coord[1]
+            for cell in self.road_cells()
+        )
+
+    def road_nodes(self, country: Any) -> set[tuple[int, int]]:
+        """City centers, built ROAD improvements and initial road cells."""
+        nodes = {tuple(city.center) for city in country.cities}
+        nodes.update(getattr(country, "roads", ()))
+        nodes.update(
+            coord for coord, building in country.buildings.items()
+            if building == "ROAD"
+        )
+        nodes.update(
+            (int(cell["tile"]["col"]), int(cell["tile"]["row"]))
+            for cell in self.road_cells()
+        )
+        return nodes
+
 
 @dataclass
 class CityState:
@@ -142,6 +165,13 @@ class CityState:
     food_need: float = 0.0
     food_balance: float = 0.0
     food_loss: float = 0.0
+    food_stock: float | None = None
+    food_capacity: float = 0.0
+    food_imported: float = 0.0
+    food_exported: float = 0.0
+    food_unmet: float = 0.0
+    logistics_status: str = "待结算"
+    logistics_routes: list[dict[str, Any]] = field(default_factory=list)
     budget: str = "balanced"
     local_revenue: float = 0.0
     local_upkeep: float = 0.0
@@ -166,6 +196,13 @@ class CityState:
             "food_need": self.food_need,
             "food_balance": self.food_balance,
             "food_loss": self.food_loss,
+            "food_stock": self.food_stock,
+            "food_capacity": self.food_capacity,
+            "food_imported": self.food_imported,
+            "food_exported": self.food_exported,
+            "food_unmet": self.food_unmet,
+            "logistics_status": self.logistics_status,
+            "logistics_routes": self.logistics_routes,
             "budget": self.budget,
             "local_revenue": self.local_revenue,
             "local_upkeep": self.local_upkeep,
@@ -192,6 +229,13 @@ class CityState:
             food_need=float(data.get("food_need", 0.0)),
             food_balance=float(data.get("food_balance", 0.0)),
             food_loss=float(data.get("food_loss", 0.0)),
+            food_stock=float(data["food_stock"]) if data.get("food_stock") is not None else None,
+            food_capacity=float(data.get("food_capacity", 0.0)),
+            food_imported=float(data.get("food_imported", 0.0)),
+            food_exported=float(data.get("food_exported", 0.0)),
+            food_unmet=float(data.get("food_unmet", 0.0)),
+            logistics_status=data.get("logistics_status", "待结算"),
+            logistics_routes=data.get("logistics_routes", []),
             budget=data.get("budget", "balanced"),
             local_revenue=float(data.get("local_revenue", 0.0)),
             local_upkeep=float(data.get("local_upkeep", 0.0)),
@@ -216,6 +260,7 @@ class MarchOrder:
     rendezvous: dict[str, Any] | None = None
     issued_sequence: int = 0
     action_id: str = ""
+    crossed_borders: list[str] = field(default_factory=list)
 
     @property
     def destination(self) -> tuple[int, int] | None:
@@ -249,6 +294,7 @@ class MarchOrder:
             **({"action_id": self.action_id} if self.action_id else {}),
             **({"issued_sequence": self.issued_sequence} if self.issued_sequence else {}),
             **({"rendezvous": dict(self.rendezvous)} if self.rendezvous else {}),
+            "crossed_borders": list(self.crossed_borders),
         }
 
     @classmethod
@@ -266,6 +312,7 @@ class MarchOrder:
             rendezvous=data.get("rendezvous"),
             issued_sequence=int(data.get("issued_sequence", 0)),
             action_id=str(data.get("action_id", "")),
+            crossed_borders=list(data.get("crossed_borders", [])),
         )
 
 
@@ -801,6 +848,7 @@ def proposal_row(proposal: dict[str, Any], country_id: str, day: int, kind: str)
         "target": proposal["target"],
         "status": status,
         "status_label": PROPOSAL_STATUS_LABELS.get(status, status),
+        "pact": proposal.get("pact"),
         "created_day": int(proposal.get("created_day", 0)),
         "resolved_day": proposal.get("resolved_day"),
         "days_left": max(0, int(proposal["expires_day"]) - day) if status == "PENDING" else None,
@@ -850,6 +898,11 @@ class CountryState:
     workers: dict[str, float] = field(default_factory=dict)
     research_field: str = "agriculture"
     research_progress: dict[str, float] = field(default_factory=dict)
+    research_initialized: bool = False
+    known_techs: list[str] = field(default_factory=list)
+    tech_progress: dict[str, float] = field(default_factory=dict)
+    research_node: str | None = None
+    roads: set[tuple[int, int]] = field(default_factory=set)
     policy: str = "BALANCED"
     buildings: dict[tuple[int, int], str] = field(default_factory=dict)
     projects: list[dict[str, Any]] = field(default_factory=list)
@@ -959,6 +1012,11 @@ class CountryState:
             "technology": self.technology,
             "tax_rate": self.tax_rate,
             "workers": self.workers,
+            "research_initialized": self.research_initialized,
+            "known_techs": self.known_techs,
+            "tech_progress": self.tech_progress,
+            "research_node": self.research_node,
+            "roads": [list(p) for p in sorted(self.roads)],
             "research_field": self.research_field,
             "research_progress": self.research_progress,
             "policy": self.policy,
@@ -1002,6 +1060,11 @@ class CountryState:
             technology=data["technology"],
             tax_rate=data["tax_rate"],
             workers=data["workers"],
+            research_initialized=bool(data.get("research_initialized", False)),
+            known_techs=list(data.get("known_techs", [])),
+            tech_progress=dict(data.get("tech_progress", {})),
+            research_node=data.get("research_node"),
+            roads={tuple(p) for p in data.get("roads", [])},
             research_field=data["research_field"],
             research_progress=data["research_progress"],
             policy=data["policy"],
@@ -1024,6 +1087,13 @@ class CountryState:
             cities=[CityState.from_dict(city) for city in data.get("cities", [])],
             personality=str(data.get("personality", "neutral")),
         )
+        from core.technology import initialize
+        initialize(restored, config)
+        # Migrate the old road improvement into the independent transport layer.
+        for coord, building in list(restored.buildings.items()):
+            if building == "ROAD":
+                restored.roads.add(coord)
+                del restored.buildings[coord]
         for project in restored.projects:
             project["tile"] = tuple(project["tile"])
         return restored
@@ -1060,6 +1130,9 @@ class GameState:
         self.action_log: list[dict[str, Any]] = []
         self.receipts: dict[str, list[dict[str, Any]]] = {}
         self.event_log: list[dict[str, Any]] = []
+        self.situations: dict[str, dict[str, Any]] = {}
+        self.next_situation_number = 1
+        self.situation_cursor = 0
         self.next_action_number = 1
         self.next_project_number = 1
         self.next_trade_number = 1
@@ -1116,7 +1189,11 @@ class GameState:
                 stability=float(config["stability"]["initial"]),
                 personality=str(polity.get("personality", "neutral")),
             )
+            from core.technology import initialize
+            initialize(state.countries[country_id], config)
             state.countries[country_id].new_army(tile=capital)
+            from core.logistics import reconcile_stocks
+            reconcile_stocks(state.countries[country_id], config)
         state.record("simulation_initialized", seed=seed, rules_version=config["rules_version"])
         return state
 
@@ -1247,6 +1324,8 @@ class GameState:
                 country.technology[bonus_field] = min(
                     maximum, country.technology[bonus_field] + 1
                 )
+            from core.technology import initialize
+            initialize(country, self.config, reset=True)
         self.start_astronomical_year = astronomical_year
         self.start_era_index = int(era["index"])
         self.record(
@@ -1329,6 +1408,36 @@ class GameState:
             "countries": progress,
         }
 
+    def diplomatic_level(self, left: str, right: str) -> int:
+        if left == right:
+            return 4
+        if right in self.countries[left].at_war_with:
+            return 0
+        relation = int(self.relations.get(relation_key(left, right), 0))
+        levels = self.config.get("diplomacy", {}).get("levels") or [
+            {"id": 0, "label": "敌对", "min_relation": -100},
+            {"id": 1, "label": "冷淡", "min_relation": -30},
+            {"id": 2, "label": "中立", "min_relation": 0},
+            {"id": 3, "label": "友好", "min_relation": 25},
+            {"id": 4, "label": "同盟", "min_relation": 60},
+        ]
+        level = 0
+        for item in sorted(levels, key=lambda entry: int(entry["id"])):
+            if relation >= int(item["min_relation"]):
+                level = int(item["id"])
+        return level
+
+    def diplomatic_level_label(self, left: str, right: str) -> str:
+        level = self.diplomatic_level(left, right)
+        levels = self.config.get("diplomacy", {}).get("levels") or []
+        for item in levels:
+            if int(item["id"]) == level:
+                return str(item["label"])
+        return "中立"
+
+    def road_connection_level(self) -> int:
+        return int(self.config.get("diplomacy", {}).get("road_connection_level", 3))
+
     def summary(self) -> dict[str, Any]:
         from core.society import (
             city_static_metrics,
@@ -1341,8 +1450,9 @@ class GameState:
             stability_factor,
         )
 
+        from core.technology import snapshot as research_snapshot
         country_eras = {
-            country_id: era_info(self.config, min(country.technology.values()), self.start_era_index)
+            country_id: ({"index": 7, "name": "现代工程文明", "short": "现代工程", "min_tech_level": 6} if "modern_engineering" in country.known_techs else era_info(self.config, min(country.technology.values()), self.start_era_index))
             for country_id, country in self.countries.items()
         }
         world_era = max(country_eras.values(), key=lambda era: era["index"])
@@ -1377,6 +1487,8 @@ class GameState:
                         key: round(value, 4) for key, value in country.research_progress.items()
                     },
                     "technology": country.technology,
+                    "research": research_snapshot(country, self.config),
+                    "roads": [list(p) for p in sorted(country.roads)],
                     "buildings": {
                         tile_key(coord): building for coord, building in country.buildings.items()
                     },
@@ -1385,6 +1497,10 @@ class GameState:
                     "diplomacy": {
                         "relations": {
                             other: self.relations.get(relation_key(country_id, other), 0)
+                            for other in self.countries if other != country_id
+                        },
+                        "levels": {
+                            other: self.diplomatic_level(country_id, other)
                             for other in self.countries if other != country_id
                         },
                         "active_pacts": [
@@ -1480,6 +1596,11 @@ class GameState:
             "pacts": self.pacts,
             "diplomatic_proposals": self.diplomatic_proposals,
             "weather": self.weather.to_dict(),
+            "situations": {key: {field: item.get(field) for field in (
+                "id", "preset_id", "country_id", "partner_id", "start_day", "end_day",
+                "intensity", "status", "ended_day", "totals")}
+                for key, item in self.situations.items()},
+            "next_situation_number": self.next_situation_number,
             "counters": [
                 self.next_action_number, self.next_project_number,
                 self.next_trade_number, self.next_diplomacy_number,
@@ -1520,6 +1641,9 @@ class GameState:
             "action_log": self.action_log,
             "receipts": {key: list(value) for key, value in self.receipts.items()},
             "event_log": self.event_log,
+            "situations": self.situations,
+            "next_situation_number": self.next_situation_number,
+            "situation_cursor": self.situation_cursor,
         }
 
     def save(self, path: str | Path) -> Path:
@@ -1584,7 +1708,7 @@ class GameState:
 
         # Content/schema updates (tech names, eras, building prerequisites) must come
         # from the current rules so old saves do not keep a superseded tech tree.
-        for content_key in ("tech_tree", "eras", "research_fields", "buildings", "units"):
+        for content_key in ("rules_version", "tech_tree", "research_tree", "road_rules", "eras", "research_fields", "buildings", "units"):
             if content_key in default_config:
                 state.config[content_key] = deepcopy(default_config[content_key])
         validate_content(state.config, {tile["biome"] for tile in world.tiles.values()})
@@ -1643,6 +1767,9 @@ class GameState:
             key: list(value)[-RECEIPT_LIMIT:] for key, value in data.get("receipts", {}).items()
         }
         state.event_log = data["event_log"]
+        state.situations = deepcopy(data.get("situations", {}))
+        state.next_situation_number = int(data.get("next_situation_number", 1))
+        state.situation_cursor = int(data.get("situation_cursor", len(state.event_log)))
         counters = data["counters"]
         state.next_action_number = counters["action"]
         state.next_project_number = counters["project"]
@@ -1679,4 +1806,6 @@ class GameState:
                 if army.tile is not None:
                     occupied.add(army.tile)
             state.sync_city_population(country)
+            from core.logistics import reconcile_stocks
+            reconcile_stocks(country, state.config if any(c.food_capacity <= 0 for c in country.cities) else None)
         return state

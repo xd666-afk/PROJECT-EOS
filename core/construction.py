@@ -16,14 +16,35 @@ class Construction:
             labor_factor = country.workers["construction"] / baseline if baseline else 1.0
             policy_factor = self.state.config["policies"][country.policy]["construction"]
             daily_progress = labor_factor * policy_factor
+            from core.situations import factor, account
+            normal_progress = daily_progress
+            daily_progress *= factor(self.state, country.country_id, "construction")
             completed = []
+            pending_ids = {p["project_id"] for p in country.projects}
             for project in country.projects:
+                if project.get("depends_on") in pending_ids:
+                    project["blocked_reason"] = "等待前一段道路完工"
+                    continue
+                if project["building"] == "ROAD":
+                    from core.road import road_permit, road_connection_status
+                    permit = road_permit(self.state, country, tuple(project["tile"]))
+                    connected = road_connection_status(self.state, country, tuple(project["tile"]), include_pending=False)[0]
+                    if permit or not connected:
+                        project["blocked_reason"] = permit[1] if permit else "道路接入点失效，等待重新连通"
+                        continue
+                project.pop("blocked_reason", None)
+                account(self.state, country.country_id, "construction",
+                        min(project["remaining_days"], normal_progress),
+                        min(project["remaining_days"], daily_progress))
                 project["remaining_days"] = max(
                     0.0, project["remaining_days"] - daily_progress
                 )
                 if project["remaining_days"] <= 1e-12:
                     coord = tuple(project["tile"])
-                    country.buildings[coord] = project["building"]
+                    if project["building"] == "ROAD":
+                        country.roads.add(coord)
+                    else:
+                        country.buildings[coord] = project["building"]
                     completed.append(project)
                     self.state.record(
                         "construction_completed",

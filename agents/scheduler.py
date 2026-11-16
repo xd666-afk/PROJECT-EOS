@@ -9,7 +9,10 @@ from agents.heuristic import HeuristicAgent
 from core.actions import PUBLIC_ACTIONS
 from core.construction import Construction
 from core.content import soldiers_per_unit
+from core.access import PACT_SPECS
 from core.military import Military
+from core.road import road_permit
+from core.technology import snapshot as research_snapshot
 from core.society import (
     city_static_metrics,
     city_tier,
@@ -79,14 +82,24 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         and event["type"] not in {"economy_daily", "action_result"}
     ][-10:]
     tiles = []
+    from core.road import road_connection_status
+    road_cells = {
+        (int(cell["tile"]["col"]), int(cell["tile"]["row"]))
+        for cell in state.world.road_cells()
+    }
     for coord in country.tiles:
         tile = state.world.tile(coord)
         project = Construction.project_for_tile(country, coord)
+        road_connected, road_denied, _ = road_connection_status(state, country, coord)
         tiles.append({
             "col": coord[0], "row": coord[1], "biome": tile["biome"],
             "elevation_m": tile["elevation_m"], "river": tile["river"],
             "annual_precip_mm": tile["annual_precip_mm"],
             "building": country.buildings.get(coord),
+            "road_cell": coord in road_cells or coord in country.roads,
+            "road_permit": road_permit(state, country, coord) is None,
+            "road_connected": road_connected,
+            "road_denied": road_denied,
             "project": None if project is None else {
                 "building": project["building"],
                 "remaining_days": round(project["remaining_days"], 3),
@@ -122,6 +135,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "treasury": country.treasury,
             "tax_rate": country.tax_rate,
             "workers": country.workers,
+            "research": research_snapshot(country, state.config),
+            "roads": [list(p) for p in sorted(country.roads)],
             "research_field": country.research_field,
             "research_progress": country.research_progress,
             "technology": country.technology,
@@ -129,6 +144,12 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "buildings": {f"{c[0]},{c[1]}": b for c, b in country.buildings.items()},
             "projects": Construction.describe(country),
             "roadworks": Military(state).roadwork_options(country),
+            "active_situations": [
+                {"id": item["id"], "name": item["name"], "preset_id": item["preset_id"], "target": item["country_id"],
+                 "remaining_days": max(0, item["end_day"] - state.day_index), "intensity": item["intensity"]}
+                for item in state.situations.values()
+                if item["status"] == "active" and country_id in item["participants"]
+            ],
             "contacts": country.contacts,
             "last_economy": country.last_economy,
             "shortage_days_total": country.shortage_days_total,
@@ -179,6 +200,7 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
         "pending_incoming_trades": incoming,
         "pending_outgoing_trades": outgoing,
         "diplomacy": {
+            "pact_specs": PACT_SPECS,
             "relations": {
                 other: state.relations.get(relation_key(country_id, other), 0)
                 for other in state.countries if other != country_id
@@ -209,6 +231,8 @@ def build_observation(state, country_id: str) -> dict[str, Any]:
             "military": state.config["military"],
             "movement": state.config["movement"],
             "research_fields": state.config["research_fields"],
+            "road_rules": state.config["road_rules"],
+            "research_tree": state.config["research_tree"],
             "policies": sorted(state.config["policies"]),
             "maximum_tax_rate": state.config["maximum_tax_rate"],
             "expansion": state.config["expansion"],

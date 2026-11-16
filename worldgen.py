@@ -145,8 +145,8 @@ def gen_hydrology(land,elev,p,w=W,h=H,r_km=R_KM,cell_area_km2=CELL_AREA_KM2,rive
     visited=np.zeros((h,w),bool)
     fill=elev.copy(); parent=np.full((h,w,2),-1,int)
     heap=[]; order=[]
-    for y in range(H):
-        for x in range(W):
+    for y in range(h):
+        for x in range(w):
             if not land[y,x]:
                 visited[y,x]=True
                 heapq.heappush(heap,(float(elev[y,x]),y,x))
@@ -170,8 +170,8 @@ def gen_hydrology(land,elev,p,w=W,h=H,r_km=R_KM,cell_area_km2=CELL_AREA_KM2,rive
     river=land & (basin>=river_min_basin) & (elev<3300)
     # Slope is max gradient to immediate neighboring tile, in km/km
     slope=np.zeros((h,w))
-    for y in range(H):
-        for x in range(W):
+    for y in range(h):
+        for x in range(w):
             slope[y,x]=max([abs(float(elev[y,x])-float(elev[ny,nx]))/(r_km*1.732*1000) for nx,ny in neighbors(x,y,w,h)] or [0])
     return parent,flow,basin,river,slope
 

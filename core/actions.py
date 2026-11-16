@@ -7,6 +7,7 @@ from typing import Any
 
 PUBLIC_ACTIONS = {
     "BUILD",
+    "BUILD_ROAD_ROUTE",
     "ALLOCATE_WORKERS",
     "SET_TAX",
     "SET_RESEARCH",
@@ -86,7 +87,7 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
     action_type = raw.get("type")
     if not isinstance(action_type, str) or action_type not in ALL_ACTIONS:
         raise ActionRejected("UNKNOWN_ACTION", f"不支持的动作类型: {action_type!r}")
-    _keys(raw, {"type", "tile", "building", "agriculture", "mining", "construction",
+    _keys(raw, {"type", "tile", "building", "from", "to", "node", "agriculture", "mining", "construction",
                 "rate", "field", "priority", "operation", "target", "offer_food",
                 "request_treasury", "proposal_id", "amount", "pact", "strength", "unit",
                 "focus", "city_id", "zone", "managed_by", "budget", "army_id", "recruiting", "host_id", "units", "orders", "slot"})
@@ -94,6 +95,15 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
     if action_type == "NO_OP":
         _keys(raw, {"type"})
         return {"type": action_type}
+    if action_type == "BUILD_ROAD_ROUTE":
+        _keys(raw, {"type", "from", "to"})
+        result = {"type": action_type}
+        for key in ("from", "to"):
+            tile = raw.get(key)
+            if not isinstance(tile, dict) or set(tile) != {"col", "row"}:
+                raise ActionRejected("INVALID_PARAMETER", f"{key} 必须仅含 col、row 整数")
+            result[key] = {name: _integer(tile[name], name) for name in ("col", "row")}
+        return result
     if action_type == "BUILD":
         _keys(raw, {"type", "tile", "building"})
         tile = raw.get("tile")
@@ -306,10 +316,17 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             pact = raw.get("pact")
             if not isinstance(target, str) or not target or not isinstance(pact, str):
                 raise ActionRejected("INVALID_PARAMETER", "target 与 pact 必须是字符串")
-            if pact not in {"TRADE"}:
-                raise ActionRejected("INVALID_PARAMETER", "当前只支持 TRADE 贸易协定")
+            from core.access import PACT_SPECS
+            if pact not in PACT_SPECS:
+                raise ActionRejected("INVALID_PARAMETER", "未知协定类型")
             return {"type": action_type, "operation": operation, "target": target, "pact": pact}
         if operation in {"ACCEPT_PACT", "REJECT_PACT"}:
+            _keys(raw, {"type", "operation", "proposal_id"})
+            proposal_id = raw.get("proposal_id")
+            if not isinstance(proposal_id, str) or not proposal_id:
+                raise ActionRejected("INVALID_PARAMETER", "proposal_id 必须是非空字符串")
+            return {"type": action_type, "operation": operation, "proposal_id": proposal_id}
+        if operation == "REVOKE_PACT":
             _keys(raw, {"type", "operation", "proposal_id"})
             proposal_id = raw.get("proposal_id")
             if not isinstance(proposal_id, str) or not proposal_id:
@@ -332,7 +349,12 @@ def validate_action(actor: str, raw: Any, config: dict[str, Any]) -> dict[str, A
             "rate": _number(raw.get("rate"), "rate", 0.0, config["maximum_tax_rate"]),
         }
     if action_type == "SET_RESEARCH":
-        _keys(raw, {"type", "field"})
+        _keys(raw, {"type", "field", "node"})
+        if "node" in raw:
+            node = raw["node"]
+            if "field" in raw or not isinstance(node, str) or node not in config["research_tree"]:
+                raise ActionRejected("INVALID_PARAMETER", "请选择一个有效的研究节点")
+            return {"type": action_type, "node": node}
         field_name = raw.get("field")
         if not isinstance(field_name, str) or field_name not in config["research_fields"]:
             raise ActionRejected("INVALID_PARAMETER", f"未知研究领域: {field_name!r}")

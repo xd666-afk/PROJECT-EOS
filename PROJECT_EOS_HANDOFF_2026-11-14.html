@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Project Eos 开发交接报告 2026-11-14</title>
+<style>
+:root{--ink:#1d2733;--muted:#5b6878;--line:#d9e0e8;--accent:#9c6b2f;--bg:#f7f5f0;--code:#f0eee8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.7 "Segoe UI","Microsoft YaHei",system-ui,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:48px 32px 96px;background:#fff;box-shadow:0 0 40px rgba(0,0,0,.06)}
+h1{font-size:2.2rem;letter-spacing:.02em;border-bottom:3px solid var(--accent);padding-bottom:.4em;margin-top:0}
+h2{font-size:1.5rem;margin-top:2.2em;border-left:5px solid var(--accent);padding-left:.55em}
+h3{font-size:1.2rem;margin-top:1.6em;color:#2f4157}
+h4{font-size:1.05rem;margin-top:1.3em}
+p{margin:.7em 0}
+ul,ol{padding-left:1.6em}
+li{margin:.3em 0}
+code{overflow-wrap:anywhere;background:var(--code);padding:.12em .35em;border-radius:4px;font-family:Consolas,"SFMono-Regular",monospace;font-size:.9em}
+pre{background:#1f2933;color:#e8eef5;padding:16px 18px;border-radius:8px;overflow:auto;line-height:1.55}
+pre code{background:none;color:inherit;padding:0;font-size:.88em}
+blockquote{margin:1em 0;padding:.6em 1em;border-left:4px solid var(--accent);background:#fbf8f2;color:var(--muted)}
+table{width:100%;border-collapse:collapse;margin:1em 0;font-size:.94em}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+th{background:#f1ece2}
+a{color:#8a5a24}
+hr{border:0;border-top:1px solid var(--line);margin:2.4em 0}
+@media print{body{background:#fff}main{box-shadow:none;max-width:none;padding:0}pre{white-space:pre-wrap}}
+</style></head><body><main>
+<h1>Project Eos 开发交接报告</h1>
+<blockquote>交接日期：2026-11-14<br>代码版本：v0.35（六边形先铺 + 道路/外交门槛）<br>测试状态：<strong>103 passed</strong>（本地实测 26.96 秒）<br>项目路径：<code>D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1</code><br>GitHub：<a href="https://github.com/xd666-afk/PROJECT-EOS">https://github.com/xd666-afk/PROJECT-EOS</a>（分支 <code>main</code>）<br>本文面向接手开发的工程师，假设你熟悉 Python，但不了解本项目。</blockquote>
+<hr>
+<h2>0. 60 秒交接摘要</h2>
+<p>Project Eos 是一个<strong>本地、确定性、可暂停的实时文明模拟沙盘</strong>：世界地图 + 城市双视角，2–12 个国家由规则 AI、LLM 或玩家控制，共用同一套动作规则。当前是垂直切片，不是完整商业游戏。</p>
+<p>现在你应该先做三件事：</p>
+<pre><code>cd D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1
+.venv/Scripts/python -m pytest -q          # 应看到 103 passed
+.venv/Scripts/python live_server.py --days 365 --speed 2 --paused</code></pre>
+<p>然后打开 <code>http://127.0.0.1:8765/</code>，选择“继续游戏”或“载入存档”。</p>
+<p>当前最终存档是 <code>runs/saves/save_1794547249538_50002.json</code>（世界 <code>runs/worlds/world_v3_custom_50002.json</code>，四国 A/B/C/D，公元前 800 年，第 0 日，公平度 0.8157）。注意：<code>runs/</code> 被 <code>.gitignore</code> 忽略，<strong>不会随 Git 仓库交接</strong>；如果只通过 GitHub 交接，需要另外拷贝这两个文件，或在新环境重新生成世界。</p>
+<p>当前工作树有大量未提交修改（v0.32–v0.35 的地图、道路、图标、文档），Git 最后提交为 <code>2952c75 style(map): unify water color and recolor roads</code>。接手后第一步建议先完整跑测试，再按团队规范提交。</p>
+<hr>
+<h2>1. 项目定位与完成度</h2>
+<h3>1.1 目标</h3>
+<ul><li>玩法优先、拟真其次；每个可见机制都必须影响真实状态。</li><li>《文明 VI》式六边形地块 + 《群星》式可暂停实时运行 + 多国 AI。</li><li>不依赖大模型也能完整运行；LLM 是可选增强，不是硬依赖。</li><li>纯本地单机，不做联机、不做远程访问。</li></ul>
+<h3>1.2 已落地</h3>
+<ul><li>144×108 点顶六边形世界，每格约 750.8 km²，半径 17 km；v3 为“六边形先铺、逐格采样地形”。</li><li>逐日 Tick、365 日一局、90 日规划周期、暂停/继续/1×–8× 倍速。</li><li>国家层：人口、粮食、财政、税收、科技三线、建设、外交、贸易、军事、战争疲劳、正式胜利条件。</li><li>城市层：城市实体、城域、住房、仓容、稳定度、分区、邻接、宜居度、地方预算、治安/卫生、粮食物流。</li><li>城市治理：AI 托管 / 玩家手动 / LLM 统治者三种模式，共用动作规则。</li><li>AI：规则 AI（Mock）+ 六家 LLM 厂商预设 + 激进/中立/保守三种性格。</li><li>地图表现：卫星/政治/海拔/降水/资源/交通图层、领土色、边界、河流/湖泊、细弯曲道路、透明建筑图标、通知气泡、AI 决策气泡。</li><li>存档/自动保存/回放/世界哈希校验；测试隔离，避免测试世界覆盖玩家存档。</li><li>v0.35 道路系统：初始路网物流减损、道路连通校验、外交等级、跨边界修路门槛、全局弯曲渲染。</li></ul>
+<h3>1.3 明确未完成</h3>
+<ul><li>海军、多军团、围城、补给线、战争目标仍是最小闭环。</li><li>城市没有完整商品库存与城市间物流网络；粮食是抽象账本。</li><li>桥梁只是普通道路的视觉/数据变体，没有独立桥梁玩法（用户已明确“先不做变体”）。</li><li>没有正式动画、音效、过场、胜利演出。</li><li>Mock AI 的长期规划仍偏浅，反雪球能力有限。</li><li>六家 LLM 预设没有逐一用真实账号验收；不同账号的模型开通情况可能不同。</li><li>前端是单文件 <code>dashboard.html</code>，没有构建系统、组件化、端到端浏览器测试。</li><li>原生客户端（脱离 HTML）仍只是方向讨论，没有决策。</li></ul>
+<hr>
+<h2>2. 快速运行</h2>
+<h3>2.1 环境</h3>
+<ul><li>项目自带 <code>.venv</code>，Python 3.14.7。</li><li>依赖：<code>numpy&gt;=1.24</code>、<code>scipy&gt;=1.10</code>、<code>matplotlib&gt;=3.7</code>；测试另需 <code>pytest</code>。</li><li>Windows 使用 <code>.venv/Scripts/python</code>；macOS/Linux 换成 <code>.venv/bin/python</code>。</li><li>受 C: 盘空间限制，工具与数据尽量放 D:。</li></ul>
+<pre><code>python -m venv .venv
+.venv/Scripts/python -m pip install -r requirements.txt pytest</code></pre>
+<h3>2.2 启动本地指挥台</h3>
+<pre><code># 全 Mock，零 API 费用；--paused 表示启动后先暂停
+.venv/Scripts/python live_server.py --days 365 --speed 2 --paused
+
+# 自动打开浏览器
+.venv/Scripts/python live_server.py --days 365 --speed 2 --paused --open</code></pre>
+<p>浏览器访问 <code>http://127.0.0.1:8765/</code>。服务只绑定 <code>127.0.0.1</code>，没有认证，不要暴露公网。</p>
+<h3>2.3 载入最终存档</h3>
+<p>UI：着陆页 → “载入存档” → 选择“六边形先铺 · 地形后填”。</p>
+<p>命令行/脚本：</p>
+<pre><code>from core.simulation import Simulation
+from pathlib import Path
+
+sim = Simulation.load(Path(&quot;runs/saves/save_1794547249538_50002.json&quot;))
+sim.step(3)
+print(sim.state.day_index, sim.state.summary()[&quot;date&quot;])</code></pre>
+<p>API：</p>
+<pre><code>curl -X POST http://127.0.0.1:8765/api/saves \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;operation&quot;:&quot;load&quot;,&quot;id&quot;:&quot;save_1794547249538_50002&quot;}&#x27;</code></pre>
+<h3>2.4 新建 v3 世界</h3>
+<p>新世界默认走 v3。UI：“新建世界”。API：</p>
+<pre><code>curl -X POST http://127.0.0.1:8765/api/new_game \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#x27;{&quot;seed&quot;:50002,&quot;start_year&quot;:-799,&quot;save_name&quot;:&quot;新世界&quot;}&#x27;</code></pre>
+<p>程序内直接生成：</p>
+<pre><code>from mapgen import generate_fair_world, normalize_countries
+
+countries = normalize_countries(None)  # 默认 4 国；也可传 2–12 国自定义列表
+world, path = generate_fair_world(countries, base_seed=50002, generation_version=&quot;v3&quot;)
+print(path, world[&quot;metadata&quot;][&quot;fairness&quot;][&quot;score&quot;])</code></pre>
+<p>不要覆盖 <code>output/world_2000BCE.json</code>；它是保留的静态基线，有 SHA-256 校验。重新生成请写到 <code>output_regenerated/</code> 或 <code>runs/worlds/</code>。</p>
+<h3>2.5 批处理模拟</h3>
+<pre><code>.venv/Scripts/python run_simulation.py run --days 365
+.venv/Scripts/python run_simulation.py status --save runs/eos_latest.json
+.venv/Scripts/python run_simulation.py interactive --load runs/eos_latest.json</code></pre>
+<h3>2.6 测试</h3>
+<pre><code>.venv/Scripts/python -m pytest -q
+# 103 passed</code></pre>
+<p>测试必须使用临时目录生成世界，避免覆盖 <code>runs/saves</code> 和玩家世界哈希。v1/v2/v3 生成器都支持 <code>output_dir</code>，不要移除。</p>
+<hr>
+<h2>3. 架构与数据流</h2>
+<pre><code>dashboard.html（单页 Canvas + 原生 JS）
+        │  GET /api/world /api/state ...；POST /api/action ...
+        ▼
+live_server.py
+  LiveSession（线程锁、暂停、倍速、自动保存、存档槽、玩家国家）
+        │
+        ├── Simulation
+        │     ├── GameClock（日推进、倍速）
+        │     ├── RuleEngine（唯一动作写入口）
+        │     └── GameState（世界、国家、城市、事件、动作日志）
+        │
+        └── AgentScheduler（90 日规划、观察隔离、并发决策）
+              ├── HeuristicAgent（规则 AI / Mock）
+              └── LLM adapter（OpenAI 兼容、预算、日记、性格）
+        │
+        ▼
+地图生成：mapgen.py → mapgen_v3.py（新默认）/ mapgen_v2.py（旧世界）
+规则数值：config/rules.json
+厂商预设：config/llm_providers.json</code></pre>
+<h3>3.1 动作管线</h3>
+<ol><li>前端提交 <code>{"type": "...", ...}</code>。</li><li><code>LiveSession.player_action</code> 检查玩家国家。</li><li><code>RuleEngine.apply_action</code> 调用 <code>validate_action</code> 做 schema 校验。</li><li>规则层做所有权、地形、科技、财政、冷却、连通性等业务校验。</li><li>通过后修改 <code>GameState</code>，写入 <code>action_log</code> 和 <code>event_log</code>。</li><li>前端下一次 <code>snapshot()</code> 拉到新状态；失败返回 <code>accepted=false</code> 与 <code>reason_code</code>。</li></ol>
+<p>所有国家（玩家、Mock、LLM）都走同一个入口，不允许绕过规则直接改状态。</p>
+<h3>3.2 确定性</h3>
+<ul><li>世界由 seed 决定；生成结果、首都、领土、路网可复现。</li><li>模拟按日推进，不依赖真实时间；<code>--speed</code> 只影响观察节奏。</li><li>存档保存世界文件路径与 SHA-256；世界文件被改动后载入会校验失败。</li><li>测试覆盖存档往返、回放、断点续跑。</li></ul>
+<hr>
+<h2>4. v3 地图生成</h2>
+<h3>4.1 网格</h3>
+<ul><li>144×108 = 15,552 格；odd-r pointy-top 六边形。</li><li>每格面积 750.8 km²，半径 17 km。</li><li>地图纬度约 8°–51°N，地球式 24 小时/365 天假设。</li></ul>
+<h3>4.2 生成顺序（v3）</h3>
+<ol><li>在 576×432 高分辨率栅格上生成基础陆地、海拔、断层。</li><li>清理小岛/噪点，平滑生物群系。</li><li>生成气候（温度、月降水）。</li><li>生成水文：流向、汇水面积、河段、封闭盆地、湖泊。</li><li><strong>逐六边形采样</strong>：每个格直接取地形、气候、水文、灾害，分类为 biome。</li><li>放置首都：按国家 archetype 评分，保证国家间距离。</li><li>划分 16 格连通核心领土，检查公平度。</li><li>生成初始道路：连接首都的最小生成树/最低成本六边形路径；河格标记为桥。</li><li>打包 metadata，校验 schema。</li></ol>
+<p>关键文件：<code>mapgen_v3.py</code>（432 行），复用 <code>mapgen_v2.py</code> 的水文/湖泊/河段整形辅助函数。<code>mapgen.py</code> 是统一入口，<code>generate_fair_world(..., generation_version="v3")</code> 默认分派到 v3。</p>
+<h3>4.3 水体</h3>
+<ul><li>海洋和湖泊都是六边形水体，统一海水蓝绘制。</li><li>河流占一格宽，<code>river_cells</code> 保存水深、覆盖率、流向、汇水面积、<code>kind</code>、<code>terminal_lake_id</code>。</li><li>内流河 <code>kind=endorheic</code> 在湖岸终止，不进入海洋；外流河最终入海。</li><li>湖泊来自封闭洼地/不与外海连通的封闭水域，<code>lake_cells</code> 保存深度与湖面高程。</li><li>城心、道路格、建城目标格不得落在湖格/河面；规则分别返回 <code>LAKE_TILE</code>、<code>RIVER_TILE</code>。</li></ul>
+<h3>4.4 审计世界 50002（当前最终存档）</h3>
+<table><thead><tr><th>项目</th><th>数值</th></tr></thead><tbody>
+<tr><td>网格</td><td>144×108，15,552 格</td></tr>
+<tr><td>陆地 / 海洋</td><td>11,314 / 4,238</td></tr>
+<tr><td>内湖</td><td>6 个（LK01–LK06），70 个湖格</td></tr>
+<tr><td>河格</td><td>881，其中内流河 226</td></tr>
+<tr><td>初始道路</td><td>112 格</td></tr>
+<tr><td>公平度</td><td>0.8157</td></tr>
+<tr><td>世界文件</td><td><code>runs/worlds/world_v3_custom_50002.json</code>（约 8.3 MB）</td></tr>
+<tr><td>存档</td><td><code>runs/saves/save_1794547249538_50002.json</code>（约 258 KB，引用世界文件）</td></tr>
+<tr><td>365 日 Mock 审计</td><td>通过，城心全部干地</td></tr>
+</tbody></table>
+<h3>4.5 v2 兼容</h3>
+<ul><li>旧 v2 世界 <code>schema_version=2</code>、连续地形纹理 + 144×108 聚合，仍可载入。</li><li><code>mapgen_v2.py</code> 保留约 1,420 行，不建议继续扩展；新功能优先写 v3。</li><li><code>validate_v2</code> 接受 schema_version 2 和 3。</li></ul>
+<hr>
+<h2>5. 核心玩法系统</h2>
+<h3>5.1 日推进与规划</h3>
+<ul><li><code>Simulation.run(days)</code> 每天调用 <code>RuleEngine.step_day</code>。</li><li>每 90 日 AI 做一次规划；每 30 日自动保存。</li><li>胜利条件每回合检查，达成后暂停。</li><li>天气是物理启发的程序模型，不是 GCM；天气影响粮食产出与灾害事件。</li></ul>
+<h3>5.2 经济</h3>
+<ul><li>粮食：地块基础产出 × 天气 × 道路 × 城市方针 × 分区 × 邻接 × 宜居。</li><li>财政：人口税、矿业、贸易 +5%、城市地方预算上缴/调入。</li><li>粮食跨城调配有损耗；道路降低损耗（有上限）。</li><li>初始路网提供一份基础物流减损；动态 <code>ROAD</code> 建筑按数量计入。</li><li>高税会压低产出；缺粮会提高死亡率。</li></ul>
+<h3>5.3 城市</h3>
+<ul><li>城市有中心、城域、人口、住房、仓容、稳定度、宜居度。</li><li>分区：住宅、农业、工业、商业、学术等；中心邻接有加成。</li><li>地方预算：税收、矿业、维护、公共服务。</li><li>治安/卫生是抽象指标，由神庙、市场、道路、粮仓、灌溉等影响。</li><li>新城通过 <code>SETTLE</code> 在相邻无主陆地建立，自动纳入约 5 格城域。</li><li>双击城市进入城市规划视图；城市内建造与大地图共用全国上限和规则。</li></ul>
+<h3>5.4 科技、外交、军事、胜利</h3>
+<ul><li>科技三线（农业/冶金/文字）各 6 级，按时代重命名节点。</li><li>外交：-100..+100 关系、赠礼、贸易协定、和平提案；关系 15 可提议贸易。</li><li>军事：招募、行军（单次最多 4 格）、宣战、边境/远征战斗、占领、疲劳、和平。</li><li>胜利：知识（科技 6 级）、繁荣（人口/财政/粮食）、疆域（领土/城市/领先比）、安定（稳定/宜居/人口）。</li></ul>
+<h3>5.5 AI 与性格</h3>
+<ul><li><code>HeuristicAgent</code>：规则 AI，免费、默认；按粮食、财政、威胁、扩张、建设评分选动作。</li><li><code>LLM adapter</code>：OpenAI 兼容，六家厂商预设；预算按调用次数和估算费用双重限制。</li><li>性格：激进/中立/保守，写入存档与席位 UI；Mock 和 LLM 共用。</li><li>LLM 决策以地图气泡展示，写入第一人称统治日记。</li><li>观察隔离：AI 只能看到自己国家的状态；玩家接管的国家的 AI 决策暂停。</li></ul>
+<hr>
+<h2>6. v0.35 道路系统（本次重点）</h2>
+<h3>6.1 数据</h3>
+<ul><li>初始路网：<code>world.data["road_cells"]</code>，每项形如：</li></ul>
+<pre><code>{
+  &quot;tile&quot;: {&quot;col&quot;: 25, &quot;row&quot;: 25},
+  &quot;owner_id&quot;: &quot;A&quot;,
+  &quot;kind&quot;: &quot;road&quot; | &quot;bridge&quot;,
+  &quot;network_id&quot;: 1
+}</code></pre>
+<ul><li>动态道路：<code>country.buildings[(col,row)] = "ROAD"</code>。</li><li>初始道路只作为物流基础设施，<strong>不</strong>逐格计入住房/治安；避免开局 112 个路格把平衡刷爆。</li><li>动态 <code>ROAD</code> 建筑按正常建筑计入产出、住房、治安、维护。</li></ul>
+<h3>6.2 修路规则</h3>
+<p><code>core/rules.py</code> 中 <code>BUILD</code> 的检查顺序：</p>
+<ol><li><code>TILE_NOT_OWNED</code>：目标格不属于本国。</li><li><code>INVALID_TERRAIN</code>：海域。</li><li><code>BUILDING_CONFLICT</code>：已有建筑或在建。</li><li><code>ROAD_TILE</code>：目标格是初始道路，却要建其他设施。</li><li>地形/科技/河道/全国上限/财政检查。</li><li><code>ROAD_EXISTS</code>：目标格已经是初始道路。</li><li>道路连通检查：</li></ol>
+<ul><li><code>ROAD_DIPLOMACY_REQUIRED</code>：相邻节点属于外交等级不足的外国；</li><li><code>ROAD_NOT_CONNECTED</code>：没有任何相邻城市/道路节点。</li></ul>
+<h3>6.3 连通与外交门槛</h3>
+<p>核心实现：<code>core/road.py</code></p>
+<ul><li><code>road_node_owners(state, country, coord)</code> 收集目标格六邻接内的节点所有者：</li><li>本国城市中心；</li><li>外国城市中心；</li><li>本国动态 <code>ROAD</code> 建筑；</li><li>所有初始 <code>road_cells</code>（带 <code>owner_id</code>）。</li><li><code>road_connection_status(state, country, coord)</code>：</li><li>无任何节点 → <code>connected=False, denied=[]</code>；</li><li>有外国节点且 <code>state.diplomatic_level(本国, 外国) &lt; state.road_connection_level()</code> → <code>denied</code> 非空；</li><li>否则 <code>connected=True</code>。</li></ul>
+<p>外交等级定义在 <code>config/rules.json</code>：</p>
+<table><thead><tr><th>id</th><th>标签</th><th>最低关系</th></tr></thead><tbody>
+<tr><td>0</td><td>敌对</td><td>-100</td></tr>
+<tr><td>1</td><td>冷淡</td><td>-30</td></tr>
+<tr><td>2</td><td>中立</td><td>0</td></tr>
+<tr><td>3</td><td>友好</td><td>25</td></tr>
+<tr><td>4</td><td>同盟</td><td>60</td></tr>
+</tbody></table>
+<p><code>road_connection_level</code> 默认 <strong>3（友好，关系 ≥ 25）</strong>。跨边界连通不同国家路网必须达到该等级。</p>
+<h3>6.4 初始路网例外</h3>
+<p>初始世界路网视为“历史基线”，保留原有连通，不受新外交门槛追溯限制。门槛只约束<strong>新建道路</strong>。</p>
+<p>这带来一个已知边界：如果初始路网恰好跨过两国边界，视觉/物流上可能已经连通；当前 50002 世界没有这种相邻节点，所以未触发。接手后若要彻底封闭，需要给初始路网也做一次外交归属审计，或在生成时避免跨边界路网。</p>
+<h3>6.5 AI 修路</h3>
+<p><code>agents/scheduler.py</code> 观察项新增：</p>
+<ul><li><code>road_cell</code>：该格是否已有初始道路；</li><li><code>road_connected</code>：是否满足连通/外交门槛；</li><li><code>road_denied</code>：拒绝连通的外国列表。</li></ul>
+<p><code>agents/heuristic.py</code>：</p>
+<ul><li>非道路建筑候选排除 <code>road_cell</code>；</li><li><code>ROAD</code> 候选要求 <code>road_connected == true</code> 且 <code>road_cell == false</code>；</li><li>道路评分：<code>1.8 - abs(elev-400)/1000 + 0.4 if river</code>。</li></ul>
+<p>因此 AI 不会再修孤立断头路，也不会在关系不足时强行跨国连通。</p>
+<h3>6.6 渲染</h3>
+<p><code>dashboard.html</code> 中：</p>
+<ul><li><code>roadEntityCells</code> 收集初始 <code>road_cells</code> + 动态 <code>ROAD</code> 建筑；</li><li><code>roadChainsFromCells</code> 建全局路网图，按相邻格组链（不再按国家分组，避免视觉断裂）；</li><li><code>smoothRoadPath</code> 使用 Chaikin 平滑 + 确定性多频率值噪声横向偏移；</li><li><code>strokeRoadPath</code> 画深色描边 + 陶土色内线 + 阴影；</li><li>起点、终点、岔路口保持准确；不填充六边形。</li></ul>
+<h3>6.7 当前验证结论</h3>
+<p>2026-11-14 实测：</p>
+<ul><li>载入 <code>save_1794547249538_50002</code> 正常，四国均存在，道路门槛 3。</li><li>后端临时构造“A 国边界格邻接 B 国初始道路”：关系 0 时返回 <code>ROAD_DIPLOMACY_REQUIRED</code>；关系改为 30 后修路成功。</li><li>玩家接管 D，选中都城相邻格 <code>(100,24)</code>，道路按钮可用，点击后项目入队，财政 100 → 85。</li><li>前端注入一条相邻的外国道路后，按钮显示“需与 国家A 达到友好”并禁用；关系改为 30 后恢复“条件满足”。注入仅在浏览器内存中，未写入存档。</li><li>浏览器控制台无报错。</li></ul>
+<hr>
+<h2>7. UI 结构</h2>
+<h3>7.1 一级/二级导航</h3>
+<p>一级：世界、国家、城市、科技、外交、军事、AI、系统。每个入口打开独立全屏 deck。</p>
+<p>二级标签：</p>
+<ul><li>国家：概览 / 城市 / 排名</li><li>城市：列表 / 规划</li><li>科技：总览 / 三线</li><li>外交：关系 / 提案</li><li>军事：军队 / 战争</li><li>AI：席位 / 档案</li><li>通知：动态 / 工程</li></ul>
+<h3>7.2 地图</h3>
+<ul><li>图层：卫星、政治、海拔、降水、资源、交通。</li><li>v3 卫星图按六边形填地形色，邻格高程做明暗，海岸线描边；无连续地形纹理。</li><li>领土色、边界、河流、湖泊、道路、城市标记、设施图标、施工进度环。</li><li>道路用细曲线；河流/湖泊统一海水蓝；内流河/内流湖在图例中单独标注。</li><li>点击地块打开“详情检视”；玩家模式下可建造。</li><li>通知以气泡出现，可点击进入通知中心。</li></ul>
+<h3>7.3 图标</h3>
+<ul><li>根目录 <code>assets/icons/</code>：15 个映射图标（farm、mine、road、granary、irrigation、workshop、library、market、temple、great_*、palace、city_center、military_camp）。</li><li><code>assets/icons/buildings/</code>：32 个英文命名的新六边形徽章素材 + <code>MAPPING.txt</code>；旧图标备份在 <code>runs/old_icons_backup/</code>。</li><li>图标为透明 PNG，通常 320×320；<code>workshop.png</code> 由 GPT Image Studio 参考图生成后抠底。</li><li><code>.build-thumb</code> 使用 <code>object-fit: contain</code>，不加方形边框。</li></ul>
+<h3>7.4 已知 UI 限制</h3>
+<ul><li><code>dashboard.html</code> 约 3,372 行，单文件、无构建；改动时注意不要破坏 DOM id 和函数名。</li><li>测试只做静态 HTML 断言，没有真实浏览器端到端测试。</li><li>窄视口（如 610 px）下外交页关系条标签会拥挤；桌面宽屏正常。</li><li>服务端改动后必须重启 <code>live_server.py</code>，否则新规则/字段不会加载。</li></ul>
+<hr>
+<h2>8. API 与存档</h2>
+<h3>8.1 API</h3>
+<table><thead><tr><th>方法</th><th>路径</th><th>作用</th></tr></thead><tbody>
+<tr><td>GET</td><td><code>/api/world</code></td><td>世界 metadata、polities、tiles、river/lake/road_cells、rendering</td></tr>
+<tr><td>GET</td><td><code>/api/state</code></td><td>当前快照：国家、城市、建筑、项目、外交等级、胜利、事件</td></tr>
+<tr><td>GET</td><td><code>/api/terrain</code></td><td>v2 旧世界地形纹理；v3 返回空/不使用</td></tr>
+<tr><td>GET</td><td><code>/api/agents</code></td><td>AI 席位配置与用量</td></tr>
+<tr><td>GET</td><td><code>/api/setup</code></td><td>厂商/模型预设</td></tr>
+<tr><td>GET</td><td><code>/api/saves</code></td><td>存档列表</td></tr>
+<tr><td>GET</td><td><code>/api/diary</code></td><td>LLM 统治日记</td></tr>
+<tr><td>POST</td><td><code>/api/action</code></td><td>玩家动作</td></tr>
+<tr><td>POST</td><td><code>/api/control</code></td><td>暂停/继续/倍速/快进</td></tr>
+<tr><td>POST</td><td><code>/api/new_game</code></td><td>新世界（v3）</td></tr>
+<tr><td>POST</td><td><code>/api/saves</code></td><td><code>save</code> / <code>load</code> / <code>delete</code></td></tr>
+<tr><td>POST</td><td><code>/api/agents</code></td><td>配置某国 AI 席位</td></tr>
+<tr><td>POST</td><td><code>/api/agents/test</code></td><td>最小连接测试</td></tr>
+<tr><td>POST</td><td><code>/api/agents/budget</code></td><td>调用次数/费用预算</td></tr>
+<tr><td>POST</td><td><code>/api/agents/personality</code></td><td>设置性格</td></tr>
+</tbody></table>
+<p><code>/api/state</code> 快照新增字段：<code>diplomacy_levels</code>、<code>road_connection_level</code>。</p>
+<h3>8.2 存档格式</h3>
+<ul><li><code>GameState.save(path)</code> 写 JSON：<code>format</code>、<code>world_file</code>、<code>world_sha256</code>、<code>seed</code>、<code>day_index</code>、<code>rules</code>、<code>countries</code>、<code>relations</code>、<code>pacts</code>、<code>weather</code>、<code>action_log</code>、<code>event_log</code>。</li><li>世界本体不复制进存档，引用外部 <code>world_file</code>；载入时校验 SHA-256。</li><li>存档元数据写在同名 <code>.meta.json</code>，供存档列表使用。</li><li>自动保存每 30 日；退出时也保存。</li><li><code>runs/</code> 被 Git 忽略；交接时需单独拷贝存档和世界，或重新生成。</li></ul>
+<h3>8.3 测试隔离</h3>
+<ul><li>v1/v2/v3 生成器都接受 <code>output_dir</code>。</li><li>测试写入 <code>tmp_path</code>，避免覆盖 <code>runs/worlds</code>、<code>runs/saves</code>。</li><li>新增生成器或改动输出路径时，务必保留该参数。</li></ul>
+<hr>
+<h2>9. 测试与验证</h2>
+<h3>9.1 测试规模</h3>
+<p><strong>103 passed</strong>（2026-11-14，26.96 秒）。</p>
+<table><thead><tr><th>文件</th><th>用例数</th><th>覆盖</th></tr></thead><tbody>
+<tr><td><code>test_actions.py</code></td><td>27</td><td>动作 schema、建造、科研、政策、交易、外交、城市、预算、道路门槛</td></tr>
+<tr><td><code>test_simulation.py</code></td><td>22</td><td>日推进、暂停、倍速、存档、经济、评分、胜利、灾害</td></tr>
+<tr><td><code>test_llm_adapter.py</code></td><td>11</td><td>OpenAI 兼容、重试、预算、Usage、失败回退</td></tr>
+<tr><td><code>test_agents_replay.py</code></td><td>9</td><td>观察隔离、玩家跳过、回放、断点续跑</td></tr>
+<tr><td><code>test_personality.py</code></td><td>6</td><td>三种性格、Mock/LLM 一致性</td></tr>
+<tr><td><code>test_dashboard_ui.py</code></td><td>6</td><td>静态 UI 断言、v3 地图、道路函数、图标</td></tr>
+<tr><td><code>test_generated_world.py</code></td><td>4</td><td>世界完整性、气候、连通、天气</td></tr>
+<tr><td><code>test_messages.py</code></td><td>4</td><td>事件短讯、日记气泡</td></tr>
+<tr><td><code>test_mapgen_v2.py</code></td><td>3</td><td>v2 连续地形、河深/道路、内湖/内流河</td></tr>
+<tr><td><code>test_providers.py</code></td><td>3</td><td>厂商预设、模型选择</td></tr>
+<tr><td><code>test_mapgen.py</code></td><td>2</td><td>v1 公平世界、六国</td></tr>
+<tr><td><code>test_mapgen_v3.py</code></td><td>2</td><td>v3 生成、道路节点、外交等级、存档往返</td></tr>
+<tr><td><code>conftest.py</code></td><td>—</td><td>测试夹具</td></tr>
+</tbody></table>
+<h3>9.2 本次交接前的验证</h3>
+<ul><li><code>pytest -q</code>：103 passed。</li><li>载入最终存档：通过。</li><li>外交等级：四国均为中立（2），道路门槛 3。</li><li>后端跨边界修路门槛：中立拒绝、友好放行。</li><li>玩家手动修路：从都城相邻格成功。</li><li>前端拒绝原因：显示“需与 国家A 达到友好”。</li><li>浏览器控制台：无报错。</li></ul>
+<h3>9.3 尚未自动化的验证</h3>
+<ul><li>真实浏览器端到端（点击地图、存档、AI 席位）仍靠人工。</li><li>六家 LLM 厂商没有逐家用真实账号验收；只做过 DeepSeek 小规模真实动作闭环。</li><li>长期平衡只跑到 1,825 日（Mock），不代表 12 国/长期稳定。</li><li>多国（&gt;4）UI 布局和道路外交组合没有系统压力测试。</li></ul>
+<hr>
+<h2>10. 最近变更（v0.33–v0.35）</h2>
+<h3>v0.33 水文重置</h3>
+<ul><li>河段追踪 + 正弦蜿蜒、河谷走廊、封闭内流盆地。</li><li>内流河在湖岸终止，注册 <code>terminal_lake_id</code>。</li><li>内湖深度梯度；UI 统一海水蓝。</li></ul>
+<h3>v0.34 六边形先铺</h3>
+<ul><li>从“连续地形 → 量化”改为“先铺六边形 → 逐格采样”。</li><li>取消 576×432 地形纹理，海岸线沿六边形边，消除锯齿。</li><li>生成时间约 20–50 秒降到 1–2 秒；世界文件约 19 MB 降到 8 MB。</li><li>新世界 metadata：<code>schema_version=3</code>、<code>generator=mapgen_v3_hexfirst</code>、<code>terrain_mode=hex_fill</code>。</li></ul>
+<h3>v0.35 道路与外交</h3>
+<ul><li>初始路网物流减损；动态道路正常计入。</li><li>道路必须连通；禁止断头路。</li><li>外交等级与跨边界修路门槛；<code>ROAD_DIPLOMACY_REQUIRED</code>。</li><li>道路不能覆盖初始路格；其他设施也不能建在路格。</li><li>全局路网取链 + 确定性弯曲噪声，细线、自然弯曲、端点准确。</li><li>新图标集：32 个六边形徽章 + 工坊补绘。</li><li>测试隔离：v1/v2/v3 <code>output_dir</code>。</li><li>文档同步到 103 项测试。</li></ul>
+<hr>
+<h2>11. 已知限制与技术债</h2>
+<p>按影响排序：</p>
+<ol><li><strong>Mock AI 深度不足。</strong> 长期规划、反雪球、外交/战争判断、城市经营仍偏规则化；大多数玩家不会配置 LLM，这是体验上限。</li><li><strong>LLM 真实账号未全面验收。</strong> 六家预设只验证了协议与部分真实调用；模型开通、限流、费用差异需要逐家测试。</li><li><strong>初始路网外交例外。</strong> 初始 <code>road_cells</code> 不受门槛追溯；若未来生成器产生跨边界初始路网，会出现“未达友好却已连通”。建议生成时做归属审计，或在载入时拆分跨边界网络。</li><li><strong>道路门槛只看邻接节点。</strong> 当前不搜索整条路径；它约束的是“新路格是否与外国节点相邻”，不是完整网络连通性证明。若未来要做贸易路线/物流路径，需要真正的图搜索与路径合法性校验。</li><li><strong>桥梁无独立玩法。</strong> 目前只是 <code>kind=bridge</code> 的颜色/数据差异；没有渡河成本、桥梁维护、破坏等。</li><li><strong>城市库存/物流缺失。</strong> 粮食是抽象账本；没有商品库存、运输队、仓储容量网络。</li><li><strong>军事简化。</strong> 单军团、无海军、无围城、无补给线；战争目标与和平条款较简单。</li><li><strong>前端单体。</strong> <code>dashboard.html</code> 3,372 行，无组件化/构建/端到端测试；改动容易回归。</li><li><strong>窄屏布局。</strong> 610 px 视口下外交关系条标签拥挤；移动端未系统适配。</li><li><strong>v1/v2 兼容负担。</strong> 两套旧生成器仍在仓库中，增加理解成本；新功能应优先 v3。</li><li><strong>无认证。</strong> 本地服务只监听 127.0.0.1；不要加公网暴露。</li><li><strong>存档引用外部世界。</strong> 移动/删除世界文件会导致存档载入失败；哈希能防篡改但不能自包含。若要做“单文件存档”，需要把世界内嵌或打包。</li></ol>
+<hr>
+<h2>12. 安全与运维约束（必须保留）</h2>
+<p>这些是项目所有者明确要求的约束，接手后不要擅自改变：</p>
+<ul><li><strong>不做联机/远程访问。</strong> 已删除远程方案；默认只本地 + GitHub。</li><li><strong>API Key 只存在本机服务进程内存。</strong> 不进入存档、事件日志、<code>/api/state</code>、页面回显、Git。</li><li><strong>GitHub 网络失败不重试。</strong> 遇到网络/代理错误，保留本地提交，报告错误并停止；不要反复重试。</li><li><strong>工具/数据放 D:。</strong> C: 盘空间有限；安装器强制 C: 时用独立包或 junction。</li><li><strong>国家不写死四个。</strong> 通用 ID <code>A/B/C…</code>，默认名 <code>国家A/B/C…</code>；支持 2–12 国。历史基线 ELAR/MARIS/VAYR/SAHAR 是例外。</li><li><strong>不覆盖静态基线。</strong> <code>output/world_2000BCE.json</code> 不重新生成；新世界写 <code>output_regenerated/</code> 或 <code>runs/worlds/</code>。</li><li><strong>测试不得污染玩家世界。</strong> 生成器保留 <code>output_dir</code>，测试写临时目录。</li><li><strong>截图/视觉结论要验证。</strong> 区分数据 bug、渲染缝隙、样式问题；不要只凭代码推断“看起来对”。</li></ul>
+<hr>
+<h2>13. Git 状态与交接步骤</h2>
+<p>当前：</p>
+<ul><li>分支：<code>main</code>。</li><li>远程：<code>origin https://github.com/xd666-afk/PROJECT-EOS.git</code>。</li><li>最后提交：<code>2952c75 style(map): unify water color and recolor roads</code>。</li><li>工作树：约 40 项未提交（29 个修改文件 + 新增文件）。</li><li>未跟踪的关键文件：</li><li><code>mapgen_v3.py</code></li><li><code>core/road.py</code></li><li><code>tests/test_mapgen_v3.py</code></li><li><code>assets/icons/buildings/</code>（32 个图标 + MAPPING）</li><li><code>assets/icons/city_center.png</code>、<code>military_camp.png</code>、<code>palace.png</code></li><li><code>Project_Eos_图标素材清单.txt</code></li><li><code>Project_Eos_新手试玩指南.docx</code></li><li><code>docs/report_assets/ui_v3_hexfirst*.png</code></li></ul>
+<p>建议交接流程：</p>
+<ol><li><code>pytest -q</code> 确认 103 passed。</li><li><code>git diff</code> 逐项审查 v0.35 改动（道路、外交、UI、图标、文档）。</li><li>本地提交（不要 <code>git add -A</code> 把无关文件带进来；按实际文件添加）。</li><li>推送 GitHub 只尝试一次；失败按网络策略停止并保留本地提交。</li><li>单独拷贝 <code>runs/saves/save_1794547249538_50002.json</code> 和 <code>runs/worlds/world_v3_custom_50002.json</code> 给接手人；它们不在 Git 中。</li><li>若接手人无法获得存档，可在 UI 新建世界（v3）或运行生成脚本。</li></ol>
+<hr>
+<h2>14. 推荐下一步</h2>
+<h3>P0：交接稳定化（先做）</h3>
+<ul><li>提交当前工作树；确认 CI/本地测试全绿。</li><li>把最终存档与世界文件打包给接手人，或在文档中写清重新生成步骤。</li><li>修复窄屏外交页标签拥挤（纯 CSS）。</li><li>给道路外交门槛补一个<strong>端到端动作测试</strong>：构造两国相邻节点，验证 <code>ROAD_DIPLOMACY_REQUIRED</code> 与放行。当前 <code>test_actions.py</code> 只测了 <code>road_connection_status</code> 单元逻辑。</li><li>服务器重启后自动检测版本/配置变化，或在文档/UI 提示“后端改动需重启”。</li></ul>
+<h3>P1：玩法深度</h3>
+<ul><li><strong>城市库存与物流</strong>：商品库存、仓储、运输网络、道路实际路径与容量。</li><li><strong>道路网络图</strong>：从“邻接门槛”升级为“路径合法性 + 连通分量 + 贸易路线”；支持断路、维护、桥梁。</li><li><strong>Mock AI 长期规划</strong>：反雪球、外交记忆、战争目标、城市专业化；可参考 <code>PERSONALITY_EXPERIMENT_REPORT.md</code> 做对照实验。</li><li><strong>桥梁变体</strong>（用户暂缓）：渡河成本、桥梁维护、战争破坏；数据层已预留 <code>kind=bridge</code>。</li><li><strong>多军团/海军/围城/补给</strong>：先把军事从单军团扩展为可调度单位。</li></ul>
+<h3>P2：表现与平台</h3>
+<ul><li>原生客户端决策：Python 引擎可分离，但需要先决定 PySide6/Qt 或其他方案；不要在没有决策时大规模重写。</li><li>前端拆分：把 <code>dashboard.html</code> 拆成模块（地图、面板、API、状态），引入最小构建或至少按文件拆分。</li><li>动画/音效/胜利演出。</li><li>更多地图脚本、时代内容、政策/建筑。</li></ul>
+<h3>P3：质量</h3>
+<ul><li>真实浏览器端到端测试（Playwright/Selenium）。</li><li>12 国长期平衡实验与性能基准。</li><li>存档自包含/迁移工具。</li><li>v1/v2 旧世界清理或明确冻结。</li></ul>
+<hr>
+<h2>15. 交接检查清单</h2>
+<ul><li>[x] 代码可运行</li><li>[x] 103 项测试通过</li><li>[x] 最终存档可载入</li><li>[x] v3 地图与 UI 正常</li><li>[x] 道路/外交门槛后端验证</li><li>[x] 道路/外交门槛前端验证</li><li>[x] 浏览器控制台无报错</li><li>[x] 文档更新到 v0.35 / 103</li><li>[ ] 提交当前工作树</li><li>[ ] 推送 GitHub（按一次性网络策略）</li><li>[ ] 单独交接 <code>runs/saves</code> 与 <code>runs/worlds</code></li><li>[ ] 真实 LLM 厂商账号验收</li><li>[ ] 原生客户端方案决策</li></ul>
+<hr>
+<h2>附录 A：关键命令</h2>
+<pre><code># 测试
+.venv/Scripts/python -m pytest -q
+
+# 实时观察台（暂停启动）
+.venv/Scripts/python live_server.py --days 365 --speed 2 --paused
+
+# 批处理 365 日
+.venv/Scripts/python run_simulation.py run --days 365
+
+# 载入存档跑 30 日
+.venv/Scripts/python run_simulation.py run \
+  --load runs/saves/save_1794547249538_50002.json --days 30
+
+# LLM 服务（本地 Key 文件，预算上限）
+.venv/Scripts/python live_server.py --days 365 --speed 2 --paused \
+  --models config/models.deepseek.json \
+  --api-key-file &quot;/path/to/local-key&quot; \
+  --max-calls 40 --max-cost-usd 1.00
+
+# 重建静态基线（不要覆盖 output/）
+.venv/Scripts/python worldgen.py --seed 2000 --output output_regenerated</code></pre>
+<h2>附录 B：关键文件</h2>
+<pre><code>core/state.py                数据模型、存档、summary、外交等级、胜利
+core/rules.py                唯一写入口、建造/建城/道路规则、日推进
+core/road.py                 道路节点归属、连通状态、外交门槛
+core/actions.py              动作 schema 与基础校验
+core/simulation.py           run/pause/speed/save/load 高层封装
+core/economy.py              经济、粮食物流、预算、服务、事件
+core/society.py              城市指标、分区、评分、胜利条件
+core/city_governance.py      AI 市长
+core/construction.py         建造项目推进
+core/diplomacy.py            关系、贸易、提案
+core/military.py             招募、行军、战斗、占领、和平
+core/frontier.py             边疆开拓
+core/replay.py               动作回放
+core/messages.py             事件短讯与统治者消息
+agents/heuristic.py          规则 AI
+agents/scheduler.py          90 日规划、观察隔离、道路观察
+agents/llm_adapter.py        OpenAI 兼容、预算、日记
+agents/personality.py        三种性格
+agents/providers.py          厂商预设
+mapgen.py                    v1/v2/v3 统一入口
+mapgen_v3.py                 v3 六边形先铺（新默认）
+mapgen_v2.py                 v2 连续地形（旧世界兼容）
+worldgen.py                  原始世界、气候、水文、灾害、天气
+live_server.py               HTTP、LiveSession、存档槽、预算
+dashboard.html               单页 UI、地图、城市、道路、AI 席位
+config/rules.json            平衡参数、外交等级、道路门槛
+config/llm_providers.json    厂商/模型预设
+runs/saves/                  存档（Git 忽略）
+runs/worlds/                 随机世界（Git 忽略）
+output/world_2000BCE.json    不可覆盖的静态基线
+assets/icons/                图标映射与资源
+tests/                       103 项 pytest</code></pre>
+<h2>附录 C：关键绝对路径（本机）</h2>
+<pre><code>项目：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1
+最终存档：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\runs\saves\save_1794547249538_50002.json
+最终世界：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\runs\worlds\world_v3_custom_50002.json
+开发手册：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\DEVELOPER_MANUAL.md
+阶段报告：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\PROJECT_EOS_DEVELOPMENT_REPORT.md
+新手指南：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\Project_Eos_新手试玩指南.docx
+图标清单：D:\CCCQoder\project_eos\Project_Eos_Map_Generation_v0.1\Project_Eos_图标素材清单.txt</code></pre>
+<hr>
+<p><strong>交接结论：</strong> 代码处于可运行、可测试、可继续开发的状态；v3 地图与 v0.35 道路/外交门槛已验证。最大的未完成项是城市库存/物流、Mock AI 深度、桥梁玩法和原生客户端决策；最大的交接风险是 <code>runs/</code> 不在 Git 中，以及当前约 40 项工作树改动尚未提交。</p>
+</main></body></html>

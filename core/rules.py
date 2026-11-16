@@ -48,6 +48,9 @@ class RuleEngine:
             normalized = validate_action(actor, raw_action, self.state.config)
             action_type = normalized["type"]
             effects = self._execute(actor, normalized)
+            from core.logistics import reconcile_stocks
+            for entity in self.state.countries.values():
+                reconcile_stocks(entity, self.state.config)
             result = ActionResult(
                 action_id, actor, action_type, True, "OK", "动作已审核并执行",
                 self.state.day_index, effects,
@@ -115,6 +118,8 @@ class RuleEngine:
             coord = (action["tile"]["col"], action["tile"]["row"])
             tile = self.state.world.tile(coord)
             if not tile["land"]:
+                if tile.get("lake"):
+                    raise ActionRejected("LAKE_TILE", "不能在内湖水面建立前哨；请选择相邻的干燥陆地")
                 raise ActionRejected("INVALID_TERRAIN", "不能在海域建立前哨")
             occupied_by = next(
                 (
@@ -201,6 +206,11 @@ class RuleEngine:
                 total_outposts=len(country.outposts),
             )
             return {"tile": action["tile"], "cost": cost, "outposts": len(country.outposts)}
+        if action_type == "BUILD_ROAD_ROUTE":
+            from core.road_planner import plan, enqueue
+            quote = plan(self.state, country, (action["from"]["col"], action["from"]["row"]),
+                         (action["to"]["col"], action["to"]["row"]))
+            return enqueue(self.state, country, quote)
         if action_type == "BUILD":
             coord = (action["tile"]["col"], action["tile"]["row"])
             if coord not in country.tiles:
@@ -208,9 +218,21 @@ class RuleEngine:
             tile = self.state.world.tile(coord)
             if not tile["land"]:
                 raise ActionRejected("INVALID_TERRAIN", "海域不能建设")
-            if coord in country.buildings or self.construction.project_for_tile(country, coord):
-                raise ActionRejected("BUILDING_CONFLICT", "目标地块已有建筑或在建工程")
             building = action["building"]
+            from core.road import built_roads, road_permit, road_quote
+            conflicts = any(tuple(p["tile"]) == coord and (p["building"] == "ROAD") == (building == "ROAD") for p in country.projects)
+            if conflicts or (building != "ROAD" and country.buildings.get(coord) not in (None, "ROAD")):
+                raise ActionRejected("BUILDING_CONFLICT", "同类设施已经存在或正在建设")
+            if building == "ROAD":
+                if coord in built_roads(country) or self.state.world.is_road_cell(coord):
+                    raise ActionRejected("ROAD_EXISTS", "该地块已经是道路")
+                permit = road_permit(self.state, country, coord)
+                if permit:
+                    raise ActionRejected(*permit)
+                if tile.get("river"):
+                    from core.road import river_width
+                    if river_width(self.state.world, coord) != 1:
+                        raise ActionRejected("ROAD_BRIDGE_PLAN_REQUIRED", "多格河道请使用整段道路规划，从一侧陆地跨到另一侧陆地")
             spec = self.state.config["buildings"][building]
             if tile["biome"] not in spec["allowed_biomes"]:
                 raise ActionRejected("INVALID_TERRAIN", f"{tile['biome']} 不适合建设 {building}")
@@ -238,9 +260,26 @@ class RuleEngine:
                 raise ActionRejected(
                     "NOT_CITY_CENTER", f"{building} 只能建在城池中心格上：先选中一座城"
                 )
-            cost = float(spec["cost"])
+            cost = road_quote(self.state, country, coord)[0] if building == "ROAD" else float(spec["cost"])
+            duration = road_quote(self.state, country, coord)[1] if building == "ROAD" else float(spec["days"])
             if country.treasury + 1e-9 < cost:
                 raise ActionRejected("INSUFFICIENT_TREASURY", f"建设需要 {cost} 财政单位")
+            if building == "ROAD":
+                if self.state.world.is_road_cell(coord):
+                    raise ActionRejected("ROAD_EXISTS", "该地块已经是道路")
+                from core.road import road_connection_status
+                connected, denied, _ = road_connection_status(self.state, country, coord)
+                if not connected:
+                    if denied:
+                        names = "、".join(denied)
+                        raise ActionRejected(
+                            "ROAD_DIPLOMACY_REQUIRED",
+                            f"与 {names} 的外交等级不足以连通道路",
+                        )
+                    raise ActionRejected(
+                        "ROAD_NOT_CONNECTED",
+                        "道路必须与城市或已有道路相邻",
+                    )
             country.treasury -= cost
             project_id = f"P{self.state.next_project_number:06d}"
             self.state.next_project_number += 1
@@ -248,11 +287,14 @@ class RuleEngine:
                 "project_id": project_id,
                 "tile": coord,
                 "building": building,
-                "remaining_days": float(spec["days"]),
-                "total_days": float(spec["days"]),
+                "remaining_days": duration,
+                "total_days": duration,
                 "started_day": self.state.day_index,
                 "cost": cost,
             }
+            if building == "ROAD":
+                dependency = next((p["project_id"] for p in country.projects if p["building"] == "ROAD" and hex_distance(coord, tuple(p["tile"])) == 1), None)
+                project["depends_on"] = dependency
             country.projects.append(project)
             self.state.record(
                 "construction_started",
@@ -262,7 +304,7 @@ class RuleEngine:
                 building=building,
                 cost=cost,
             )
-            return {"project_id": project_id, "cost": cost, "duration_days": spec["days"]}
+            return {"project_id": project_id, "cost": cost, "duration_days": duration}
         if action_type == "ALLOCATE_WORKERS":
             previous = deepcopy(country.workers)
             country.workers = {
@@ -342,12 +384,18 @@ class RuleEngine:
             country.tax_rate = action["rate"]
             return {"previous_rate": previous, "rate": country.tax_rate}
         if action_type == "SET_RESEARCH":
-            field = action["field"]
-            if country.technology[field] >= self.state.config["research_max_level"]:
-                raise ActionRejected("RESEARCH_MAXED", "该研究领域已达到当前上限")
-            previous = country.research_field
-            country.research_field = field
-            return {"previous_field": previous, "field": field}
+            from core.technology import select, legacy_target
+            node = action.get("node")
+            if node is None:
+                node = legacy_target(country, self.state.config, action["field"])
+                if node is None:
+                    raise ActionRejected("RESEARCH_MAXED", "该研究领域已达到当前上限")
+            result = select(country, self.state.config, node)
+            if "field" in action:
+                country.research_field = action["field"]
+                result["field"] = action["field"]
+            return result
+
         if action_type == "DIPLOMACY":
             operation = action["operation"]
             if operation == "GIFT":
@@ -358,6 +406,8 @@ class RuleEngine:
                 return self.diplomacy.declare_war(actor, action["target"])
             if operation == "PROPOSE_PEACE":
                 return self.diplomacy.propose_peace(actor, action["target"])
+            if operation == "REVOKE_PACT":
+                return self.diplomacy.revoke_pact(actor, action["proposal_id"])
             return self.diplomacy.respond_pact(actor, action)
         if action_type == "MILITARY":
             operation = action["operation"]
@@ -423,6 +473,9 @@ class RuleEngine:
     def step_day(self, force: bool = False) -> bool:
         if self.clock.paused and not force:
             return False
+        from core import situations
+        situations.begin_day(self.state)
+        situation_replans = situations.replan_due(self.state)
         self.diplomacy.expire_due()
         self.diplomacy.expire_proposals()
         interval = self.state.config["planning_interval_days"]
@@ -434,7 +487,7 @@ class RuleEngine:
         elif self.planner is not None:
             # A council held every 90 days cannot answer a 17-day blockade, so the realms the
             # alert is about sit down today; everyone else keeps the ordinary rhythm.
-            alarmed = self.military.alarm_watch()
+            alarmed = self.military.alarm_watch() | situation_replans
             if alarmed:
                 self.planner.plan(self, only=alarmed)
         if self.enable_frontier_ai:
@@ -462,7 +515,11 @@ class RuleEngine:
             self.economy.update_stability_monthly()
             self.military.update_monthly()
             self.economy.apply_social_events()
+        from core.logistics import reconcile_stocks
+        for country in self.state.countries.values():
+            reconcile_stocks(country, self.state.config)
         self.state.day_index += 1
+        situations.finish_day(self.state)
         return True
 
     def _expand_frontiers(self) -> None:

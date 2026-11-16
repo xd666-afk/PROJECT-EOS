@@ -32,8 +32,14 @@ def dispatch(engine, source, host, units):
     })
 
 
-def settle(military, count=12):
-    for _ in range(count):
+def settle(military):
+    movement = military.movement()
+    days = max(
+        (movement.days(army.march.remaining)
+         for country in military.state.countries.values() for army in country.armies if army.march),
+        default=0,
+    )
+    for _ in range(days):
         military.march_daily()
 
 

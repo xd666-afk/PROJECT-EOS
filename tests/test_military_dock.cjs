@@ -81,7 +81,7 @@ test('attack can be confirmed while the route quote is still pending',async()=>{
       reserve_units:{MILITIA:120,ARCHER:4},
       armies:[{army_id:'A1',tile:[6,7],units:{MILITIA:40}}]}}},
     fetch:url=>{requests.push(url);return quote;},
-    submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return true;}};
+    submitPlayerAction:async action=>{orders.push(JSON.parse(JSON.stringify(action)));return {ok:true};}};
   vm.createContext(context);
   vm.runInContext(html.slice(html.indexOf('function openTileDispatch('),html.indexOf('function routHexText(')),context);
   context.openTileDispatch('attack',{col:2,row:3,owner:'B'});
@@ -138,7 +138,7 @@ test('the first deployment stays selected for direct map orders until cleared',a
   const calls=[],focused=[];
   const realm={armies:[]};
   const context={STATE:{player_country:'A',countries:{A:realm}},selectedArmy:null,
-    focusTile:(...coord)=>focused.push(coord),tileStrikeKey:'',tileStrikes:null,
+    focusTile:(col,row)=>focused.push([col,row]),tileStrikeKey:'',tileStrikes:null,
     showToast(){},poll:async()=>{},
     fetch:async(_url,options)=>{
       const {action}=JSON.parse(options.body);

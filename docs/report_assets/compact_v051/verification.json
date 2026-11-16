@@ -1,0 +1,68 @@
+{
+  "javascript_errors": [],
+  "idle_map_measurements": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "canvas_height": 1010,
+      "header": 70,
+      "clear_map_fraction": 0.93
+    },
+    {
+      "width": 1707,
+      "height": 929,
+      "canvas_height": 859,
+      "header": 70,
+      "clear_map_fraction": 0.918
+    },
+    {
+      "width": 1366,
+      "height": 768,
+      "canvas_height": 698,
+      "header": 70,
+      "clear_map_fraction": 0.901
+    },
+    {
+      "width": 1280,
+      "height": 720,
+      "canvas_height": 650,
+      "header": 70,
+      "clear_map_fraction": 0.894
+    },
+    {
+      "width": 1024,
+      "height": 768,
+      "canvas_height": 698,
+      "header": 70,
+      "clear_map_fraction": 0.897
+    },
+    {
+      "width": 800,
+      "height": 900,
+      "canvas_height": 830,
+      "header": 70,
+      "clear_map_fraction": 0.899
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "canvas_height": 776,
+      "header": 68,
+      "clear_map_fraction": 0.874
+    }
+  ],
+  "empty_situation_menu": {
+    "width": 1366,
+    "height": 768,
+    "canvas_height": 698,
+    "header": 70,
+    "clear_map_fraction": 0.832
+  },
+  "focused_detail": {
+    "width": 1366,
+    "height": 768,
+    "canvas_height": 698,
+    "header": 70,
+    "clear_map_fraction": 0.666
+  }
+}

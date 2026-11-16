@@ -63,7 +63,21 @@ def test_v2_terrain_and_entity_layers_are_wired():
     assert "riverDepthColor" in DASHBOARD
     assert "WORLD?.river_cells" in DASHBOARD
     assert "roadEntityCells" in DASHBOARD
+    assert "function roadChainsFromCells(" in DASHBOARD
+    assert "function smoothRoadPath(" in DASHBOARD
+    assert "const initial=(WORLD?.road_cells" in DASHBOARD
     assert "drawImage(terrainImage" in DASHBOARD
+
+
+def test_v2_lakes_and_endorheic_rivers_are_wired():
+    assert "function drawLakeCells(" in DASHBOARD
+    assert "lakeDepthColor" in DASHBOARD
+    assert "WORLD?.lake_cells" in DASHBOARD
+    assert "water_color" in DASHBOARD
+    assert "waterColor" in DASHBOARD
+    assert "cell.kind==='endorheic'" in DASHBOARD
+    assert "内流湖" in DASHBOARD
+    assert "内流河" in DASHBOARD
 
 
 def test_military_panel_reads_unit_specs_instead_of_hardcoding():
@@ -84,7 +98,9 @@ def test_tech_panel_derives_unlock_labels_from_content_tables():
     assert "function techUnlockIndex()" in DASHBOARD
     assert "collect(STATE.building_specs,'building')" in DASHBOARD
     assert "collect(STATE.unit_specs,'unit')" in DASHBOARD
-    assert "const gates=unlocks[`${field}:${node.level}`]" in DASHBOARD
+    assert "unlocks[`${n.legacy.field}:${n.legacy.level}`]" in DASHBOARD
+    assert "data-research-node" in DASHBOARD
+    assert "marker-end=\"url(#techArrow)\"" in DASHBOARD
     # rules.json 的 unlocks 文案只做校验，不再当成界面数据源
     assert "node.unlocks" not in DASHBOARD
 

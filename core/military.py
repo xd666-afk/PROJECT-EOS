@@ -64,6 +64,7 @@ class Military:
             if isinstance(cell.get("tile"), dict)
         }
         for country in self.state.countries.values():
+            roads.update(getattr(country, "roads", ()))
             roads.update(
                 coord for coord, building in country.buildings.items() if building == "ROAD"
             )
@@ -72,7 +73,7 @@ class Military:
     def movement(self, actor: str | None = None, *, extra_roads=()) -> Movement:
         """March costs over the live world: terrain, roads, the daily budget and borders.
 
-        With an `actor` the price is that realm's: every hex another crown holds is marched
+        With an `actor` the price is that realm's: unauthorized foreign ground is marched
         on at `movement.hostile_cost` slower. Without one the table is pure geography, which
         is what a routed column escaping over the nearest open hex and the map editor's
         draft preview both want — neither of them is marching through a country.
@@ -81,6 +82,9 @@ class Military:
         tiles = world.tiles
         roads = self._roads().union(extra_roads)
         owners = self._owners() if actor is not None else {}
+        from core.access import access_rights
+        permitted = {owner for owner in self.state.countries
+                     if actor is not None and access_rights(self.state, actor, owner)["military"]}
 
         def state_of(coord: tuple[int, int]) -> dict | None:
             tile = tiles.get(coord)
@@ -88,7 +92,7 @@ class Military:
                 return None
             return {
                 "land": tile["land"], "biome": tile["biome"], "road": coord in roads,
-                "hostile": owners.get(coord) not in (None, actor),
+                "hostile": owners.get(coord) not in (None, actor) and owners.get(coord) not in permitted,
             }
 
         return Movement(self.state.config, state_of, lambda coord: world.neighbors(*coord))
@@ -137,15 +141,13 @@ class Military:
 
     def _marchable(self, actor: str, tile: tuple[int, int],
                    owners: dict[tuple[int, int], str]) -> bool:
-        """Where a column may be left standing at the end of a march order.
+        """Ordinary marches may end on own, unclaimed or authorized foreign ground.
 
-        Crossing is not parking. An army walks over any ground the continent offers and pays
-        the border surcharge for the privilege, but a march order can only *end* on its own
-        soil or on nobody's: a realm does not get to install a garrison inside another one's
-        borders by asking it to stand there politely. The hex next to a foreign camp is the
-        one place enemy ground is worth reaching, and that is an attack order, not a march.
+        Military access is supplied by the diplomacy adapter; attack and battle
+        resolution keep their existing rules.
         """
-        return owners.get(tile) in (None, actor)
+        from core.access import access_rights
+        return access_rights(self.state, actor, owners.get(tile))["military"]
 
     @staticmethod
     def _tile(coord: tuple[int, int] | None) -> dict[str, int] | None:
@@ -647,8 +649,10 @@ class Military:
         }
 
     def _expedition(self, actor: str, plan: dict, owners: dict) -> bool:
-        """Whether a route walks over ground another crown holds."""
-        return any(owners.get(coord) not in (None, actor) for coord in plan["route"][1:])
+        """Whether a route crosses foreign ground without military access."""
+        from core.access import access_rights
+        return any(not access_rights(self.state, actor, owners.get(coord))["military"]
+                   for coord in plan["route"][1:])
 
     def march(self, actor: str, target: tuple[int, int], army_id: str | None = None) -> dict:
         country = self.state.countries[actor]
@@ -799,9 +803,10 @@ class Military:
         target = next((enemy for enemy in country.at_war_with if enemy in self.state.countries
                        and self._camps_of(self.state.countries[enemy], tile)), None)
         if target is None and owner not in (None, actor):
-            if owner not in country.at_war_with:
-                raise ActionRejected("NOT_AT_WAR", "这块地属于尚未交战的国家，请先宣战")
-            target = owner
+            if owner in country.at_war_with:
+                target = owner
+            elif not self._marchable(actor, tile, {tile: owner}):
+                raise ActionRejected("NOT_AT_WAR", "这块地属于尚未交战的国家，请先宣战或取得军事通行权")
         city = self._city_of(country, tile) if target is None and owner == actor else None
         purpose = "ATTACK" if target else "RETURN" if city else "MARCH"
         if order and order.purpose == purpose and (
@@ -1630,7 +1635,7 @@ class Military:
 
         Any land hex answers the question, whoever holds it, because a border no longer stops
         a march — it only prices one. What still stops an army is *stopping*: a march order
-        ends on own or unclaimed ground, and the refusal the frame prints is the sentence
+        ends on own, unclaimed or authorized ground, and the refusal the frame prints is the sentence
         `march` itself raises. The four old answers hidden behind 「没有路」 are named apart
         here — water, a realm walled off by sea, and a road longer than one order can pay,
         with the cost and the days it would actually need.
@@ -1642,7 +1647,7 @@ class Military:
             "rows": [],
         }
         owner = owners.get(tile)
-        if owner not in (None, actor):
+        if not self._marchable(actor, tile, owners):
             frame["reason"] = "FOREIGN_GROUND"
             return frame
         movement = self.movement(actor)
@@ -1677,6 +1682,7 @@ class Military:
                     row.update({
                         "reachable": True, "reason": None, "days": plan["days"],
                         "cost": round(plan["cost"], 3),
+                        "route": [list(coord) for coord in plan["route"]],
                         "expedition": self._expedition(actor, plan, owners),
                     })
             frame["rows"].append(row)
@@ -2279,6 +2285,9 @@ class Military:
             attacker.tiles.append(coord)
             if coord in defender.outposts:
                 defender.outposts.remove(coord)
+            if coord in defender.roads:
+                defender.roads.remove(coord)
+                attacker.roads.add(coord)
             building = defender.buildings.pop(coord, None)
             if building is not None:
                 attacker.buildings[coord] = building
@@ -2288,6 +2297,8 @@ class Military:
             ]
         defender.city_reserves.pop(city.city_id, None)
         defender.cities.remove(city)
+        from core.logistics import transfer_city_stock
+        transfer_city_stock(attacker, defender, city)
         attacker.cities.append(city)
         # The people move with the walls. Reconciling the national totals here is what keeps
         # the handover worth winning: otherwise the victor's own books would shave the
@@ -2360,6 +2371,9 @@ class Military:
         for coord in tiles:
             defender.tiles.remove(coord)
             attacker.tiles.append(coord)
+            if coord in defender.roads:
+                defender.roads.remove(coord)
+                attacker.roads.add(coord)
             building = defender.buildings.pop(coord, None)
             if building is not None:
                 attacker.buildings[coord] = building
@@ -2464,6 +2478,9 @@ class Military:
             attacker.tiles.append(target_tile)
             if target_tile in defender.outposts:
                 defender.outposts.remove(target_tile)
+            if target_tile in defender.roads:
+                defender.roads.remove(target_tile)
+                attacker.roads.add(target_tile)
             seized = defender.buildings.pop(target_tile, None)
             defender.projects = [
                 project for project in defender.projects if tuple(project["tile"]) != target_tile
@@ -2589,6 +2606,9 @@ class Military:
                 ):
                     continue
                 if to_index > from_index:
+                    from core.access import record_border_crossing
+                    record_border_crossing(self.state, country.country_id,
+                        order.route[from_index:to_index+1], order.crossed_borders)
                     army.tile = order.route[to_index]
                 if to_index == len(order.route) - 1:
                     arrivals.append((country, army, order))

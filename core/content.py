@@ -371,7 +371,9 @@ def _validate_movement(config: dict[str, Any], world_biomes: set[str]) -> None:
     order_cap = _number(movement["maximum_order_cost"], "movement.maximum_order_cost", low=0.0)
     costs = movement["biome_cost"]
     _require(isinstance(costs, dict) and costs, "movement.biome_cost 必须是非空对象")
-    land = (_biomes(config) | set(world_biomes)) - {"ocean"}
+    # v2/v3 inland lakes are water tiles, like the ocean: Movement rejects
+    # them before consulting biome costs, so they need no marching price.
+    land = (_biomes(config) | set(world_biomes)) - {"ocean", "lake"}
     # A world can carry biomes the food table ignores (rainforest), and a missing cost
     # would surface as a KeyError mid-march, so the table is keyed on the terrain the
     # map actually contains plus everything the economy reads.
@@ -592,9 +594,59 @@ def validate_content(config: dict[str, Any], world_biomes: set[str] | None = Non
     _validate_buildings(config, fields, max_level)
     _validate_tech_tree(config, fields, max_level)
     _validate_movement(config, world_biomes or set())
+    _validate_research_graph(config)
     _validate_units(config, fields, max_level)
     _validate_military(config)
     _validate_eras(config, max_level)
     _validate_city_tables(config)
     _validate_policies_and_workers(config)
     _validate_victory(config)
+    import math
+    transport = config.get("transport")
+    keys = {"road_cost", "road_capacity", "land_capacity", "base_loss", "loss_per_cost", "max_loss", "reserve_days"}
+    _require(isinstance(transport, dict) and set(transport) == keys, "transport 配置字段不完整")
+    for key in keys:
+        value = _number(transport[key], f"transport.{key}", low=0)
+        _require(math.isfinite(value), f"transport.{key} 必须是有限数字")
+    _require(0 < transport["road_cost"] < 1, "transport.road_cost 必须在 0 与 1 之间")
+    _require(transport["road_capacity"] >= transport["land_capacity"] > 0, "transport 运量必须为正，道路容量不得低于陆路")
+    _require(0 <= transport["base_loss"] <= transport["max_loss"] < 1, "transport 损耗率必须小于 1")
+
+
+def _validate_research_graph(config):
+    import math
+    tree = config.get("research_tree")
+    _require(isinstance(tree, dict) and tree, "research_tree 必须是非空对象")
+    seen, visiting = set(), set()
+    def visit(key):
+        _require(key in tree, f"未知研究前置 {key}")
+        _require(key not in visiting, f"研究树存在环 {key}")
+        if key in seen:
+            return
+        visiting.add(key)
+        node = tree[key]
+        _require(isinstance(node.get("name"), str) and bool(node["name"]), f"{key} 缺少研究名称")
+        _require(node.get("branch") in {"food", "industry", "statecraft", "transport", "science"}, f"{key} 未知战略分支")
+        _require(isinstance(node.get("tier"), int) and node["tier"] > 0, f"{key} 无效层级")
+        _require(isinstance(node.get("requires"), list) and len(set(node["requires"])) == len(node["requires"]), f"{key} 前置必须是无重复列表")
+        _require(math.isfinite(_number(node.get("cost"), key, low=0)) and node["cost"] > 0, f"{key} 研究成本必须大于零")
+        for parent in node["requires"]:
+            visit(parent)
+            _require(tree[parent]["tier"] < node["tier"], f"{key} 前置层级必须更低")
+        _technology(node.get("legacy"), config["research_fields"], config["research_max_level"], key)
+        for kind, value in node.get("bonuses", {}).items():
+            _require(kind in {"food", "mining", "tax", "research", "road_discount", "upkeep_discount"}, f"{key} 未知研究效果")
+            _number(value, key, low=0, high=.5)
+        visiting.remove(key)
+        seen.add(key)
+    for key in tree:
+        visit(key)
+    road = config.get("road_rules", {})
+    _require(road.get("ancient_bridge_width") == 2, "古代桥梁上限必须为 2 格")
+    _require(isinstance(road.get("modern_bridge_width"), int) and 2 < road["modern_bridge_width"] <= 12, "现代桥梁上限无效")
+    _require(set(road.get("terrain_technology", {})) == set(road.get("terrain_names", {})), "道路地形名称与许可不一致")
+    for key in road.get("terrain_technology", {}).values():
+        _require(key in tree, f"道路引用未知技术 {key}")
+    for value in road.get("terrain_multiplier", {}).values():
+        _require(_number(value, "道路地形系数", low=1) > 0, "道路地形系数无效")
+    _number(road.get("bridge_multiplier"), "桥梁系数", low=1)

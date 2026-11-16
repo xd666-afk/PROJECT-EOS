@@ -243,12 +243,12 @@ def test_a_march_survives_the_corridor_turning_hostile():
             country.tiles.remove(coord)
     state.countries["MARIS"].tiles = [coord for coord in ahead if coord != destination]
 
-    engine.step_day(force=True)
+    engine.military.march_daily()
     assert army.march is not None and army.march.spent > 0
     assert not events_of(state, "march_cancelled")
 
-    for _ in range(ordered.effects["days"]):
-        engine.step_day(force=True)
+    for _ in range(ordered.effects["days"] - 1):
+        engine.military.march_daily()
     assert army.march is None and army.tile == destination
     assert events_of(state, "army_arrived")[-1]["purpose"] == "MARCH"
 

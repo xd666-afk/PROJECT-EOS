@@ -349,8 +349,13 @@ class HeuristicAgent(CountryAgent):
         incoming_pacts = observation.get("diplomacy", {}).get("incoming_pacts", [])
         if incoming_pacts:
             pact = sorted(incoming_pacts, key=lambda item: item["created_day"])[0]
+            from core.access import PACT_SPECS
+            kind = pact.get("pact", "TRADE")
+            minimum = PACT_SPECS.get(kind, {}).get("min_relation", 0)
+            relation = observation.get("diplomacy", {}).get("relations", {}).get(pact["sender"], 0)
+            accept = kind in {"TRADE", "PEACE"} or relation >= minimum
             actions.append({
-                "type": "DIPLOMACY", "operation": "ACCEPT_PACT",
+                "type": "DIPLOMACY", "operation": "ACCEPT_PACT" if accept else "REJECT_PACT",
                 "proposal_id": pact["proposal_id"],
             })
 
@@ -430,14 +435,32 @@ class HeuristicAgent(CountryAgent):
                 "proposal_id": trade["proposal_id"],
             })
 
-        research = self._research_choice(country)
-        if country["research_field"] != research and len(actions) < 4:
-            actions.append({"type": "SET_RESEARCH", "field": research})
+        research_view = country.get("research")
+        if research_view and not research_view["selected"] and len(actions) < 4:
+            ready = [n for n in research_view["nodes"] if n["status"] == "available"]
+            preferred = {"AGRICULTURE": "food", "INDUSTRY": "industry", "TRADE": "transport", "RESEARCH": "science"}.get(self.preference["policy"], "statecraft")
+            if ready:
+                chosen = min(ready, key=lambda n: (n["tier"] - (2 if n["branch"] == preferred else 0), n["cost"], n["id"]))
+                actions.append({"type": "SET_RESEARCH", "node": chosen["id"]})
+        elif not research_view:
+            research = self._research_choice(country)
+            if country["research_field"] != research and len(actions) < 4:
+                actions.append({"type": "SET_RESEARCH", "field": research})
         policy = self.preference["policy"]
+        situations = country.get("active_situations", [])
+        domestic_events = {item["preset_id"] for item in situations if item["target"] == self.country_id}
+        if "drought" in domestic_events:
+            policy = "AGRICULTURE"
+        elif "harvest" in domestic_events and country["food"] > 60:
+            policy = "TRADE"
+        elif "discovery" in domestic_events:
+            policy = "RESEARCH"
         if country["policy"] != policy and len(actions) < 4:
             actions.append({"type": "SET_POLICY", "priority": policy})
 
         desired_workers = self._workers(country)
+        if "drought" in domestic_events:
+            desired_workers = {"agriculture": .6, "mining": .2, "construction": .2}
         if country["workers"] != desired_workers and len(actions) < 4:
             actions.append({"type": "ALLOCATE_WORKERS", **desired_workers})
 
@@ -545,7 +568,7 @@ class HeuristicAgent(CountryAgent):
             "country_id": self.country_id,
             "world_day": observation["world_day"],
             "actions": actions[: rules["max_actions_per_decision"]],
-            "reason": self._reason(country, personality),
+            "reason": ("关注中的事态：" + "、".join(item["name"] for item in situations) + "。" if situations else "") + self._reason(country, personality),
         }
 
     def _settle_action(
@@ -565,7 +588,7 @@ class HeuristicAgent(CountryAgent):
             return None
         if country["food"] < profile["expand_food"]:
             return None
-        if len(country.get("buildings", {})) < profile.get("expand_after_buildings", 0):
+        if len(country.get("buildings", {})) + len(country.get("roads", [])) < profile.get("expand_after_buildings", 0):
             return None
         candidates = observation.get("frontier_candidates") or []
         if not candidates:
@@ -611,7 +634,7 @@ class HeuristicAgent(CountryAgent):
 
     def _building_choice(self, country: dict[str, Any], rules: dict[str, Any]) -> str:
         technology = country["technology"]
-        counts = {}
+        counts = {"ROAD": len(country.get("roads", []))}
         for building in country["buildings"].values():
             counts[building] = counts.get(building, 0) + 1
         for project in country["projects"]:
@@ -699,7 +722,15 @@ class HeuristicAgent(CountryAgent):
 
     @staticmethod
     def _choose_tile(tiles: list[dict[str, Any]], building: str, roadworks=()) -> dict[str, Any] | None:
-        candidates = [tile for tile in tiles if not tile["building"] and not tile["project"]]
+        candidates = [
+            tile for tile in tiles
+            if (building == "ROAD" or tile["building"] in (None, "ROAD")) and not tile["project"]
+        ]
+        if building == "ROAD":
+            candidates = [
+                tile for tile in candidates
+                if tile.get("road_connected") and not tile.get("road_cell") and tile.get("road_permit", True)
+            ]
         if not candidates:
             return None
         if roadworks:
@@ -715,6 +746,8 @@ class HeuristicAgent(CountryAgent):
                 value = biome + (1.5 if tile["river"] else 0.0) - tile["elevation_m"] / 2000.0
             elif building == "MINE":
                 value = tile["elevation_m"] / 500.0 + (0.4 if tile["river"] else 0.0)
+            elif building == "ROAD":
+                value = 1.8 - abs(tile["elevation_m"] - 400.0) / 1000.0 + (0.4 if tile["river"] else 0.0)
             else:
                 value = 2.0 - abs(tile["elevation_m"] - 400.0) / 1000.0 + (0.5 if tile["river"] else 0.0)
             return value, -tile["row"], -tile["col"]

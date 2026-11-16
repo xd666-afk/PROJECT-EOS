@@ -30,6 +30,7 @@ from core.messages import compose_ruler_messages, record_ruler_messages
 from core.actions import ActionRejected, validate_action
 from core.military import Military
 from core.simulation import Simulation
+from map_sizes import DEFAULT_MAP_SIZE, MAP_SIZES, map_size_spec
 
 BASE_DIR = Path(__file__).resolve().parent
 DASHBOARD_HTML = BASE_DIR / "dashboard.html"
@@ -90,6 +91,7 @@ def project_world(world_data: dict) -> dict:
             if tile.get("downstream") else None,
             tile["elevation_m"], tile["annual_precip_mm"],
             tile["annual_mean_temp_c"], round(tile.get("slope", 0), 4),
+            1 if tile.get("lake") else 0,
         ]
         for tile in world_data["tiles"]
     ]
@@ -97,10 +99,14 @@ def project_world(world_data: dict) -> dict:
         "metadata": {
             "grid_width": metadata["grid_width"],
             "grid_height": metadata["grid_height"],
+            "map_size": metadata.get("map_size"),
+            "map_size_label": metadata.get("map_size_label"),
             "cell_area_km2": metadata["cell_area_km2"],
             "hex_radius_km": metadata["hex_radius_km"],
             "schema_version": metadata.get("schema_version", 1),
             "generator": metadata.get("generator", "mapgen_v1"),
+            "terrain_mode": metadata.get("terrain_mode"),
+            "hydrology_model": metadata.get("hydrology_model"),
             "river_depth_model": metadata.get("river_depth_model"),
             "seed": metadata.get("seed"),
             "terrain_texture_url": (
@@ -111,6 +117,8 @@ def project_world(world_data: dict) -> dict:
         "polities": polities,
         "tiles": tiles,
         "river_cells": world_data.get("river_cells", []),
+        "lake_cells": world_data.get("lake_cells", []),
+        "world_summary": world_data.get("world_summary", {}),
         "road_cells": world_data.get("road_cells", []),
         "rendering": world_data.get("rendering", {}),
     }
@@ -125,6 +133,7 @@ class LiveSession:
         scheduler: AgentScheduler | None = None,
         budget: CallBudget | None = None,
         agent_meta: dict | None = None,
+        load_path: Path | None = None,
     ) -> None:
         self.lock = threading.RLock()
         self._snapshot_cache = {}
@@ -140,12 +149,13 @@ class LiveSession:
         self.player_country: str | None = None
         self.current_save_id: str | None = None
         self.current_save_name: str | None = None
+        self.load_path = load_path
         self.simulation = self._new_simulation()
         self._sync_personality_meta()
         self._message_cursor = len(self.simulation.state.event_log)
         self._last_message_days: dict[str, int] = {}
         self.speed = speed
-        self.maximum_day = maximum_day
+        self.maximum_day = self.simulation.state.day_index + maximum_day
         self.paused = paused
         self.finished = False
         self._stop = threading.Event()
@@ -153,11 +163,13 @@ class LiveSession:
         self.thread.start()
 
     def _new_simulation(self) -> Simulation:
+        simulation = (
+            Simulation.load(self.load_path, use_mock_agents=True)
+            if self.load_path else Simulation.new(use_mock_agents=True)
+        )
         if self.scheduler is None:
-            simulation = Simulation.new(use_mock_agents=True)
             self.scheduler = simulation.scheduler
         else:
-            simulation = Simulation.new(use_mock_agents=True)
             simulation.scheduler = self.scheduler
             simulation.engine.planner = self.scheduler
         self.scheduler.set_player_country(self.player_country)
@@ -233,6 +245,9 @@ class LiveSession:
                 "day": self.simulation.state.day_index,
                 "date": self.simulation.state.date["label"],
                 "seed": self.simulation.state.seed,
+                "map_size": self.simulation.state.world.data["metadata"].get("map_size"),
+                "grid_width": self.simulation.state.world.data["metadata"]["grid_width"],
+                "grid_height": self.simulation.state.world.data["metadata"]["grid_height"],
                 "start_year": self.simulation.state.start_astronomical_year,
                 "era": self.simulation.state.summary()["era"]["name"],
                 "countries": {
@@ -383,6 +398,7 @@ class LiveSession:
         save_name: str | None = None,
         start_astronomical_year: int = -799,
         draft: dict | None = None,
+        map_size: str = DEFAULT_MAP_SIZE,
     ) -> dict:
         from mapgen import generate_fair_world, normalize_countries
 
@@ -393,9 +409,10 @@ class LiveSession:
                 world = build_world_from_draft(draft, seed=base_seed)
                 path = write_draft_world(world)
             else:
+                map_size_spec(map_size)
                 normalized = normalize_countries(countries)
                 world, path = generate_fair_world(
-                    normalized, base_seed=base_seed, generation_version="v2"
+                    normalized, base_seed=base_seed, generation_version="v3", map_size=map_size
                 )
             simulation = Simulation.new(world_path=path, seed=world["metadata"]["seed"])
             start_era = simulation.state.configure_starting_era(start_astronomical_year)
@@ -437,6 +454,9 @@ class LiveSession:
                 "ok": True,
                 "seed": world["metadata"]["seed"],
                 "generator": world["metadata"].get("generator"),
+                "map_size": world["metadata"].get("map_size"),
+                "grid_width": world["metadata"]["grid_width"],
+                "grid_height": world["metadata"]["grid_height"],
                 "fairness": world["metadata"]["fairness"],
                 "countries": {p["id"]: p["name"] for p in world["polities"]},
                 "path": str(path),
@@ -808,6 +828,50 @@ class LiveSession:
             result = self.simulation.engine.apply_action(actor, action)
             return {"ok": result.accepted, "result": result.to_dict()}
 
+    def situation_payload(self, situation_id: str | None = None) -> dict:
+        from core import situations
+        with self.lock:
+            state = self.simulation.state
+            situations.capture(state)
+            if situation_id:
+                if situation_id not in state.situations:
+                    raise ValueError("找不到这个事态")
+                return {"ok": True, "situation": situations.snapshot(state, state.situations[situation_id], detailed=True)}
+            return {"ok": True, "presets": situations.catalog(), "active_limit": 12,
+                    "situations": [situations.snapshot(state, item) for item in reversed(list(state.situations.values()))]}
+
+    def change_situation(self, payload: dict) -> dict:
+        from core import situations
+        if not isinstance(payload, dict):
+            raise ValueError("事态请求必须是对象")
+        with self.lock:
+            state = self.simulation.state
+            operation = payload.get("operation")
+            if operation == "create":
+                item = situations.create(state, payload.get("event"))
+            elif operation == "update":
+                item = situations.update(state, payload.get("id"), payload.get("changes"))
+            elif operation == "end":
+                item = situations.end(state, payload.get("id"))
+            else:
+                raise ValueError("未知事态操作")
+            self.save_current()
+            return {"ok": True, "situation": situations.snapshot(state, item, detailed=True)}
+
+    def road_preview(self, actor, start, end):
+        from core.actions import ActionRejected, validate_action
+        from core.road_planner import plan
+        with self.lock:
+            if actor != self.player_country or actor not in self.simulation.state.countries:
+                return {"ok": False, "error": "请先接管道路所属国家"}
+            try:
+                action = validate_action(actor, {"type": "BUILD_ROAD_ROUTE", "from": start, "to": end}, self.simulation.state.config)
+                quote = plan(self.simulation.state, self.simulation.state.countries[actor],
+                             (action["from"]["col"], action["from"]["row"]), (action["to"]["col"], action["to"]["row"]))
+                return {"ok": True, "quote": quote}
+            except ActionRejected as exc:
+                return {"ok": False, "code": exc.code, "error": exc.text}
+
     def map_preview(self, draft: dict) -> dict:
         """Playability report for a painted draft — pure, so hovering never blocks the sim."""
         from mapgen_custom import draft_report
@@ -935,6 +999,11 @@ class LiveSession:
                 return cached[1]
             summary = self.simulation.state.summary()
             threats = Military(self.simulation.state).incoming_threats()
+            from core.access import access_rights, PACT_SPECS
+            state = self.simulation.state
+            access = {cid: {other: access_rights(state, cid, other)
+                            for other in state.countries if cid != other}
+                      for cid in state.countries}
             recent = []
             for event in reversed(state.event_log):
                 if event["type"] != "economy_daily":
@@ -942,6 +1011,7 @@ class LiveSession:
                     if len(recent) == 35:
                         break
             recent.reverse()
+            from core.road import road_permit, road_quote, river_width
             buildings = []
             projects = []
             for country_id, country in self.simulation.state.countries.items():
@@ -955,6 +1025,8 @@ class LiveSession:
                         round(project["remaining_days"], 1),
                         round(1.0 - project["remaining_days"] / total, 4),
                         total,
+                        project.get("blocked_reason") or ("等待前一段道路完工" if project.get("depends_on") in {p["project_id"] for p in country.projects} else "施工中"),
+                        project.get("route_id"),
                     ])
             latest_call = next((event for event in reversed(state.event_log) if event["type"] == "llm_call"), None)
             latest_decision = next((event for event in reversed(state.event_log) if event["type"] == "llm_decision"), None)
@@ -976,11 +1048,22 @@ class LiveSession:
                 "unit_specs": self.simulation.state.config["units"],
                 "military_specs": self.simulation.state.config["military"],
                 "movement_specs": self.simulation.state.config["movement"],
+                "pact_specs": PACT_SPECS,
+                "border_access": access,
+                "transport_specs": state.config["transport"],
+                "transport_network": {
+                    cid: self.simulation.engine.economy.logistics.routes(country)
+                    for cid, country in state.countries.items()
+                },
                 **({} if lightweight else {"campaign_quotes": self.campaign_quotes()}),
                 "incoming_threats": threats,
                 "policy_options": sorted(self.simulation.state.config["policies"]),
                 "research_fields": self.simulation.state.config["research_fields"],
                 "tech_tree": self.simulation.state.config["tech_tree"],
+                "research_tree": state.config["research_tree"],
+                "road_rules": state.config["road_rules"],
+                "road_permits": {cid: {f"{p[0]},{p[1]}": {"allowed": permit is None, "reason": permit[1] if permit else "", "cost": road_quote(state, country, p)[0], "days": road_quote(state, country, p)[1], "bridge_plan": bool(state.world.tile(p).get("river") and river_width(state.world, p) != 1)} for p in country.tiles for permit in [road_permit(state, country, p)]} for cid, country in state.countries.items()},
+                "roads": [[p[0], p[1], cid] for cid, country in state.countries.items() for p in sorted(country.roads)],
                 "eras": self.simulation.state.config["eras"],
                 "research_max_level": self.simulation.state.config["research_max_level"],
                 "research_base_threshold": self.simulation.state.config["research_base_threshold"],
@@ -988,12 +1071,15 @@ class LiveSession:
                 "city_zones": self.simulation.state.config["city_zones"],
                 "city_budgets": self.simulation.state.config["city_budgets"],
                 "maximum_tax_rate": self.simulation.state.config["maximum_tax_rate"],
+                "diplomacy_levels": self.simulation.state.config.get("diplomacy", {}).get("levels", []),
+                "road_connection_level": self.simulation.state.road_connection_level(),
                 "expansion": self.simulation.state.config["expansion"],
                 "countries": summary["countries"],
                 "ranking": summary["ranking"],
                 "leader": summary["leader"],
                 "victory": summary["victory"],
                 "recent_events": recent,
+                "situations": self.situation_payload()["situations"],
                 "buildings": buildings,
                 "projects": projects,
                 "agents": self.agent_meta,
@@ -1057,6 +1143,12 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/campaign_quotes":
             with self.session.lock:
                 self._json({"quotes": self.session.campaign_quotes()})
+        elif path == "/api/situations":
+            try:
+                situation_id = parse_qs(urlparse(self.path).query).get("id", [None])[0]
+                self._json(self.session.situation_payload(situation_id))
+            except ValueError as exc:
+                self._json({"ok": False, "error": str(exc)}, 404)
         elif path == "/api/agents":
             self._json(self.session.agent_payload())
         elif path == "/api/setup":
@@ -1066,6 +1158,8 @@ class Handler(BaseHTTPRequestHandler):
             movement = self.session.rules["movement"]
             costs = movement["biome_cost"]
             self._json({
+                "map_sizes": [{"id": key, **value} for key, value in MAP_SIZES.items()],
+                "default_map_size": DEFAULT_MAP_SIZE,
                 "countries": DEFAULT_COUNTRIES,
                 "archetypes": ARCHETYPES,
                 "core_tiles": CORE_TILES,
@@ -1122,6 +1216,7 @@ class Handler(BaseHTTPRequestHandler):
             target = (ASSETS_DIR / path.removeprefix("/assets/")).resolve()
             if target.is_relative_to(ASSETS_DIR.resolve()) and target.is_file():
                 content_types = {
+                    ".css": "text/css; charset=utf-8", ".js": "application/javascript; charset=utf-8",
                     ".png": "image/png", ".jpg": "image/jpeg",
                     ".jpeg": "image/jpeg", ".webp": "image/webp",
                 }
@@ -1136,13 +1231,19 @@ class Handler(BaseHTTPRequestHandler):
             "/api/control", "/api/action", "/api/agents", "/api/agents/test",
             "/api/agents/budget", "/api/agents/personality", "/api/new_game", "/api/saves",
             "/api/map_preview", "/api/march_preview", "/api/rendezvous_preview", "/api/dispatch_preview",
+            "/api/road_preview",
+            "/api/situations",
         }:
             self._json({"error": "not found"}, 404)
             return
         length = int(self.headers.get("Content-Length", "0"))
         try:
             payload = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/api/agents/test":
+            if not isinstance(payload, dict):
+                raise ValueError("请求必须是 JSON 对象")
+            if self.path == "/api/situations":
+                result = self.session.change_situation(payload)
+            elif self.path == "/api/agents/test":
                 result = self.session.test_agent(str(payload.get("country_id", "")))
             elif self.path == "/api/agents/budget":
                 result = self.session.configure_budget(
@@ -1175,6 +1276,7 @@ class Handler(BaseHTTPRequestHandler):
                     payload.get("save_name"),
                     int(start_year),
                     payload.get("draft"),
+                    payload.get("map_size", DEFAULT_MAP_SIZE),
                 )
             elif self.path == "/api/map_preview":
                 result = self.session.map_preview(payload.get("draft") or {})
@@ -1186,6 +1288,8 @@ class Handler(BaseHTTPRequestHandler):
                 result = self.session.march_preview(
                     payload.get("draft") or {}, payload.get("from"), payload.get("to")
                 )
+            elif self.path == "/api/road_preview":
+                result = self.session.road_preview(str(payload.get("actor", "")), payload.get("from"), payload.get("to"))
             elif self.path == "/api/action":
                 result = self.session.player_action(
                     str(payload.get("actor", "")), payload.get("action")
@@ -1213,6 +1317,7 @@ def main() -> int:
     parser.add_argument("--speed", type=float, default=4.0, help="game days per real second")
     parser.add_argument("--days", type=int, default=365)
     parser.add_argument("--paused", action="store_true")
+    parser.add_argument("--load", type=Path, help="load a JSON save without overwriting its source")
     parser.add_argument("--open", action="store_true", help="open the dashboard in a browser")
     parser.add_argument("--models", type=Path, help="per-country Mock/LLM JSON configuration")
     parser.add_argument("--api-key-file", type=Path, help="local key file read once into process memory")
@@ -1240,8 +1345,12 @@ def main() -> int:
         scheduler = AgentScheduler(load_agents(args.models, budget))
 
     session = LiveSession(
-        args.speed, args.days, args.paused, scheduler, budget, agent_meta
+        args.speed, args.days, args.paused, scheduler, budget, agent_meta, args.load
     )
+    if args.load:
+        # Import into a fresh local slot so the menu's Continue/Load controls
+        # can open it; subsequent autosaves never replace the source file.
+        session.save_current(name=args.load.stem)
     Handler.session = session
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     server.daemon_threads = True

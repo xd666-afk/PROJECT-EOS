@@ -1,0 +1,51 @@
+{
+  "browser_errors": [],
+  "layouts": [
+    {
+      "width": 1440,
+      "left": 304,
+      "right": 678,
+      "top": 114,
+      "bottom": 856,
+      "scroll": 372,
+      "client": 372
+    },
+    {
+      "width": 1024,
+      "left": 12,
+      "right": 352,
+      "top": 114,
+      "bottom": 856,
+      "scroll": 338,
+      "client": 338
+    },
+    {
+      "width": 800,
+      "left": 12,
+      "right": 352,
+      "top": 114,
+      "bottom": 824,
+      "scroll": 338,
+      "client": 338
+    },
+    {
+      "width": 390,
+      "left": 10,
+      "right": 380,
+      "top": 205,
+      "bottom": 644,
+      "scroll": 368,
+      "client": 368
+    }
+  ],
+  "scenarios": [
+    "parallel",
+    "single-focus",
+    "editing",
+    "history",
+    "end",
+    "menu-back",
+    "mobile",
+    "server-validation"
+  ]
+}
